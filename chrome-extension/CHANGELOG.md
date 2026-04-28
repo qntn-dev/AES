@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.99
+
+- Added support for all Autotask regional hosts by broadening extension injection, host permissions, and web-accessible resource matches from `ww19.autotask.net` to `*.autotask.net`. This fixes the issue where the extension appeared installed but did nothing on non-`ww19` Autotask zones.
+
 ## 0.3.98
 
 - Fixed a wrong target in 0.3.97. The actual `AES Settings` entry-point is the native menu item injected by `createNativeSettingsMenuItem()` into Autotask's top-level sidebar (next to Home / CRM / Admin), not the cog button on the AES tab bar. Reverted the cog hover back to `#f8fafc`. The native menu item's `mouseenter` handler now picks the hover background from the active theme — `#E5E5E5` in light mode and `#48505A` in dark mode (was hard-coded to `#48505A` always) — by checking `html.aes-dark`, the same gate used by the rest of the shell's theme styles.
