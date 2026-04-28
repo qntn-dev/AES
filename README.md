@@ -1,15 +1,61 @@
 # Autotask Enhancement Suite
 
-Autotask Enhancement Suite is a browser extension project that improves the Autotask web interface with a native-feeling tab system, navigation interception, UI enhancements, settings, phone links, map helpers, and related workflow improvements.
+Autotask Enhancement Suite is a browser extension that improves the Autotask web interface with a native-feeling tab system, smarter navigation, optional UI enhancements, phone links, map helpers, and other workflow improvements.
 
-## Repository Layout
+It is built for people who spend a lot of time in Autotask and want a smoother, less cluttered workflow without constantly jumping between browser tabs and popup windows.
 
-- `chrome-extension/`: main active codebase and primary source of truth
-- `firefox-extension/`: Firefox build, generally kept in sync with the Chrome build
+## Features
+
+- Open supported Autotask pages inside an in-app tab bar instead of separate browser tabs or popups
+- Restore tabs after refresh and optionally remember them between browser sessions
+- Split tabs side by side
+- Drag, pin, and color tabs for better organization
+- Show richer tab titles and metadata for supported pages
+- Make phone numbers clickable with `tel:` links
+- Open map/location links in an in-page modal
+- Add an integrated settings panel inside Autotask
+
+## Browser Support
+
+- `chrome-extension/`: primary extension build
+- `firefox-extension/`: Firefox build
 - `safari-extension/`: Safari conversion project
-- `dist/`: generated release artifacts for local packaging only
-- `PROJECT_HANDOFF.md`: living implementation and debugging history for LLM handoff continuity
-- `AUTOTASK_ENHANCEMENT_SUITE_EXTENSION_READINESS.md`: Chrome Web Store readiness notes
+
+## Installation
+
+### Chrome
+
+1. Open `chrome://extensions`
+2. Enable `Developer mode`
+3. Click `Load unpacked`
+4. Select the `chrome-extension/` folder from this repository
+
+### Firefox
+
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click `Load Temporary Add-on...`
+3. Select `firefox-extension/manifest.json`
+
+### Safari
+
+The Safari project in `safari-extension/` is generated from the WebExtension source.
+
+## Updating
+
+If you cloned the repository with Git, update to the latest version with:
+
+```bash
+git pull
+```
+
+Then reload the extension in your browser.
+
+## Project Structure
+
+- `chrome-extension/`: primary source of truth
+- `firefox-extension/`: Firefox build
+- `safari-extension/`: Safari conversion project
+- `AUTOTASK_ENHANCEMENT_SUITE_EXTENSION_READINESS.md`: Chrome Web Store and release notes
 - `autotask-iframe-simple.legacy.js`, `autotask-iframe.user.legacy.js`, `autotask-iframe-tabs.js`: historical userscript-era reference files
 
 ## Main Source Files
@@ -24,34 +70,3 @@ Inside `chrome-extension/`:
 - `aes-iframe-bridge.js`: iframe-side metadata and navigation interception
 - `aes-shell.js`: tab shell, settings modal, split view, map modal, layout sync
 - `aes-background.js`: toolbar action handling
-
-## Local Development
-
-### Chrome
-
-1. Open `chrome://extensions`
-2. Enable `Developer mode`
-3. Click `Load unpacked`
-4. Select the `chrome-extension/` folder
-
-### Firefox
-
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click `Load Temporary Add-on...`
-3. Select `firefox-extension/manifest.json`
-
-### Safari
-
-The Safari project lives in `safari-extension/` and is generated from the WebExtension source. Local Xcode build output is intentionally ignored from version control.
-
-## GitHub Notes
-
-This repository is configured to keep local-only and private artifacts out of source control, including:
-
-- packaged extension archives
-- signing keys such as `.pem`
-- generated Safari/Xcode build output
-- local HTML capture/debug files
-- macOS metadata files
-
-If you publish this repository, commit the source folders and docs, not the generated release artifacts.

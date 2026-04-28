@@ -2,7 +2,7 @@
 //  SafariWebExtensionHandler.swift
 //  Shared (Extension)
 //
-//  Created by Quinten van Noorloos on 27/04/2026.
+//  Created by QNTN.dev on 27/04/2026.
 //
 
 import SafariServices

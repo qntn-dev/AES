@@ -3324,7 +3324,7 @@
 
         const footer = document.createElement('div');
         footer.className = 'at-tabs-settings-footer';
-        footer.textContent = 'Developed by Quinten van Noorloos with help of Generative AI';
+        footer.textContent = 'Developed by QNTN.dev with help of Generative AI';
 
         modal.appendChild(header);
         modal.appendChild(body);

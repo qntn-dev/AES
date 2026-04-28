@@ -5,9 +5,7 @@
 1. Open `chrome://extensions`
 2. Enable `Developer mode`
 3. Click `Load unpacked` or `Reload`
-4. Point Chrome at this folder:
-
-`/Users/quintenvannoorloos/Desktop/Autotask Userscript/chrome-extension`
+4. Point Chrome at the `chrome-extension/` folder in this repository.
 
 ## Versioning
 
