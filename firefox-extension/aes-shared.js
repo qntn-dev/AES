@@ -36,6 +36,7 @@
     // still be opened as tab-shell destinations via HANDLED_PATH_INCLUDES.
     AES.EXCLUDED_PATHS = [
         '/mvc/servicedesk/ticketprintview.mvc',
+        '/mvc/framework/authentication.mvc/authenticate',
     ];
     AES.EXCLUDED_PATH_INCLUDES = [
         '/ticketprintview.mvc',
@@ -44,8 +45,28 @@
     ];
     AES.BAR_H = 65;
     AES.BAR_W = 240;
+    AES.BAR_W_MIN = 56;
+    AES.BAR_W_MAX = 420;
+    AES.BAR_W_COMPACT = 96;
     AES.STORAGE_KEY = 'autotask-tabs-v1';
     AES.SETTINGS_STORAGE_KEY = 'autotask-tabs-settings-v1';
+
+    AES.isRegionalAutotaskHost = function isRegionalAutotaskHost(hostname) {
+        return /^ww\d+\.autotask\.net$/i.test(String(hostname || ''));
+    };
+
+    AES.isAllowedHost = function isAllowedHost(url) {
+        try {
+            const parsed = new URL(url || location.href, location.origin);
+            return AES.isRegionalAutotaskHost(parsed.hostname);
+        } catch (e) {
+            return AES.isRegionalAutotaskHost(location.hostname);
+        }
+    };
+
+    AES.featuresEnabled = function featuresEnabled() {
+        return AES.state && AES.state.extensionEnabled !== false;
+    };
 
     AES.pathOf = function pathOf(url) {
         try { return new URL(url, location.origin).pathname.toLowerCase(); }

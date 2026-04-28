@@ -3,6 +3,7 @@
 
     const AES = window.__AES__;
     if (!AES || !AES.isTop || AES.shellInitialized) return;
+    if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     AES.shellInitialized = true;
 
     const state = AES.state = Object.assign(AES.state || {}, {
@@ -18,6 +19,7 @@
         nativeSettingsMenuItem: null,
         nativeSettingsObserver: null,
         nativeSettingsAvailable: false,
+        topLevelRouteWatchInstalled: false,
         tabScroll: null,
         scrollLeftButton: null,
         scrollRightButton: null,
@@ -26,6 +28,7 @@
         dragOverTabId: null,
         dragInsertAfter: false,
         nativeReservedContainer: null,
+        nonIframeReservedContainer: null,
         settingsModal: null,
         settingsBackdrop: null,
         mapModal: null,
@@ -45,10 +48,14 @@
         homeTabEl: null,
         nativeFrame: null,
         nativeLastUrl: '',
+        lastObservedTopHref: '',
         lastObservedTopHandledUrl: '',
         homeLoadingAwaitingNativeLoad: false,
         nativeFrameSrcObserver: null,
         nativeFrameObservedSrc: '',
+        nonIframeTitleObserver: null,
+        nonIframeTitleRaf: 0,
+        lastGeometryHadNativeFrame: false,
         geometryRaf: 0,
         geometryPollId: 0,
         rootResizeObserver: null,
@@ -67,12 +74,20 @@
         themePreference: AES.state && ['auto', 'light', 'dark'].includes(AES.state.themePreference)
             ? AES.state.themePreference
             : 'auto',
+        extensionEnabled: !(AES.state && AES.state.extensionEnabled === false),
         barOrientation: AES.state && ['horizontal', 'vertical'].includes(AES.state.barOrientation)
             ? AES.state.barOrientation
             : 'horizontal',
         homeTitle: 'Home',
         darkModeEnhancerEnabled: !!(AES.state && AES.state.darkModeEnhancerEnabled),
         hideEarlyAccessLabels: !!(AES.state && AES.state.hideEarlyAccessLabels),
+        showTabBarOnNonIframePages: !!(AES.state && AES.state.showTabBarOnNonIframePages),
+        resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
+        tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
+        tabBarHoverExpanded: false,
+        tabBarExpandTimer: 0,
+        tabBarResizeHandleHovered: false,
+        tabBarResizing: false,
     });
 
     const ICONS = {
@@ -145,6 +160,46 @@
                 z-index: 220;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
                 box-sizing: border-box;
+            }
+            .at-tabs-bar.compact.hover-expanded {
+                width: var(--aes-expanded-bar-width, 240px) !important;
+                box-shadow: 8px 0 24px rgba(15, 23, 42, 0.16);
+            }
+            html.aes-bar-vertical.aes-resizable-tabs .at-tabs-bar.compact {
+                transition: width 180ms ease, box-shadow 180ms ease;
+            }
+            .at-tabs-resize-handle {
+                position: absolute;
+                top: 0;
+                right: 0;
+                bottom: 0;
+                width: 18px;
+                display: none;
+                cursor: ew-resize;
+                z-index: 8;
+                background: transparent;
+            }
+            .at-tabs-resize-handle::after {
+                content: "";
+                position: absolute;
+                top: 10px;
+                right: 2px;
+                bottom: 10px;
+                width: 2px;
+                border-radius: 999px;
+                background: transparent;
+            }
+            .at-tabs-resize-handle:hover::after,
+            .at-tabs-bar.resizing .at-tabs-resize-handle::after {
+                background: rgba(55, 106, 148, 0.65);
+            }
+            html.aes-bar-vertical.aes-resizable-tabs .at-tabs-resize-handle {
+                display: block;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact.hover-expanded .at-tabs-resize-handle,
+            html.aes-bar-vertical .at-tabs-bar.compact.resizing .at-tabs-resize-handle {
+                right: 0;
+                width: 18px;
             }
             .at-tabs-scroll-wrap {
                 position: relative;
@@ -933,7 +988,7 @@
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 560px;
+                width: 760px;
                 max-width: calc(100vw - 32px);
                 background: #ffffff;
                 border: 1px solid #dbe2ea;
@@ -975,10 +1030,67 @@
                 color: #0f172a;
             }
             .at-tabs-settings-body {
-                padding: 14px 16px 18px;
+                padding: 0;
+                display: grid;
+                grid-template-columns: 220px minmax(0, 1fr);
+                min-height: 420px;
+            }
+            .at-tabs-settings-nav {
+                padding: 14px;
+                border-right: 1px solid #e2e8f0;
+                background: #f8fafc;
                 display: flex;
                 flex-direction: column;
+                gap: 6px;
+            }
+            .at-tabs-settings-nav-item {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
                 gap: 10px;
+                width: 100%;
+                min-height: 42px;
+                padding: 10px 12px;
+                border: 1px solid transparent;
+                border-radius: 12px;
+                background: transparent;
+                color: #334155;
+                cursor: pointer;
+                font: inherit;
+                text-align: left;
+            }
+            .at-tabs-settings-nav-item:hover {
+                background: #ffffff;
+                border-color: #e2e8f0;
+                color: #0f172a;
+            }
+            .at-tabs-settings-nav-item.active {
+                background: #E1E9EF;
+                border-color: #c7d8e6;
+                color: #0f172a;
+                box-shadow: inset 3px 0 0 #376A94;
+            }
+            .at-tabs-settings-nav-name {
+                font-size: 13px;
+                font-weight: 650;
+            }
+            .at-tabs-settings-nav-arrow {
+                color: #94a3b8;
+                font-size: 16px;
+                line-height: 1;
+            }
+            .at-tabs-settings-pages {
+                padding: 16px 18px 20px;
+                min-width: 0;
+                overflow: auto;
+            }
+            .at-tabs-settings-page {
+                display: none;
+                flex-direction: column;
+                gap: 10px;
+            }
+            .at-tabs-settings-page.active {
+                display: flex;
             }
             .at-tabs-settings-footer {
                 padding: 12px 16px 14px;
@@ -992,6 +1104,21 @@
                 display: flex;
                 flex-direction: column;
                 gap: 8px;
+            }
+            .at-tabs-settings-page-title {
+                display: flex;
+                flex-direction: column;
+                gap: 3px;
+                margin-bottom: 4px;
+            }
+            .at-tabs-settings-page-title strong {
+                font-size: 16px;
+                color: #0f172a;
+            }
+            .at-tabs-settings-page-title span {
+                font-size: 12px;
+                line-height: 1.4;
+                color: #64748b;
             }
             .at-tabs-settings-section-title {
                 font-size: 11px;
@@ -1324,12 +1451,36 @@
             html.aes-dark .at-tabs-map-header {
                 border-bottom-color: #2a2e34;
             }
+            html.aes-dark .at-tabs-settings-nav {
+                background: #1A1D22;
+                border-right-color: #2a2e34;
+            }
+            html.aes-dark .at-tabs-settings-nav-item {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-settings-nav-item:hover {
+                background: #232D37;
+                border-color: #2a2e34;
+                color: #f1f5f9;
+            }
+            html.aes-dark .at-tabs-settings-nav-item.active {
+                background: #24384A;
+                border-color: #31506A;
+                color: #f1f5f9;
+            }
+            html.aes-dark .at-tabs-settings-nav-arrow {
+                color: #64748b;
+            }
             html.aes-dark .at-tabs-settings-footer {
                 border-top-color: #2a2e34;
             }
             html.aes-dark .at-tabs-settings-title,
-            html.aes-dark .at-tabs-settings-section-title {
+            html.aes-dark .at-tabs-settings-section-title,
+            html.aes-dark .at-tabs-settings-page-title strong {
                 color: #f1f5f9;
+            }
+            html.aes-dark .at-tabs-settings-page-title span {
+                color: #94a3b8;
             }
             html.aes-dark .at-tabs-settings-close:hover {
                 background: #262A30;
@@ -1492,6 +1643,39 @@
                 padding: 4px 16px;
                 border-bottom: none;
                 border-left: 3px solid transparent;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tabs-bar-inner {
+                align-items: stretch;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab {
+                justify-content: center;
+                gap: 0;
+                padding-left: 0;
+                padding-right: 0;
+                min-height: 44px;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .meta,
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .tab-actions,
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab.home .home-label {
+                display: none;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .icon {
+                width: 20px;
+                height: 20px;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .icon svg {
+                width: 20px;
+                height: 20px;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab.pinned .pin-badge {
+                left: 8px;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tabs-settings-button {
+                width: 100%;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact.hover-expanded .at-tab {
+                padding-left: 16px;
+                padding-right: 16px;
             }
             html.aes-bar-vertical .at-tab.home {
                 padding: 4px 16px;
@@ -1824,8 +2008,61 @@
         return state.barOrientation === 'vertical';
     }
 
+    function normalizedTabBarWidth(value) {
+        const raw = Number(value);
+        const fallback = AES.BAR_W || 240;
+        const min = AES.BAR_W_MIN || 56;
+        const max = AES.BAR_W_MAX || 420;
+        if (!Number.isFinite(raw)) return fallback;
+        return Math.max(min, Math.min(max, Math.round(raw)));
+    }
+
+    function currentVerticalBarWidth() {
+        if (!state.resizableTabBarEnabled) return AES.BAR_W;
+        return normalizedTabBarWidth(state.tabBarWidth);
+    }
+
+    function isCompactVerticalBar() {
+        return state.resizableTabBarEnabled && isVerticalBar() && currentVerticalBarWidth() <= (AES.BAR_W_COMPACT || 96);
+    }
+
+    function updateResizableBarClasses() {
+        document.documentElement.classList.toggle('aes-resizable-tabs', !!state.resizableTabBarEnabled);
+        if (!state.bar) return;
+        state.bar.classList.toggle('compact', isCompactVerticalBar());
+        state.bar.classList.toggle('hover-expanded', isCompactVerticalBar() && !!state.tabBarHoverExpanded);
+        state.bar.classList.toggle('resizing', !!state.tabBarResizing);
+        state.bar.style.setProperty('--aes-expanded-bar-width', AES.BAR_W + 'px');
+        state.bar.style.setProperty('--aes-collapsed-bar-width', currentVerticalBarWidth() + 'px');
+    }
+
+    function cancelTabBarExpandTimer() {
+        if (!state.tabBarExpandTimer) return;
+        window.clearTimeout(state.tabBarExpandTimer);
+        state.tabBarExpandTimer = 0;
+    }
+
+    function scheduleTabBarHoverExpand() {
+        if (!isCompactVerticalBar() || state.tabBarResizing) return;
+        if (state.tabBarResizeHandleHovered) return;
+        if (state.tabBarHoverExpanded || state.tabBarExpandTimer) return;
+        state.tabBarExpandTimer = window.setTimeout(function () {
+            state.tabBarExpandTimer = 0;
+            if (!isCompactVerticalBar() || state.tabBarResizing) return;
+            state.tabBarHoverExpanded = true;
+            updateResizableBarClasses();
+        }, 300);
+    }
+
+    function collapseTabBarHoverExpand() {
+        cancelTabBarExpandTimer();
+        if (!state.tabBarHoverExpanded || state.tabBarResizing) return;
+        state.tabBarHoverExpanded = false;
+        updateResizableBarClasses();
+    }
+
     function barAxisAmount() {
-        return isVerticalBar() ? AES.BAR_W : AES.BAR_H;
+        return isVerticalBar() ? currentVerticalBarWidth() : AES.BAR_H;
     }
 
     function reservationAxis(el) {
@@ -1843,8 +2080,51 @@
         const container = frame && frame.parentElement;
         const axis = reservationAxis(container) || reservationAxis(frame);
         if (!axis) return { top: 0, left: 0 };
-        if (axis === 'vertical') return { top: 0, left: AES.BAR_W };
+        if (axis === 'vertical') return { top: 0, left: currentVerticalBarWidth() };
         return { top: AES.BAR_H, left: 0 };
+    }
+
+    function nonIframeReservationAxis(el) {
+        if (!el || !el.dataset) return null;
+        if (el.dataset.aesNonIframeReservedAxis === 'vertical') return 'vertical';
+        if (el.dataset.aesNonIframeReservedAxis === 'horizontal') return 'horizontal';
+        if (el.dataset.aesNonIframeReserved === 'true') return 'horizontal';
+        return null;
+    }
+
+    function nonIframeReservationAmount(el) {
+        const axis = nonIframeReservationAxis(el);
+        if (!axis) return { top: 0, left: 0 };
+        if (axis === 'vertical') return { top: 0, left: currentVerticalBarWidth() };
+        return { top: AES.BAR_H, left: 0 };
+    }
+
+    function findNonIframeContentContainer() {
+        return document.querySelector('main') ||
+            document.querySelector('[role="main"]') ||
+            document.querySelector('.min-w-0.flex-1') ||
+            null;
+    }
+
+    function readNoIframeBase(container) {
+        const target = container || findNonIframeContentContainer();
+        if (target) {
+            const rect = target.getBoundingClientRect();
+            return {
+                top: rect.top,
+                left: rect.left,
+                width: rect.width,
+                height: rect.height,
+            };
+        }
+        const left = 240;
+        const top = 56;
+        return {
+            top: top,
+            left: left,
+            width: Math.max(0, window.innerWidth - left),
+            height: Math.max(0, window.innerHeight - top),
+        };
     }
 
     function readNativeFrameBase(frame) {
@@ -1881,6 +2161,57 @@
         delete frame.dataset.aesNativeChromeReserved;
         delete frame.dataset.aesNativeChromeReservedAxis;
         clearLegacyNativeFrameOffset(frame);
+    }
+
+    function clearNonIframeReservation() {
+        const container = state.nonIframeReservedContainer ||
+            (findNonIframeContentContainer() && nonIframeReservationAxis(findNonIframeContentContainer())
+                ? findNonIframeContentContainer()
+                : null);
+        if (!container) return;
+        restoreInlineStyle(container, 'padding-top', 'aesPrevNonIframePaddingTop');
+        restoreInlineStyle(container, 'padding-left', 'aesPrevNonIframePaddingLeft');
+        restoreInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
+        delete container.dataset.aesNonIframeReserved;
+        delete container.dataset.aesNonIframeReservedAxis;
+        state.nonIframeReservedContainer = null;
+    }
+
+    function applyNonIframeReservation(container) {
+        if (!container) {
+            clearNonIframeReservation();
+            return;
+        }
+        if (state.shellHidden || !state.showTabBarOnNonIframePages || state.activeId !== null) {
+            clearNonIframeReservation();
+            return;
+        }
+
+        const targetAxis = isVerticalBar() ? 'vertical' : 'horizontal';
+        const existingAxis = nonIframeReservationAxis(container);
+        if (existingAxis && existingAxis !== targetAxis) {
+            clearNonIframeReservation();
+        }
+        if (state.nonIframeReservedContainer && state.nonIframeReservedContainer !== container) {
+            clearNonIframeReservation();
+        }
+
+        rememberInlineStyle(container, 'padding-top', 'aesPrevNonIframePaddingTop');
+        rememberInlineStyle(container, 'padding-left', 'aesPrevNonIframePaddingLeft');
+        rememberInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
+        container.style.setProperty('box-sizing', 'border-box', 'important');
+
+        if (targetAxis === 'vertical') {
+            container.style.removeProperty('padding-top');
+            container.style.setProperty('padding-left', currentVerticalBarWidth() + 'px', 'important');
+        } else {
+            container.style.removeProperty('padding-left');
+            container.style.setProperty('padding-top', AES.BAR_H + 'px', 'important');
+        }
+
+        container.dataset.aesNonIframeReserved = 'true';
+        container.dataset.aesNonIframeReservedAxis = targetAxis;
+        state.nonIframeReservedContainer = container;
     }
 
     function applyNativeChromeReservation(frame) {
@@ -1925,7 +2256,7 @@
 
         if (targetAxis === 'vertical') {
             container.style.removeProperty('padding-top');
-            container.style.setProperty('padding-left', AES.BAR_W + 'px', 'important');
+            container.style.setProperty('padding-left', currentVerticalBarWidth() + 'px', 'important');
             // Container is border-box with padding-left, so its content area
             // is already shrunk. Iframe just fills it (100%/100%).
             frame.style.setProperty('width', '100%', 'important');
@@ -1949,13 +2280,67 @@
         state.geometryRaf = 0;
         if (!state.bar) return;
         const frame = findContentIframe();
-        if (!frame) {
+        state.lastGeometryHadNativeFrame = !!frame;
+        updateResizableBarClasses();
+        if (!featuresEnabled()) {
+            if (frame) clearNativeChromeReservation(frame);
+            clearNonIframeReservation();
             state.bar.style.display = 'none';
             state.viewport.style.display = 'none';
             if (state.homeCover) state.homeCover.style.display = 'none';
-            trackNativeFrame(null);
             return;
         }
+        if (!frame) {
+            trackNativeFrame(null);
+            if (state.shellHidden || !state.showTabBarOnNonIframePages) {
+                stopNonIframeTitleWatcher();
+                clearNonIframeReservation();
+                state.bar.style.display = 'none';
+                state.viewport.style.display = 'none';
+                if (state.homeCover) state.homeCover.style.display = 'none';
+                return;
+            }
+
+            const container = findNonIframeContentContainer();
+            applyNonIframeReservation(container);
+            const base = readNoIframeBase(container);
+            state.bar.style.display = '';
+            state.viewport.style.display = state.activeId === null ? 'none' : '';
+            if (state.homeCover) state.homeCover.style.display = 'none';
+            if (state.activeId === null) {
+                ensureNonIframeTitleWatcher();
+                updateHomeTitleFromTopLevelPage(true);
+            } else {
+                stopNonIframeTitleWatcher();
+            }
+
+            if (isVerticalBar()) {
+                const barWidth = currentVerticalBarWidth();
+                state.bar.style.left = base.left + 'px';
+                state.bar.style.top = base.top + 'px';
+                state.bar.style.width = barWidth + 'px';
+                state.bar.style.height = base.height + 'px';
+                state.viewport.style.left = (base.left + barWidth) + 'px';
+                state.viewport.style.top = base.top + 'px';
+                state.viewport.style.width = Math.max(0, base.width - barWidth) + 'px';
+                state.viewport.style.height = base.height + 'px';
+                state.viewport.style.bottom = 'auto';
+            } else {
+                state.bar.style.left = base.left + 'px';
+                state.bar.style.top = base.top + 'px';
+                state.bar.style.width = base.width + 'px';
+                state.bar.style.height = AES.BAR_H + 'px';
+                state.viewport.style.left = base.left + 'px';
+                state.viewport.style.top = (base.top + AES.BAR_H) + 'px';
+                state.viewport.style.width = base.width + 'px';
+                state.viewport.style.height = Math.max(0, base.height - AES.BAR_H) + 'px';
+                state.viewport.style.bottom = 'auto';
+            }
+            updateTabScrollButtons();
+            return;
+        }
+        stopNonIframeTitleWatcher();
+        clearNonIframeReservation();
         trackNativeFrame(frame);
         const base = readNativeFrameBase(frame);
 
@@ -1974,20 +2359,21 @@
         state.bar.style.display = '';
         state.viewport.style.display = '';
         if (isVerticalBar()) {
+            const barWidth = currentVerticalBarWidth();
             if (state.homeCover) {
                 state.homeCover.style.display = state.activeId === null ? '' : 'none';
                 state.homeCover.style.left = base.left + 'px';
                 state.homeCover.style.top = base.top + 'px';
-                state.homeCover.style.width = AES.BAR_W + 'px';
+                state.homeCover.style.width = barWidth + 'px';
                 state.homeCover.style.height = base.height + 'px';
             }
             state.bar.style.left = base.left + 'px';
             state.bar.style.top = base.top + 'px';
-            state.bar.style.width = AES.BAR_W + 'px';
+            state.bar.style.width = barWidth + 'px';
             state.bar.style.height = base.height + 'px';
-            state.viewport.style.left = (base.left + AES.BAR_W) + 'px';
+            state.viewport.style.left = (base.left + barWidth) + 'px';
             state.viewport.style.top = base.top + 'px';
-            state.viewport.style.width = Math.max(0, base.width - AES.BAR_W) + 'px';
+            state.viewport.style.width = Math.max(0, base.width - barWidth) + 'px';
             state.viewport.style.height = base.height + 'px';
             state.viewport.style.bottom = 'auto';
         } else {
@@ -2046,6 +2432,7 @@
 
         if (!state.rootMutationObserver) {
             state.rootMutationObserver = new MutationObserver(function (mutations) {
+                const noIframeTestMode = state.showTabBarOnNonIframePages && !state.lastGeometryHadNativeFrame;
                 for (const mutation of mutations) {
                     if (mutation.type === 'childList') {
                         if (isShellOwnedMutationTarget(mutation.target)) continue;
@@ -2060,6 +2447,8 @@
                         }
                     }
                     if (mutation.type === 'attributes') {
+                        if (noIframeTestMode) continue;
+                        if (state.nonIframeReservedContainer && mutation.target === state.nonIframeReservedContainer) continue;
                         startGeometryBurst(300);
                         return;
                     }
@@ -2079,8 +2468,50 @@
     }
 
     function updateShellVisibility() {
-        document.documentElement.classList.toggle('at-tabs-shell-hidden', state.shellHidden);
+        document.documentElement.classList.toggle('at-tabs-shell-hidden', state.shellHidden || !state.extensionEnabled);
         requestSyncGeometry();
+    }
+
+    function featuresEnabled() {
+        return state.extensionEnabled !== false;
+    }
+
+    function broadcastFeatureEnabledState() {
+        const payload = { __ns: AES.MSG_NS, type: 'feature-enabled', enabled: featuresEnabled() };
+        try { window.postMessage(payload, location.origin); } catch (e) {}
+        try {
+            for (let i = 0; i < window.frames.length; i++) {
+                try { window.frames[i].postMessage(payload, '*'); } catch (e) {}
+            }
+        } catch (e) {}
+    }
+
+    function applyExtensionEnabledState(restoreOnEnable) {
+        if (restoreOnEnable === undefined) restoreOnEnable = true;
+        AES.state.extensionEnabled = featuresEnabled();
+        if (!featuresEnabled()) {
+            hideHoverCard(true);
+            closeTabContextMenu();
+            if (state.nativeFrame) clearNativeChromeReservation(state.nativeFrame);
+            clearNonIframeReservation();
+            stopNonIframeTitleWatcher();
+            if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(false);
+            broadcastDarkModeEnhancerState();
+        } else {
+            if (AES.initPhoneLinks) AES.initPhoneLinks();
+            injectTopLevelPageBridgeFromShell();
+            if (AES.installTopLevelNavigationInterception) AES.installTopLevelNavigationInterception();
+            installTopLevelRouteWatchers();
+            if (restoreOnEnable && !state.tabs.length) {
+                void restoreTabs().then(function () {
+                    if (!state.tabs.length) activateHome();
+                    requestSyncGeometry();
+                });
+            }
+            broadcastDarkModeEnhancerState();
+        }
+        broadcastFeatureEnabledState();
+        updateShellVisibility();
     }
 
     function tabById(id) {
@@ -2152,6 +2583,7 @@
         syncTabPaneState();
         updateHomeTabActive();
         updateLoaderVisibility();
+        requestSyncGeometry();
         ensureActiveTabVisible();
         updateTabScrollButtons();
         saveTabs();
@@ -2350,6 +2782,68 @@
         const next = !!loading;
         state.homeLoading = next;
         if (state.homeTabEl) state.homeTabEl.classList.toggle('loading', next);
+    }
+
+    function extractTopLevelPageTitle() {
+        const selectors = [
+            'span.text-page-title',
+            '.c-text.o-font--page-title-medium.c-text--primary-color',
+            '.PageHeadingContainer .Title .Text',
+            '.EntityHeadingContainer .Title > .Text',
+            'h1',
+        ];
+        for (const selector of selectors) {
+            const el = document.querySelector(selector);
+            const text = (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
+            if (text) return text;
+        }
+        return '';
+    }
+
+    function updateHomeTitleFromTopLevelPage(skipFrameCheck) {
+        if (!state.showTabBarOnNonIframePages) return;
+        if (!skipFrameCheck && findContentIframe()) return;
+        const title = extractTopLevelPageTitle();
+        if (!title) return;
+        state.homeLoadingAwaitingNativeLoad = false;
+        setHomeTitle(title);
+    }
+
+    function scheduleNonIframeTitleUpdate() {
+        if (!state.showTabBarOnNonIframePages || state.nonIframeTitleRaf) return;
+        state.nonIframeTitleRaf = window.requestAnimationFrame(function () {
+            state.nonIframeTitleRaf = 0;
+            updateHomeTitleFromTopLevelPage(true);
+        });
+    }
+
+    function stopNonIframeTitleWatcher() {
+        if (state.nonIframeTitleObserver) {
+            state.nonIframeTitleObserver.disconnect();
+            state.nonIframeTitleObserver = null;
+        }
+        if (state.nonIframeTitleRaf) {
+            window.cancelAnimationFrame(state.nonIframeTitleRaf);
+            state.nonIframeTitleRaf = 0;
+        }
+    }
+
+    function ensureNonIframeTitleWatcher() {
+        if (!state.showTabBarOnNonIframePages) {
+            stopNonIframeTitleWatcher();
+            return;
+        }
+        if (state.nonIframeTitleObserver) return;
+        const root = findNonIframeContentContainer() || document.body || document.documentElement;
+        if (!root) return;
+        const observer = new MutationObserver(scheduleNonIframeTitleUpdate);
+        observer.observe(root, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+        });
+        state.nonIframeTitleObserver = observer;
+        scheduleNonIframeTitleUpdate();
     }
 
     function closeTabContextMenu() {
@@ -2821,12 +3315,81 @@
         scrollWrap.appendChild(rightButton);
 
         state.bar.appendChild(scrollWrap);
+        state.bar.appendChild(createResizeHandle());
         syncTabPaneState();
         updateHomeTabActive();
+        updateResizableBarClasses();
         requestAnimationFrame(function () {
             ensureActiveTabVisible();
             updateTabScrollButtons();
         });
+    }
+
+    function createResizeHandle() {
+        const handle = document.createElement('div');
+        handle.className = 'at-tabs-resize-handle';
+        handle.title = 'Resize tab bar';
+        handle.addEventListener('mousedown', startTabBarResize);
+        handle.addEventListener('pointerdown', startTabBarResize);
+        handle.addEventListener('mouseenter', function () {
+            state.tabBarResizeHandleHovered = true;
+            cancelTabBarExpandTimer();
+        });
+        handle.addEventListener('mouseleave', function () {
+            state.tabBarResizeHandleHovered = false;
+        });
+        handle.addEventListener('click', function (event) {
+            event.stopPropagation();
+        });
+        return handle;
+    }
+
+    function startTabBarResize(event) {
+        if (!state.resizableTabBarEnabled || !isVerticalBar() || !state.bar) return;
+        if (state.tabBarResizing) return;
+        if (event.type === 'mousedown' && event.button !== 0) return;
+        if (event.type === 'pointerdown' && event.button !== 0) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        hideHoverCard(true);
+        cancelTabBarExpandTimer();
+        state.tabBarResizing = true;
+        state.tabBarHoverExpanded = false;
+        updateResizableBarClasses();
+
+        const barRect = state.bar.getBoundingClientRect();
+        const pointerId = event.pointerId;
+        if (event.type === 'pointerdown' && event.currentTarget.setPointerCapture && pointerId !== undefined) {
+            try { event.currentTarget.setPointerCapture(pointerId); } catch (e) {}
+        }
+        const move = function (moveEvent) {
+            const nextWidth = normalizedTabBarWidth(moveEvent.clientX - barRect.left);
+            state.tabBarWidth = nextWidth;
+            AES.state.tabBarWidth = nextWidth;
+            updateResizableBarClasses();
+            requestSyncGeometry();
+        };
+        const stop = function () {
+            document.removeEventListener('mousemove', move, true);
+            document.removeEventListener('mouseup', stop, true);
+            document.removeEventListener('pointermove', move, true);
+            document.removeEventListener('pointerup', stop, true);
+            document.removeEventListener('pointercancel', stop, true);
+            state.tabBarResizing = false;
+            state.tabBarHoverExpanded = false;
+            cancelTabBarExpandTimer();
+            updateResizableBarClasses();
+            void AES.saveSettings();
+        };
+        if (event.type === 'pointerdown') {
+            document.addEventListener('pointermove', move, true);
+            document.addEventListener('pointerup', stop, true);
+            document.addEventListener('pointercancel', stop, true);
+        } else {
+            document.addEventListener('mousemove', move, true);
+            document.addEventListener('mouseup', stop, true);
+        }
     }
 
     function createScrollButton(direction) {
@@ -3059,6 +3622,44 @@
         const body = document.createElement('div');
         body.className = 'at-tabs-settings-body';
 
+        const generalSection = document.createElement('div');
+        generalSection.className = 'at-tabs-settings-section';
+
+        const generalTitle = document.createElement('div');
+        generalTitle.className = 'at-tabs-settings-section-title';
+        generalTitle.textContent = 'General';
+
+        const enabledRow = document.createElement('label');
+        enabledRow.className = 'at-tabs-setting-row';
+
+        const enabledLabel = document.createElement('span');
+        enabledLabel.className = 'at-tabs-setting-label';
+
+        const enabledName = document.createElement('span');
+        enabledName.className = 'at-tabs-setting-name';
+        enabledName.textContent = 'Enable Autotask Enhancement Suite';
+        enabledLabel.appendChild(createSettingInfo('Turns all AES enhancements on or off. Settings remain available from the native Autotask menu and browser toolbar.'));
+        enabledLabel.appendChild(enabledName);
+
+        const enabledToggle = document.createElement('span');
+        enabledToggle.className = 'at-tabs-setting-toggle';
+
+        const enabledInput = document.createElement('input');
+        enabledInput.type = 'checkbox';
+        enabledInput.checked = featuresEnabled();
+        enabledInput.addEventListener('change', function () {
+            state.extensionEnabled = enabledInput.checked;
+            applyExtensionEnabledState();
+            void AES.saveSettings();
+        });
+
+        const enabledToggleUi = document.createElement('span');
+        enabledToggleUi.className = 'at-tabs-setting-toggle-ui';
+        enabledToggle.appendChild(enabledInput);
+        enabledToggle.appendChild(enabledToggleUi);
+        enabledRow.appendChild(enabledLabel);
+        enabledRow.appendChild(enabledToggle);
+
         // Appearance section ----------------------------------------------
         const appearanceSection = document.createElement('div');
         appearanceSection.className = 'at-tabs-settings-section';
@@ -3182,7 +3783,7 @@
 
         const sectionTitle = document.createElement('div');
         sectionTitle.className = 'at-tabs-settings-section-title';
-        sectionTitle.textContent = 'Tabbar';
+        sectionTitle.textContent = 'Tab bar';
 
         // Tab bar position row (horizontal/vertical).
         const orientationRow = document.createElement('label');
@@ -3216,6 +3817,39 @@
 
         orientationRow.appendChild(orientationLabel);
         orientationRow.appendChild(orientationSelect);
+
+        const resizeRow = document.createElement('label');
+        resizeRow.className = 'at-tabs-setting-row';
+
+        const resizeLabel = document.createElement('span');
+        resizeLabel.className = 'at-tabs-setting-label';
+
+        const resizeName = document.createElement('span');
+        resizeName.className = 'at-tabs-setting-name';
+        resizeName.textContent = 'Resizable vertical tab bar (test)';
+        resizeLabel.appendChild(createSettingInfo('Experimental: drag the right edge of the vertical tab bar. Very narrow widths switch to icon-only mode and expand on hover.'));
+        resizeLabel.appendChild(resizeName);
+
+        const resizeToggle = document.createElement('span');
+        resizeToggle.className = 'at-tabs-setting-toggle';
+
+        const resizeInput = document.createElement('input');
+        resizeInput.type = 'checkbox';
+        resizeInput.checked = !!state.resizableTabBarEnabled;
+        resizeInput.addEventListener('change', function () {
+            state.resizableTabBarEnabled = resizeInput.checked;
+            AES.state.resizableTabBarEnabled = resizeInput.checked;
+            updateResizableBarClasses();
+            requestSyncGeometry();
+            void AES.saveSettings();
+        });
+
+        const resizeToggleUi = document.createElement('span');
+        resizeToggleUi.className = 'at-tabs-setting-toggle-ui';
+        resizeToggle.appendChild(resizeInput);
+        resizeToggle.appendChild(resizeToggleUi);
+        resizeRow.appendChild(resizeLabel);
+        resizeRow.appendChild(resizeToggle);
 
         const hideRow = document.createElement('label');
         hideRow.className = 'at-tabs-setting-row';
@@ -3283,6 +3917,44 @@
         persistNote.className = 'at-tabs-setting-note';
         persistNote.textContent = 'Note that this will severely increase initial load times since all tabs will be loaded in one go';
 
+        const everywhereRow = document.createElement('label');
+        everywhereRow.className = 'at-tabs-setting-row';
+
+        const everywhereLabel = document.createElement('span');
+        everywhereLabel.className = 'at-tabs-setting-label';
+
+        const everywhereName = document.createElement('span');
+        everywhereName.className = 'at-tabs-setting-name';
+        everywhereName.textContent = 'Show on non-iframe pages (test)';
+        everywhereLabel.appendChild(createSettingInfo('Experimental: keeps the AES tab bar visible on modern top-level Onyx pages that do not use a native content iframe. Can overlap page content.'));
+        everywhereLabel.appendChild(everywhereName);
+
+        const everywhereToggle = document.createElement('span');
+        everywhereToggle.className = 'at-tabs-setting-toggle';
+
+        const everywhereInput = document.createElement('input');
+        everywhereInput.type = 'checkbox';
+        everywhereInput.checked = !!state.showTabBarOnNonIframePages;
+        everywhereInput.addEventListener('change', function () {
+            state.showTabBarOnNonIframePages = everywhereInput.checked;
+            AES.state.showTabBarOnNonIframePages = everywhereInput.checked;
+            if (state.showTabBarOnNonIframePages) {
+                ensureNonIframeTitleWatcher();
+                scheduleNonIframeTitleUpdate();
+            } else {
+                stopNonIframeTitleWatcher();
+            }
+            requestSyncGeometry();
+            void AES.saveSettings();
+        });
+
+        const everywhereToggleUi = document.createElement('span');
+        everywhereToggleUi.className = 'at-tabs-setting-toggle-ui';
+        everywhereToggle.appendChild(everywhereInput);
+        everywhereToggle.appendChild(everywhereToggleUi);
+        everywhereRow.appendChild(everywhereLabel);
+        everywhereRow.appendChild(everywhereToggle);
+
         const phoneSection = document.createElement('div');
         phoneSection.className = 'at-tabs-settings-section';
 
@@ -3324,16 +3996,74 @@
         phoneRow.appendChild(phoneLabel);
         phoneRow.appendChild(phoneToggle);
 
-        section.appendChild(sectionTitle);
+        const uiSection = document.createElement('div');
+        uiSection.className = 'at-tabs-settings-section';
+
+        const uiTitle = document.createElement('div');
+        uiTitle.className = 'at-tabs-settings-section-title';
+        uiTitle.textContent = 'UI Enhancement';
+
         section.appendChild(orientationRow);
+        section.appendChild(resizeRow);
         section.appendChild(hideRow);
         section.appendChild(persistRow);
         section.appendChild(persistNote);
-        phoneSection.appendChild(phoneSectionTitle);
+        section.appendChild(everywhereRow);
         phoneSection.appendChild(phoneRow);
-        body.appendChild(appearanceSection);
-        body.appendChild(section);
-        body.appendChild(phoneSection);
+        generalSection.appendChild(enabledRow);
+        generalSection.appendChild(themeRow);
+        uiSection.appendChild(enhancerRow);
+        uiSection.appendChild(earlyAccessRow);
+
+        const nav = document.createElement('div');
+        nav.className = 'at-tabs-settings-nav';
+        const pages = document.createElement('div');
+        pages.className = 'at-tabs-settings-pages';
+        const pageDefs = [
+            { id: 'general', label: 'General', description: 'Core extension controls and theme behavior.', section: generalSection },
+            { id: 'ui', label: 'UI Enhancement', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
+            { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, experimental tab bar behavior, and visibility.', section: section },
+            { id: 'misc', label: 'Miscellaneous', description: 'Extra productivity helpers that do not belong to the tab shell.', section: phoneSection },
+        ];
+        const navButtons = [];
+        const pageEls = [];
+        function activateSettingsPage(id) {
+            navButtons.forEach(function (button) {
+                button.classList.toggle('active', button.dataset.pageId === id);
+            });
+            pageEls.forEach(function (page) {
+                page.classList.toggle('active', page.dataset.pageId === id);
+            });
+        }
+        pageDefs.forEach(function (def, index) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'at-tabs-settings-nav-item' + (index === 0 ? ' active' : '');
+            button.dataset.pageId = def.id;
+            button.innerHTML = '<span class="at-tabs-settings-nav-name"></span><span class="at-tabs-settings-nav-arrow">›</span>';
+            button.querySelector('.at-tabs-settings-nav-name').textContent = def.label;
+            button.addEventListener('click', function () { activateSettingsPage(def.id); });
+            navButtons.push(button);
+            nav.appendChild(button);
+
+            const page = document.createElement('div');
+            page.className = 'at-tabs-settings-page' + (index === 0 ? ' active' : '');
+            page.dataset.pageId = def.id;
+            const pageTitle = document.createElement('div');
+            pageTitle.className = 'at-tabs-settings-page-title';
+            const titleText = document.createElement('strong');
+            titleText.textContent = def.label;
+            const subtitle = document.createElement('span');
+            subtitle.textContent = def.description;
+            pageTitle.appendChild(titleText);
+            pageTitle.appendChild(subtitle);
+            page.appendChild(pageTitle);
+            page.appendChild(def.section);
+            pageEls.push(page);
+            pages.appendChild(page);
+        });
+        body.appendChild(nav);
+        body.appendChild(pages);
 
         const footer = document.createElement('div');
         footer.className = 'at-tabs-settings-footer';
@@ -3726,6 +4456,7 @@
     }
 
     function openTab(url) {
+        if (!featuresEnabled()) return;
         const existing = state.tabs.find(t => t.url === url);
         if (existing) {
             activateTab(existing.id);
@@ -3738,6 +4469,7 @@
     // check in `openTab` — used by `duplicateTab` so two tabs can legitimately
     // point at the same Autotask entity.
     function createAndAddTab(url, seedFromTab, options) {
+        if (!featuresEnabled()) return null;
         if (!state.viewport) {
             return null;
         }
@@ -3834,6 +4566,13 @@
             return;
         }
 
+        if (data.type === 'feature-enabled-request') {
+            broadcastFeatureEnabledState();
+            return;
+        }
+
+        if (!featuresEnabled()) return;
+
         if (data.type === 'open' && data.url) {
             openTab(data.url);
             return;
@@ -3904,6 +4643,7 @@
         const originalReplaceState = history.replaceState.bind(history);
 
         function intercept(originalFn, stateArg, unusedTitle, urlArg) {
+            if (!featuresEnabled()) return originalFn(stateArg, unusedTitle, urlArg);
             const handledUrl = urlArg ? AES.extractHandledUrlFromLandingPageUrl(urlArg) : null;
             if (handledUrl) {
                 openTab(handledUrl);
@@ -3921,14 +4661,52 @@
         };
     }
 
-    function maybePromoteTopLevelLandingRoute() {
-        if (!state.viewport) return;
-        const handledUrl = AES.extractHandledUrlFromLandingPageUrl(location.href);
-        if (!handledUrl) {
-            state.lastObservedTopHandledUrl = '';
+    function injectTopLevelPageBridgeFromShell() {
+        if (!AES.isTop) return;
+        if (document.documentElement.dataset.aesPageBridgeInjected === 'true') {
+            broadcastFeatureEnabledState();
             return;
         }
-        if (handledUrl === state.lastObservedTopHandledUrl) return;
+        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
+            ? browser.runtime
+            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
+        if (!runtime || typeof runtime.getURL !== 'function') return;
+        document.documentElement.dataset.aesPageBridgeInjected = 'true';
+        const script = document.createElement('script');
+        script.src = runtime.getURL('aes-page-bridge.js');
+        script.onload = function () {
+            script.remove();
+            broadcastFeatureEnabledState();
+        };
+        (document.documentElement || document.head).appendChild(script);
+    }
+
+    function installTopLevelRouteWatchers() {
+        if (state.topLevelRouteWatchInstalled) return;
+        state.topLevelRouteWatchInstalled = true;
+        window.addEventListener('popstate', maybePromoteTopLevelLandingRoute);
+        window.addEventListener('hashchange', maybePromoteTopLevelLandingRoute);
+        setInterval(maybePromoteTopLevelLandingRoute, 250);
+        maybePromoteTopLevelLandingRoute();
+    }
+
+    function maybePromoteTopLevelLandingRoute() {
+        if (!featuresEnabled()) return;
+        if (!state.viewport) return;
+        const topHref = location.href;
+        const firstObservation = !state.lastObservedTopHref;
+        const hrefChanged = topHref !== state.lastObservedTopHref;
+        state.lastObservedTopHref = topHref;
+
+        const handledUrl = AES.extractHandledUrlFromLandingPageUrl(topHref);
+        if (!handledUrl) {
+            state.lastObservedTopHandledUrl = '';
+            if (hrefChanged && !firstObservation && state.activeId !== null) {
+                activateHome();
+            }
+            return;
+        }
+        if (handledUrl === state.lastObservedTopHandledUrl && !hrefChanged) return;
         state.lastObservedTopHandledUrl = handledUrl;
         openTab(handledUrl);
     }
@@ -3971,6 +4749,7 @@
 
     function applyBarOrientationClass() {
         document.documentElement.classList.toggle('aes-bar-vertical', isVerticalBar());
+        updateResizableBarClasses();
     }
 
     // Broadcast the current dark mode enhancer state to every same-origin
@@ -3978,7 +4757,7 @@
     // overrides based on this signal. Recursively descends into nested
     // same-origin frames so legacy frameset wrappers are covered too.
     function broadcastDarkModeEnhancerState() {
-        const enabled = !!state.darkModeEnhancerEnabled;
+        const enabled = featuresEnabled() && !!state.darkModeEnhancerEnabled;
         const dark = effectiveDarkMode();
         const payload = { __ns: AES.MSG_NS, type: 'dark-enhancer', enabled: enabled, dark: dark };
         function postToFrames(win) {
@@ -4280,6 +5059,12 @@
 
         const bar = document.createElement('div');
         bar.className = 'at-tabs-bar';
+        bar.addEventListener('mouseenter', function () {
+            scheduleTabBarHoverExpand();
+        });
+        bar.addEventListener('mouseleave', function () {
+            collapseTabBarHoverExpand();
+        });
 
         const viewport = document.createElement('div');
         viewport.className = 'at-tabs-viewport empty';
@@ -4326,22 +5111,36 @@
         if (['auto', 'light', 'dark'].includes(AES.state.themePreference)) {
             state.themePreference = AES.state.themePreference;
         }
+        if (typeof AES.state.extensionEnabled === 'boolean') {
+            state.extensionEnabled = AES.state.extensionEnabled;
+        }
         if (typeof AES.state.darkModeEnhancerEnabled === 'boolean') {
             state.darkModeEnhancerEnabled = AES.state.darkModeEnhancerEnabled;
         }
         if (typeof AES.state.hideEarlyAccessLabels === 'boolean') {
             state.hideEarlyAccessLabels = AES.state.hideEarlyAccessLabels;
         }
+        if (typeof AES.state.showTabBarOnNonIframePages === 'boolean') {
+            state.showTabBarOnNonIframePages = AES.state.showTabBarOnNonIframePages;
+        }
+        if (typeof AES.state.resizableTabBarEnabled === 'boolean') {
+            state.resizableTabBarEnabled = AES.state.resizableTabBarEnabled;
+        }
+        state.tabBarWidth = normalizedTabBarWidth(AES.state.tabBarWidth);
+        AES.state.tabBarWidth = state.tabBarWidth;
         applyBarOrientationClass();
-        await restoreTabs();
-        if (!state.tabs.length) activateHome();
-        updateShellVisibility();
+        applyExtensionEnabledState(false);
+        if (featuresEnabled()) {
+            await restoreTabs();
+            if (!state.tabs.length) activateHome();
+        }
         syncGeometry();
         installGeometrySync();
         installTabContextMenuDismissal();
         installThemeWatcher();
         installEarlyAccessLabelWatcher();
         installNativeSettingsMenuItemWatcher();
+        if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
     };
 
     AES.installTopLevelNavigationInterception = installTopLevelNavigationInterception;

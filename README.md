@@ -59,7 +59,7 @@ See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the repository privacy policy use
 - `chrome-extension/`: primary source of truth
 - `firefox-extension/`: Firefox build
 - `safari-extension/`: Safari conversion project
-- `AUTOTASK_ENHANCEMENT_SUITE_EXTENSION_READINESS.md`: Chrome Web Store and release notes
+- `AUTOTASK_ENHANCEMENT_SUITE_EXTENSION_READINESS.md`: current project handoff, status, and release notes
 - `autotask-iframe-simple.legacy.js`, `autotask-iframe.user.legacy.js`, `autotask-iframe-tabs.js`: historical userscript-era reference files
 
 ## Main Source Files

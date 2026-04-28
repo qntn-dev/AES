@@ -1,5 +1,25 @@
 # Changelog
 
+## 0.4.4-experimental
+
+### New features:
+
+- Added experimental always-visible AES tab bar support for modern non-iframe Onyx pages.
+- Added experimental resizable vertical tab bar with compact icon-only mode and delayed hover expansion.
+- Added a full extension enable/disable toggle in AES Settings.
+
+### Improvements:
+
+- Reworked AES Settings into category pages for General, UI Enhancement, Tab bar, and Miscellaneous settings.
+- Limited active runtime behavior to regional `ww##.autotask.net` hosts and added feature gates for disabled-state behavior.
+- Restored Home/native activation when navigating with Autotask's own navigation and updated UI Enhancement colors to use `#1F2227`.
+
+### Fixes:
+
+- Prevented AES from running on Autotask authentication pages.
+- Added a specific `PageHeadingContainer` background override under UI Enhancement.
+- Reduced compact vertical tab bar hover/resize conflicts.
+
 ## 0.4.3
 
 ### New features:
@@ -267,7 +287,7 @@
 ## 0.3.55
 
 - Reduced vertical tab height scaling: tabs now cap at two native Autotask row units instead of three. A three-line tab still shows its content, but its vertical footprint matches two native left-menu rows.
-- Extended the dark-mode enhancer background map for ticket pages. It now also recognizes already-normalized `#090B0D` and previous elevated replacement variants `#262A30` / `#262A31`, mapping them to the intended current canvas/elevated colors (`#090B0D` and `#1E2227` respectively).
+- Extended the dark-mode enhancer background map for ticket pages. It now also recognizes already-normalized `#090B0D` and previous elevated replacement variants `#262A30` / `#262A31`, mapping them to the intended current canvas/elevated colors (`#090B0D` and `#1F2227` respectively).
 
 ## 0.3.54
 
@@ -286,7 +306,7 @@
 
 ## 0.3.51
 
-- Retuned the dark-mode enhancer background replacements in `aes-iframe-bridge.js`: the darker Autotask surface `#111b22` / `rgb(17, 27, 34)` now maps to `#090B0D`, and the lighter elevated surface `#192229` / `rgb(25, 34, 41)` now maps to `#1E2227`.
+- Retuned the dark-mode enhancer background replacements in `aes-iframe-bridge.js`: the darker Autotask surface `#111b22` / `rgb(17, 27, 34)` now maps to `#090B0D`, and the lighter elevated surface `#192229` / `rgb(25, 34, 41)` now maps to `#1F2227`.
 - The legacy threshold fallback background now also uses `#090B0D`, so very-legacy near-white pages inherit the new darker canvas color.
 
 ## 0.3.50
@@ -301,7 +321,7 @@
 
 ## 0.3.48
 
-- Dark mode enhancer: Autotask's two known dark surfaces now map to differentiated greys instead of collapsing onto one color. `#111b22` (the darker page/canvas background) → `#1E2227`. `#192229` (the lighter elevated card/grid/table background) → `#262A30`. Original luminance ordering preserved so the depth hierarchy between page and cards stays visible after the swap.
+- Dark mode enhancer: Autotask's two known dark surfaces now map to differentiated greys instead of collapsing onto one color. `#111b22` (the darker page/canvas background) → `#1F2227`. `#192229` (the lighter elevated card/grid/table background) → `#262A30`. Original luminance ordering preserved so the depth hierarchy between page and cards stays visible after the swap.
 
 ## 0.3.47
 
@@ -319,7 +339,7 @@
 
 ## 0.3.44
 
-- Dark mode enhancer now also handles very-legacy ASP pages (e.g. `/ServiceDesk/DashBoard/dskSvcDskBot.asp`) that have no concept of dark mode at all. A second threshold-based pass runs alongside the existing surgical color swap: any element whose computed background is "near white" (luminance > 0.7, low saturation) gets `#1E2227`; any element whose computed text color is "near black" (luminance < 0.3, low saturation) gets `#f2f3f5`. Saturated status colors (red errors, green successes, Autotask blue, etc.) and `<img>`/`<video>`/`<canvas>`/`<svg>` are preserved. Also sets `<html>` + `<body>` background to `#1E2227` so transparent legacy elements (most of the page) inherit dark instead of the browser default white.
+- Dark mode enhancer now also handles very-legacy ASP pages (e.g. `/ServiceDesk/DashBoard/dskSvcDskBot.asp`) that have no concept of dark mode at all. A second threshold-based pass runs alongside the existing surgical color swap: any element whose computed background is "near white" (luminance > 0.7, low saturation) gets `#1F2227`; any element whose computed text color is "near black" (luminance < 0.3, low saturation) gets `#f2f3f5`. Saturated status colors (red errors, green successes, Autotask blue, etc.) and `<img>`/`<video>`/`<canvas>`/`<svg>` are preserved. Also sets `<html>` + `<body>` background to `#1F2227` so transparent legacy elements (most of the page) inherit dark instead of the browser default white.
 
 ## 0.3.43
 
@@ -331,7 +351,7 @@
 
 ## 0.3.41
 
-- Dark mode enhancer: corrected the background replacement color from `#a9a9a9` (typo) to `#1E2227`. Also added `#192229` (`rgb(25, 34, 41)`) as a second background target — both `#111b22` and `#192229` are now swapped to `#1E2227`.
+- Dark mode enhancer: corrected the background replacement color from `#a9a9a9` (typo) to `#1F2227`. Also added `#192229` (`rgb(25, 34, 41)`) as a second background target — both `#111b22` and `#192229` are now swapped to `#1F2227`.
 
 ## 0.3.40
 

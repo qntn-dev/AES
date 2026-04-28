@@ -5,6 +5,7 @@
     if (!AES || AES.bootstrapped) return;
     AES.bootstrapped = true;
 
+    if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     if (AES.isExcludedUrl && AES.isExcludedUrl(location.href)) return;
 
     const settingsReady = AES.loadSettings ? AES.loadSettings() : Promise.resolve();
@@ -34,9 +35,7 @@
     }
 
     if (AES.isTop) {
-        injectTopLevelPageBridge();
         window.addEventListener('message', AES.handleShellMessage);
-        AES.installTopLevelNavigationInterception();
 
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function () {
@@ -46,15 +45,13 @@
             void initSettingsBackedFeatures().then(AES.mount);
         }
 
-        window.addEventListener('popstate', AES.maybePromoteTopLevelLandingRoute);
-        window.addEventListener('hashchange', AES.maybePromoteTopLevelLandingRoute);
-        setInterval(AES.maybePromoteTopLevelLandingRoute, 250);
-        AES.maybePromoteTopLevelLandingRoute();
         return;
     }
 
-    if (AES.initIframeBridge) {
-        AES.initIframeBridge();
-    }
-    void initSettingsBackedFeatures();
+    void settingsReady.then(function () {
+        if (AES.featuresEnabled && AES.featuresEnabled() && AES.initIframeBridge) {
+            AES.initIframeBridge();
+        }
+        return initSettingsBackedFeatures();
+    });
 })();

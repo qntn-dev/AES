@@ -1,138 +1,113 @@
-# Autotask Enhancement Suite – Chrome Extension Readiness
+# Autotask Enhancement Suite Handoff
 
-Date: 2026-04-23  
-Scope reviewed: `autotask-iframe-tabs.js` (primary), plus `autotask-iframe-simple.js` and `autotask-iframe.user.js` for packaging alignment.
+Last updated: 2026-04-28  
+Current snapshot: `0.4.4-experimental`
 
-## Summary
-`autotask-iframe-tabs.js` is in good shape functionally and is close to extension-ready.  
-Main hardening needed is around `postMessage` trust boundaries and a couple of performance/packaging improvements.
+This document is the handoff point for continuing work on Autotask Enhancement Suite. It replaces the older extension-readiness notes, which were written before the project became a full browser extension.
 
-## Priority Findings
+## Current Status
 
-### 1) `postMessage` origin/source hardening (High)
-Current behavior:
-- Child frame sends with `window.top.postMessage(..., '*')`.
-- Parent accepts by namespace only:
-  - `window.addEventListener('message', handleMessage)`
-  - checks `data.__ns === MSG_NS`
+Autotask Enhancement Suite is now a WebExtension with Chrome and Firefox source folders. Chrome is the primary build, Firefox mirrors the same runtime files with a Firefox-compatible manifest/background setup.
 
-Risk:
-- Any frame on the page that can guess `MSG_NS` could send spoofed messages.
+The extension is intentionally limited at runtime to regional Autotask hosts matching `ww##.autotask.net`. The manifests still use broad `https://*.autotask.net/*` patterns because browser match patterns cannot express `ww` plus digits, but the runtime gate exits immediately on hosts such as `www.autotask.net` or `autotask.net`.
 
-Recommended change:
-- In parent `handleMessage`, validate:
-  - `event.origin === location.origin`
-  - `event.source` maps to a known Autotask content iframe
-- In child `postToTop`, send to `location.origin` instead of `'*'` when possible.
+## Source Of Truth
 
-Suggested target area:
-- `autotask-iframe-tabs.js` around:
-  - child `postToTop(...)`
-  - parent `handleMessage(event)`
+- `chrome-extension/` is the primary implementation.
+- `firefox-extension/` should stay functionally mirrored with Chrome.
+- `safari-extension/` exists as a conversion project, but Chrome/Firefox are the active builds.
+- Legacy userscript files remain as historical references only.
 
----
+## Main Runtime Files
 
-### 2) Interval-based geometry sync every 500ms (Medium)
-Current behavior:
-- `setInterval(syncGeometry, 500)` runs continuously after mount.
+- `aes-shared.js`: shared constants, handled route matching, host gating, URL helpers, feature gates.
+- `aes-storage.js`: persisted settings and tab/session restore.
+- `aes-phone-links.js`: optional phone number detection and `tel:` link wrapping.
+- `aes-page-bridge.js`: page-context bridge that intercepts Autotask-owned navigation APIs, `window.open`, middle-click behavior, map opens, and duplicate/background tab opens.
+- `aes-iframe-bridge.js`: iframe-side metadata extraction, navigation interception, map button enhancement, UI Enhancement CSS for legacy pages.
+- `aes-shell.js`: top-level tab shell, tab layout, settings modal, native Autotask menu integration, split view, map modal, context menu, drag/pin/color tabs, non-iframe experiment.
+- `content-tabs.js`: bootstrap script that coordinates startup in top and iframe contexts.
+- `aes-background.js`: browser toolbar action handler.
 
-Risk:
-- Unnecessary constant layout work on large pages.
+## Current Feature Set
 
-Recommended change:
-- Keep `resize` listener.
-- Replace interval with one of:
-  - `ResizeObserver` on the native iframe + container
-  - lightweight `MutationObserver` on iframe additions/removals
-  - `requestAnimationFrame`-throttled sync only after known triggers
+- AES tab shell for supported Autotask pages that would otherwise open in browser tabs, popups, or the Home iframe.
+- Support for tickets, organizations/accounts, contacts, resources, contracts, projects, project tasks, recurring tickets, LiveLinks, directory/admin pages, timesheets, shipping/print-related destinations, and other handled MVC/legacy routes.
+- Middle-click on supported Autotask links opens a background AES tab and keeps focus on the current tab, browser-style.
+- Left-click opens/focuses an AES tab where supported.
+- Split-screen support through the tab right-click menu.
+- Tab organization: drag tabs, pin tabs, color tabs, duplicate tabs, peek tabs, and copy tab/ticket info from context menu actions.
+- Rich tab metadata for supported pages, including ticket title/number/account/resource avatar or initials, project metadata, timesheet date/resource, contact/account metadata, and LiveLinks icon handling.
+- Custom tab hover cards instead of native browser URL tooltips.
+- Optional tab restore after browser close via extension storage.
+- Optional clickable phone numbers inside Autotask pages.
+- Organization map button interception: Autotask map links open in an AES modal instead of a browser tab.
+- AES Settings lives inside the native Autotask sidebar as `AES Settings`.
+- Toolbar extension icon opens the same AES Settings modal.
+- Autotask UI Enhancement toggle gates legacy visual tweaks, hidden redundant legacy title bars, modern button styling, dark-mode background normalization, Early Access label hiding, and related UI adjustments.
+- Full extension disable toggle keeps settings reachable while suppressing AES behavior.
 
-Suggested target area:
-- `mount()` in `autotask-iframe-tabs.js`
+## Settings Structure
 
----
+The settings modal is organized into pages:
 
-### 3) Extension packaging split (Medium)
-Current behavior:
-- Tampermonkey header metadata in each file (`@name`, `@match`, `@run-at`).
+- General: enable/disable the extension and choose theme behavior.
+- UI Enhancement: Autotask UI Enhancement and hide Early Access labels.
+- Tab bar: orientation, visibility, persistence, non-iframe experiment, resizable vertical tab bar.
+- Miscellaneous: phone number linking.
 
-For extension:
-- Move metadata into `manifest.json`.
-- Keep code in content scripts only.
-- Avoid loading all three scripts together on the same pages unless intentionally coordinated.
+## Experimental Work In This Snapshot
 
-Recommended packaging:
-- Choose **one primary runtime** for extension MVP:
-  - `autotask-iframe-tabs.js` (recommended)
-- Keep other scripts as optional modules or disabled by default.
+This release is intentionally tagged experimental because it includes broader layout experiments:
 
----
+- `Show on non-iframe pages (test)`: shows the AES tab bar on modern top-level Onyx pages that do not use the classic iframe layout.
+- `Resizable vertical tab bar (test)`: allows resizing the vertical tab bar. Very narrow widths switch to icon-only mode and expand on hover after a short delay.
+- Native Autotask route changes should now reselect Home/native content when the user navigates with Autotask's own navigation instead of AES tabs.
+- Page heading background override was moved into the UI Enhancement stylesheet with matching specificity for `body.FullScroll > .PageHeadingContainer`.
 
-### 4) Session storage key namespace (Low)
-Current behavior:
-- Uses keys like `autotask-tabs-v1`, `autotaskIframeNavHistory.v1`.
+These should be tested carefully before promoting to a stable release.
 
-Recommendation:
-- Prefix all storage keys with suite + module for long-term maintainability:
-  - `aes.tabs.v1`
-  - `aes.simpleNav.history.v1`
+## Important Guardrails
 
----
+- Do not inject or run behavior on print/authentication views. The shared excluded route list includes print-related paths and Autotask authentication.
+- Keep the runtime host gate in place. The extension should only actively run on `ww##.autotask.net`.
+- Do not reintroduce the settings cog into the AES tab bar as the primary settings entry point. The native Autotask sidebar item is the intended entry point.
+- UI Enhancement changes should respect the master extension toggle and the Autotask UI Enhancement toggle.
+- Middle-click must open in the background. Left-click may focus/open.
+- Do not push experimental work as a normal stable release unless it has been tested in Autotask.
 
-### 5) Message schema versioning (Low)
-Current behavior:
-- `MSG_NS = 'autotask-tabs-v1'` is good baseline.
+## Verification Checklist
 
-Recommendation:
-- Add explicit `version` field in message payload to make future migrations safer:
-  - `{ __ns: MSG_NS, version: 1, type: 'open', ... }`
+Before a stable release, verify in Chrome at minimum:
 
-## Proposed Extension Structure (No code changes yet)
+- Extension loads only on `ww##.autotask.net` hosts.
+- AES Settings appears once in the top-level native Autotask sidebar.
+- Master disable toggle disables enhancements but leaves settings accessible.
+- Native Autotask navigation changes the active AES state back to Home/native content.
+- Supported links from iframes and top navigation open in AES tabs.
+- Middle-click opens a background tab without stealing focus.
+- Home tab spinner clears correctly after native iframe loads.
+- Context menus and hover dropdowns inside Autotask iframe pages still work.
+- Vertical tab bar, pinned tabs, colored tabs, drag/drop, split view, and tab overflow still behave correctly.
+- Non-iframe tab bar experiment does not crash or overlap unusably on modern Onyx pages.
+- Phone number links do not match dates, ticket numbers, or URL fragments.
+- Print/authentication pages are untouched by AES.
 
-```text
-autotask-enhancement-suite/
-  manifest.json
-  content/
-    tabs.js            (from autotask-iframe-tabs.js)
-  assets/
-    icon16.png
-    icon48.png
-    icon128.png
-  README.md
-```
+## Release Notes For This Experimental Snapshot
 
-## Manifest baseline (MVP)
+New features:
+- Added experimental always-visible tab bar support for non-iframe Onyx pages.
+- Added experimental resizable vertical tab bar with compact icon-only mode and delayed hover expansion.
+- Added full extension enable/disable control in AES Settings.
 
-```json
-{
-  "manifest_version": 3,
-  "name": "Autotask Enhancement Suite",
-  "version": "0.1.0",
-  "description": "Autotask Enhancement Suite: iframe tabs, navigation, and productivity upgrades.",
-  "content_scripts": [
-    {
-      "matches": ["https://ww19.autotask.net/*"],
-      "js": ["content/tabs.js"],
-      "run_at": "document_start"
-    }
-  ],
-  "icons": {
-    "16": "assets/icon16.png",
-    "48": "assets/icon48.png",
-    "128": "assets/icon128.png"
-  }
-}
-```
+Improvements:
+- Reworked AES Settings into category pages: General, UI Enhancement, Tab bar, and Miscellaneous.
+- Improved regional-host safety so AES only runs on `ww##.autotask.net`.
+- Restored Home/native activation when navigating via Autotask's native navigation.
+- Updated UI Enhancement colors from `#1E2227` to `#1F2227`.
+- Added a specific `PageHeadingContainer` white background override under UI Enhancement.
 
-## Migration Checklist
-
-1. Copy `autotask-iframe-tabs.js` to extension `content/tabs.js`.
-2. Remove userscript header block (`// ==UserScript== ...`).
-3. Apply message hardening (Finding #1).
-4. Replace interval sync (Finding #2).
-5. Load unpacked extension and validate:
-   - ticket/account/contract click interception
-   - tab restore via session storage
-   - no duplicate overlays in nested/system frames.
-
-## Recommendation
-For extension MVP, ship only the tabs runtime first (`autotask-iframe-tabs.js` lineage), then decide whether simple/full variants should become optional feature flags.
+Fixes:
+- Prevented AES from running on Autotask authentication pages.
+- Added runtime feature gates so iframe/page bridges stop intercepting when the extension is disabled.
+- Reduced compact tab bar hover/resize conflicts by suppressing expansion while dragging the resize handle.

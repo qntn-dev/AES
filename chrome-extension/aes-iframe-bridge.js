@@ -3,7 +3,9 @@
 
     const AES = window.__AES__;
     if (!AES || AES.isTop || AES.iframeBridgeInitialized) return;
+    if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     AES.iframeBridgeInitialized = true;
+    let featureEnabled = !(AES.featuresEnabled && !AES.featuresEnabled());
 
     function decodeUrl(url) {
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
@@ -42,6 +44,7 @@
     }
 
     function postToTop(payload) {
+        if (!featureEnabled && payload.type !== 'dark-enhancer-request' && payload.type !== 'feature-enabled-request') return;
         try { window.top.postMessage({ __ns: AES.MSG_NS, ...payload }, '*'); }
         catch (e) {}
     }
@@ -173,6 +176,10 @@
             '}',
             'body.FullScroll > .QuickLaunchBar {',
             '    top: 60px !important;',
+            '}',
+            'body.FullScroll > .PageHeadingContainer,',
+            '.PageHeadingContainer {',
+            '    background-color: #ffffff !important;',
             '}',
             'body.SummaryPage1 > .PageContentContainer > .MainContainer1 > .PrimaryContentContainer1 > .StandardViewContainer1,',
             'body.SummaryPage1 > .PageContentContainer > .MainContainer1 > .PrimaryContentContainer1 > .GridViewContainer1,',
@@ -959,21 +966,21 @@
     // different replacement greys so the depth hierarchy (page background
     // vs. cards/tables/grids on top of it) stays visible after the swap.
     //   #111b22 (darker, page/canvas)     -> #090B0D (darker replacement)
-    //   #192229 (lighter, elevated card)  -> #1E2227 (lighter replacement)
+    //   #192229 (lighter, elevated card)  -> #1F2227 (lighter replacement)
     const ENHANCER_BG_MAP = {
         'rgb(17, 27, 34)': '#090B0D',
         'rgba(17, 27, 34, 1)': '#090B0D',
-        'rgb(25, 34, 41)': '#1E2227',
-        'rgba(25, 34, 41, 1)': '#1E2227',
+        'rgb(25, 34, 41)': '#1F2227',
+        'rgba(25, 34, 41, 1)': '#1F2227',
         // Some ticket pages / stale enhanced sessions can already expose the
         // desired canvas color or the previous elevated replacement as their
         // computed value. Normalize those too so ticket pages stay consistent.
         'rgb(9, 11, 13)': '#090B0D',
         'rgba(9, 11, 13, 1)': '#090B0D',
-        'rgb(38, 42, 48)': '#1E2227',
-        'rgba(38, 42, 48, 1)': '#1E2227',
-        'rgb(38, 42, 49)': '#1E2227',
-        'rgba(38, 42, 49, 1)': '#1E2227',
+        'rgb(38, 42, 48)': '#1F2227',
+        'rgba(38, 42, 48, 1)': '#1F2227',
+        'rgb(38, 42, 49)': '#1F2227',
+        'rgba(38, 42, 49, 1)': '#1F2227',
     };
     const ENHANCER_FG_TARGET = 'rgb(169, 169, 169)'; // #a9a9a9
     // Used when the legacy threshold pass (white-ish bg → dark surface) fires.
@@ -1360,10 +1367,16 @@
                 handleDarkEnhancerMessage(data);
                 return;
             }
+            if (data && data.__ns === AES.MSG_NS && data.type === 'feature-enabled') {
+                featureEnabled = data.enabled !== false;
+                if (!featureEnabled) handleDarkEnhancerMessage({ enabled: false, dark: false });
+                return;
+            }
 
             if (event.source !== window) return;
             if (event.origin !== location.origin) return;
             if (!data || data.__ns !== AES.MSG_NS) return;
+            if (!featureEnabled) return;
             if (data.type === 'open' && data.url && AES.isHandledUrl(data.url)) {
                 postToTop({ type: 'open', url: data.url });
             }
@@ -1379,12 +1392,14 @@
         // gated by the "Autotask UI Enhancement" toggle and applied via
         // syncDarkEnhancer() when the shell broadcasts the current state.
         requestDarkEnhancerState();
+        postToTop({ type: 'feature-enabled-request' });
         window.setTimeout(requestDarkEnhancerState, 250);
         window.setTimeout(requestDarkEnhancerState, 1000);
         window.setTimeout(requestDarkEnhancerState, 2500);
         startMapButtonEnhancement();
 
         function armMapOpenFromEvent(event) {
+            if (!featureEnabled) return;
             if (event.target.closest('.InlineIconButton.Map, .InlineIcon.Map')) {
                 pendingMapOpenUntil = Date.now() + 5000;
             }
@@ -1393,6 +1408,7 @@
         document.addEventListener('pointerdown', armMapOpenFromEvent, true);
         document.addEventListener('mousedown', armMapOpenFromEvent, true);
         document.addEventListener('mousedown', function (event) {
+            if (!featureEnabled) return;
             if (event.button !== 1) return;
             const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
             if (!targetUrl) return;
@@ -1400,6 +1416,7 @@
         }, true);
 
         document.addEventListener('click', function (event) {
+            if (!featureEnabled) return;
             armMapOpenFromEvent(event);
 
             const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
@@ -1413,6 +1430,7 @@
         }, true);
 
         document.addEventListener('auxclick', function (event) {
+            if (!featureEnabled) return;
             if (event.button !== 1) return;
 
             const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
@@ -1429,6 +1447,7 @@
             window.__AESWindowOpenInterceptInstalled = true;
             const originalOpen = window.open;
             window.open = function (url, target, features) {
+                if (!featureEnabled) return originalOpen.call(window, url, target, features);
                 const targetUrl = url ? AES.toAbsoluteUrl(decodeUrl(String(url))) : '';
                 if (targetUrl && (isPendingMapOpen() || isMapUrl(targetUrl))) {
                     pendingMapOpenUntil = 0;

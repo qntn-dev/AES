@@ -7,6 +7,7 @@
     const MSG_NS = 'autotask-tabs-v1';
     let pendingMapOpenUntil = 0;
     let pendingDuplicateOpenUntil = 0;
+    let featureEnabled = true;
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
         '/mvc/crm/accountdetail.mvc',
@@ -142,6 +143,7 @@
     }
 
     function postOpen(url) {
+        if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
         if (!targetUrl || !isHandledUrl(targetUrl)) return false;
         window.postMessage({ __ns: MSG_NS, type: 'open', url: targetUrl }, location.origin);
@@ -149,6 +151,7 @@
     }
 
     function postOpenDuplicate(url) {
+        if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
         if (!targetUrl || !isHandledUrl(targetUrl)) return false;
         pendingDuplicateOpenUntil = 0;
@@ -178,6 +181,7 @@
     }
 
     function postMap(url) {
+        if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
         if (!targetUrl || (!isPendingMapOpen() && !isMapUrl(targetUrl))) return false;
         pendingMapOpenUntil = 0;
@@ -199,6 +203,7 @@
     }
 
     function armMapOpenFromEvent(event) {
+        if (!featureEnabled) return false;
         const clickedMapIcon = event.target.closest && event.target.closest('.InlineIconButton.Map, .InlineIcon.Map');
         if (clickedMapIcon) {
             pendingMapOpenUntil = Date.now() + 5000;
@@ -239,8 +244,20 @@
     }
 
     document.addEventListener('pointerdown', armMapOpenFromEvent, true);
+    window.addEventListener('message', function (event) {
+        if (event.source !== window) return;
+        if (event.origin !== location.origin) return;
+        const data = event.data;
+        if (!data || data.__ns !== MSG_NS || data.type !== 'feature-enabled') return;
+        featureEnabled = data.enabled !== false;
+        if (!featureEnabled) {
+            pendingMapOpenUntil = 0;
+            pendingDuplicateOpenUntil = 0;
+        }
+    }, true);
     document.addEventListener('mousedown', armMapOpenFromEvent, true);
     document.addEventListener('mousedown', function (event) {
+        if (!featureEnabled) return;
         if (event.button !== 1) return;
         const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
         if (!targetUrl) return;
@@ -249,6 +266,7 @@
     }, true);
 
     document.addEventListener('click', function (event) {
+        if (!featureEnabled) return;
         armMapOpenFromEvent(event);
         if (isPendingMapOpen()) {
             const anchor = event.target.closest && event.target.closest('a[href]');
@@ -261,6 +279,7 @@
         }
     }, true);
     document.addEventListener('auxclick', function (event) {
+        if (!featureEnabled) return;
         if (event.button !== 1) return;
         const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
         if (!targetUrl) return;
@@ -272,6 +291,7 @@
 
     const originalOpen = window.open;
     window.open = function (url, target, features) {
+        if (!featureEnabled) return originalOpen.apply(window, arguments);
         if (postMap(url)) return createMapWindow(url);
         if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return null;
         if (postOpen(url)) return null;
@@ -280,6 +300,7 @@
 
     const originalAnchorClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {
+        if (!featureEnabled) return originalAnchorClick.apply(this, arguments);
         if (postMap(this.href)) return;
         return originalAnchorClick.apply(this, arguments);
     };
@@ -291,6 +312,7 @@
         const originalOpenPage = nav.__openPage;
         nav.__AESPatchedOpenPage = true;
         nav.__openPage = function (pageObject) {
+            if (!featureEnabled) return originalOpenPage.apply(this, arguments);
             if (isPendingMapOpen()) {
                 const mapUrl = extractMapUrlFromPageObject(pageObject);
                 if (mapUrl && postMap(mapUrl)) return false;

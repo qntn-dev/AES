@@ -6,6 +6,9 @@
     AES.storageInitialized = true;
 
     AES.state = AES.state || {};
+    if (typeof AES.state.extensionEnabled !== 'boolean') {
+        AES.state.extensionEnabled = true;
+    }
     if (typeof AES.state.rememberTabsAfterClose !== 'boolean') {
         AES.state.rememberTabsAfterClose = false;
     }
@@ -25,6 +28,15 @@
     }
     if (typeof AES.state.hideEarlyAccessLabels !== 'boolean') {
         AES.state.hideEarlyAccessLabels = false;
+    }
+    if (typeof AES.state.showTabBarOnNonIframePages !== 'boolean') {
+        AES.state.showTabBarOnNonIframePages = false;
+    }
+    if (typeof AES.state.resizableTabBarEnabled !== 'boolean') {
+        AES.state.resizableTabBarEnabled = false;
+    }
+    if (typeof AES.state.tabBarWidth !== 'number') {
+        AES.state.tabBarWidth = AES.BAR_W || 240;
     }
 
     AES.hasChromeStorage = function hasChromeStorage() {
@@ -97,10 +109,22 @@
         return ['horizontal', 'vertical'].includes(value) ? value : 'horizontal';
     }
 
+    function readTabBarWidth(settings) {
+        const value = settings && Number(settings.tabBarWidth);
+        const min = AES.BAR_W_MIN || 56;
+        const max = AES.BAR_W_MAX || 420;
+        const fallback = AES.BAR_W || 240;
+        if (!Number.isFinite(value)) return fallback;
+        return Math.max(min, Math.min(max, Math.round(value)));
+    }
+
     AES.loadSettings = async function loadSettings() {
         if (AES.hasChromeStorage()) {
             const stored = await AES.getChromeLocal(AES.SETTINGS_STORAGE_KEY);
             const settings = stored && stored[AES.SETTINGS_STORAGE_KEY];
+            AES.state.extensionEnabled = settings && typeof settings.extensionEnabled === 'boolean'
+                ? settings.extensionEnabled
+                : true;
             AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
@@ -109,12 +133,18 @@
             AES.state.barOrientation = readBarOrientation(settings);
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
+            AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.tabBarWidth = readTabBarWidth(settings);
             return;
         }
 
         try {
             const raw = localStorage.getItem(AES.SETTINGS_STORAGE_KEY);
             const settings = raw ? JSON.parse(raw) : null;
+            AES.state.extensionEnabled = settings && typeof settings.extensionEnabled === 'boolean'
+                ? settings.extensionEnabled
+                : true;
             AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
@@ -123,24 +153,35 @@
             AES.state.barOrientation = readBarOrientation(settings);
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
+            AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.tabBarWidth = readTabBarWidth(settings);
         } catch (e) {
+            AES.state.extensionEnabled = true;
             AES.state.rememberTabsAfterClose = false;
             AES.state.phoneLinksEnabled = true;
             AES.state.themePreference = 'auto';
             AES.state.barOrientation = 'horizontal';
             AES.state.darkModeEnhancerEnabled = false;
             AES.state.hideEarlyAccessLabels = false;
+            AES.state.showTabBarOnNonIframePages = false;
+            AES.state.resizableTabBarEnabled = false;
+            AES.state.tabBarWidth = AES.BAR_W || 240;
         }
     };
 
     AES.saveSettings = async function saveSettings() {
         const payload = {
+            extensionEnabled: AES.state.extensionEnabled !== false,
             rememberTabsAfterClose: !!AES.state.rememberTabsAfterClose,
             phoneLinksEnabled: !!AES.state.phoneLinksEnabled,
             themePreference: readThemePreference(AES.state),
             barOrientation: readBarOrientation(AES.state),
             darkModeEnhancerEnabled: !!AES.state.darkModeEnhancerEnabled,
             hideEarlyAccessLabels: !!AES.state.hideEarlyAccessLabels,
+            showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
+            resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
+            tabBarWidth: readTabBarWidth(AES.state),
         };
         if (AES.hasChromeStorage()) {
             await AES.setChromeLocal({ [AES.SETTINGS_STORAGE_KEY]: payload });

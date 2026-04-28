@@ -217,6 +217,10 @@
     };
 
     AES.initPhoneLinks = function initPhoneLinks() {
+        if (AES.featuresEnabled && !AES.featuresEnabled()) {
+            AES.setPhoneLinksEnabled(false);
+            return;
+        }
         if (!AES.state.phoneLinksEnabled) return;
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', function () {
@@ -232,7 +236,12 @@
             if (areaName !== 'local') return;
             const change = changes[AES.SETTINGS_STORAGE_KEY];
             const settings = change && change.newValue;
-            if (!settings || typeof settings.phoneLinksEnabled !== 'boolean') return;
+            if (!settings) return;
+            if (settings.extensionEnabled === false) {
+                AES.setPhoneLinksEnabled(false);
+                return;
+            }
+            if (typeof settings.phoneLinksEnabled !== 'boolean') return;
             AES.setPhoneLinksEnabled(settings.phoneLinksEnabled);
         });
     }
