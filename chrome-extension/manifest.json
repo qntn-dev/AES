@@ -12,7 +12,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://ww19.autotask.net/*"
+        "https://*.autotask.net/*"
       ],
       "all_frames": true,
       "js": [
@@ -33,7 +33,7 @@
     "service_worker": "aes-background.js"
   },
   "host_permissions": [
-    "https://ww19.autotask.net/*"
+    "https://*.autotask.net/*"
   ],
   "web_accessible_resources": [
     {
@@ -41,7 +41,7 @@
         "aes-page-bridge.js"
       ],
       "matches": [
-        "https://ww19.autotask.net/*"
+        "https://*.autotask.net/*"
       ]
     }
   ],
