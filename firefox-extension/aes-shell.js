@@ -4303,7 +4303,7 @@
         const everywhereName = document.createElement('span');
         everywhereName.className = 'at-tabs-setting-name';
         everywhereName.textContent = '[BETA] Show tab bar on all Autotask pages';
-        everywhereLabel.appendChild(createSettingInfo('Show the AES Tab Bar on all Autotask pages independent of the usage of iFrames, for example: Umbrella Contracts or Resource Planner'));
+        everywhereLabel.appendChild(createSettingInfo('Show the AES Tab Bar on all Autotask pages independent of the usage of iFrames, for example: Umbrella Contracts or Resource Planner. Note that new Autotask Onyx pages will always show on the Home tab because the tabs depend on iFrames.'));
         everywhereLabel.appendChild(everywhereName);
 
         const everywhereToggle = document.createElement('span');
