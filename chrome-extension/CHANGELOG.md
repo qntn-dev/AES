@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- Fixed top-level Onyx bookmark and history/menu actions that route via `window.open(...)` or `history.pushState(...)` but should open inside the AES tab bar:
+  - the page bridge is now injected on the top-level page as well as inside iframe pages
+  - page-bridge messages now use the shared AES namespace consistently, fixing intercepted actions that were swallowed before reaching the shell
+  - newly observed handled landing routes are now always promoted into an AES tab (or focused if already open) instead of sometimes rendering inside the Home tab
+- Fixed tab classification and metadata extraction for detail-route `/Index` variants such as organization/account pages opened from bookmarks, so they no longer fall back to ticket styling/type.
+- Fixed an early-load race where top-level route promotion could run before the shell viewport existed, causing `appendChild` crashes on some landing routes such as project detail pages.
+
 ## 0.3.99
 
 - Added support for all Autotask regional hosts by broadening extension injection, host permissions, and web-accessible resource matches from `ww19.autotask.net` to `*.autotask.net`. This fixes the issue where the extension appeared installed but did nothing on non-`ww19` Autotask zones.

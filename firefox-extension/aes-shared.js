@@ -5,7 +5,7 @@
     if (AES.sharedInitialized) return;
     AES.sharedInitialized = true;
 
-    AES.version = '0.3.99';
+    AES.version = '0.4.0';
     AES.isTop = window.top === window.self;
     AES.MSG_NS = 'autotask-tabs-v1';
     AES.HANDLED_PATHS = [

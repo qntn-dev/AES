@@ -4,7 +4,7 @@
     if (window.__AESPageBridgeInstalled) return;
     window.__AESPageBridgeInstalled = true;
 
-    const MSG_NS = 'autotask-tabs-page-bridge-v1';
+    const MSG_NS = 'autotask-tabs-v1';
     let pendingMapOpenUntil = 0;
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',

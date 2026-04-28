@@ -2200,7 +2200,7 @@
     }
 
     function tabTypeForUrl(url) {
-        const p = AES.pathOf(url);
+        const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
         if (p === '/mvc/crm/accountdetail.mvc') return 'account';
         if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') return 'person';
@@ -3725,6 +3725,9 @@
     // check in `openTab` — used by `duplicateTab` so two tabs can legitimately
     // point at the same Autotask entity.
     function createAndAddTab(url, seedFromTab) {
+        if (!state.viewport) {
+            return null;
+        }
         const iframeEl = createTabIframe(url);
         state.viewport.appendChild(iframeEl);
         const fallback = fallbackTabMetadataForUrl(url);
@@ -3882,6 +3885,7 @@
     }
 
     function maybePromoteTopLevelLandingRoute() {
+        if (!state.viewport) return;
         const handledUrl = AES.extractHandledUrlFromLandingPageUrl(location.href);
         if (!handledUrl) {
             state.lastObservedTopHandledUrl = '';
@@ -3889,9 +3893,7 @@
         }
         if (handledUrl === state.lastObservedTopHandledUrl) return;
         state.lastObservedTopHandledUrl = handledUrl;
-        if (state.activeId === null) {
-            openTab(handledUrl);
-        }
+        openTab(handledUrl);
     }
 
     // Autotask exposes the active theme via inline CSS custom properties on

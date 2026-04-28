@@ -780,7 +780,7 @@
     }
 
     function extractInfo() {
-        const p = AES.pathOf(location.href);
+        const p = AES.normalizeHandledPath(AES.pathOf(location.href));
         if (p === '/mvc/inventory/costitem.mvc/shipping') {
             return extractGenericInfo('Shipping');
         }
@@ -1276,7 +1276,7 @@
 
             if (event.source !== window) return;
             if (event.origin !== location.origin) return;
-            if (!data || data.__ns !== 'autotask-tabs-page-bridge-v1') return;
+            if (!data || data.__ns !== AES.MSG_NS) return;
             if (data.type === 'open' && data.url && AES.isHandledUrl(data.url)) {
                 postToTop({ type: 'open', url: data.url });
             }
