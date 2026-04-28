@@ -500,6 +500,39 @@
         return (s || '').replace(/\s+/g, ' ').trim();
     }
 
+    function collectAccessibleDocuments(rootDoc, maxDepth) {
+        const docs = [];
+        const seen = new Set();
+
+        function walk(doc, depth) {
+            if (!doc || seen.has(doc)) return;
+            seen.add(doc);
+            docs.push(doc);
+            if (depth >= maxDepth) return;
+
+            for (const frame of doc.querySelectorAll('iframe, frame')) {
+                try {
+                    const childDoc = frame.contentDocument;
+                    if (childDoc) walk(childDoc, depth + 1);
+                } catch (e) {}
+            }
+        }
+
+        walk(rootDoc, 0);
+        return docs;
+    }
+
+    function queryAcrossAccessibleDocuments(selector, maxDepth) {
+        const docs = collectAccessibleDocuments(document, maxDepth || 2);
+        for (const doc of docs) {
+            try {
+                const el = doc.querySelector(selector);
+                if (el) return el;
+            } catch (e) {}
+        }
+        return null;
+    }
+
     function findFieldValue(labelText) {
         const rows = document.querySelectorAll('.ReadOnlyData');
         const wanted = labelText.toLowerCase();
@@ -779,13 +812,47 @@
         };
     }
 
+    function extractSecondaryName(text) {
+        const txt = cleanText(text);
+        if (!txt) return '';
+
+        const dashMatch = txt.match(/^(?:[-\u2010-\u2015\u2212])\s*(.+?)(?:\s*\(|$)/);
+        if (dashMatch) {
+            return dashMatch[1].trim().slice(0, 80);
+        }
+
+        const parenMatch = txt.match(/^(.+?)\s*\(/);
+        if (parenMatch) {
+            return parenMatch[1].trim().slice(0, 80);
+        }
+
+        return txt.slice(0, 80);
+    }
+
+    function extractSecondaryDate(text) {
+        const txt = cleanText(text);
+        if (!txt) return '';
+        const match = txt.match(/\b(\d{2}\/\d{2}\/\d{4})\b/);
+        return match ? match[1] : '';
+    }
+
+    function extractTimesheetInfo() {
+        const info = extractGenericInfo('Timesheet');
+        const secondary = queryAcrossAccessibleDocuments('.SecondaryTitle', 3);
+        if (!secondary) return info;
+
+        info.number = extractSecondaryDate(secondary.textContent).slice(0, 40);
+        info.contact = extractSecondaryName(secondary.textContent);
+        return info;
+    }
+
     function extractInfo() {
         const p = AES.normalizeHandledPath(AES.pathOf(location.href));
         if (p === '/mvc/inventory/costitem.mvc/shipping') {
             return extractGenericInfo('Shipping');
         }
         if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') {
-            return extractGenericInfo('Timesheet');
+            return extractTimesheetInfo();
         }
         if (p === '/contracts/views/contractview.asp' || p === '/contracts/views/contractsummary.asp') {
             return extractContractInfo();

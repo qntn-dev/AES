@@ -157,12 +157,15 @@
                 width: 100%;
                 overflow-x: auto;
                 overflow-y: hidden;
-                scrollbar-color: rgba(71, 85, 105, 0.38) transparent;
-                scrollbar-width: thin;
+                -ms-overflow-style: none;
+                scrollbar-color: transparent transparent;
+                scrollbar-width: none;
                 scroll-behavior: smooth;
             }
             .at-tabs-scroll::-webkit-scrollbar {
-                height: 3px;
+                width: 0;
+                height: 0;
+                display: none;
             }
             .at-tabs-scroll::-webkit-scrollbar-track {
                 background: transparent;
@@ -1266,7 +1269,7 @@
                 color: #f1f5f9;
             }
             html.aes-dark .at-tabs-scroll {
-                scrollbar-color: rgba(203, 213, 225, 0.34) transparent;
+                scrollbar-color: transparent transparent;
             }
             html.aes-dark .at-tabs-scroll::-webkit-scrollbar-thumb {
                 background: rgba(203, 213, 225, 0.34);

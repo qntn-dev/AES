@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.2
+
+### New features:
+
+- No new features in this release.
+
+### Improvements:
+
+- Timesheet tabs now show the submitted date and resource name from the page metadata.
+
+### Fixes:
+
+- Fixed the AES tab bar so the native OS scrollbar no longer appears and crops tabs.
+
 ## 0.4.1
 
 ### New features:
