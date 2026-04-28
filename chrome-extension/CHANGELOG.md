@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.1
+
+### New features:
+
+- Added AES tab-bar support for legacy `View Timesheet` pages opened via `/timeSheets/views/readonly/tmsReadOnly_100.asp?...`
+
+### Improvements:
+
+- Timesheet tabs now use a dedicated clock icon and `timesheet` tab type instead of falling back to a temporary generic type.
+
+### Fixes:
+
+- No additional fixes in this release.
+
 ## 0.4.0
 
 - Fixed top-level Onyx bookmark and history/menu actions that route via `window.open(...)` or `history.pushState(...)` but should open inside the AES tab bar:

@@ -18,6 +18,7 @@
         '/autotask/popups/tickets/recurring_ticket.aspx',
         '/autotask/autotaskextend/livelinks/livelinkeditor.aspx',
         '/autotask/autotaskextend/directory_view.aspx',
+        '/timesheets/views/readonly/tmsreadonly_100.asp',
         '/mvc/inventory/costitem.mvc/shipping',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',

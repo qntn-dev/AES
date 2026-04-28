@@ -784,6 +784,9 @@
         if (p === '/mvc/inventory/costitem.mvc/shipping') {
             return extractGenericInfo('Shipping');
         }
+        if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') {
+            return extractGenericInfo('Timesheet');
+        }
         if (p === '/contracts/views/contractview.asp' || p === '/contracts/views/contractsummary.asp') {
             return extractContractInfo();
         }
