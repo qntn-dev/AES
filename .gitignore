@@ -1,0 +1,26 @@
+.DS_Store
+.claude/
+PROJECT_HANDOFF.md
+
+# Packed extension artifacts and signing material
+*.crx
+*.pem
+*.zip
+*.xpi
+
+# Generated release output
+dist/
+
+# Safari / Xcode generated build output
+build/
+DerivedData/
+*.xcuserstate
+*.xcworkspace/xcuserdata/
+*.xcodeproj/xcuserdata/
+
+# Local debug / scratch captures
+broken.html
+iframe.html
+iframev2.html
+ticket.html
+umbrella.html
