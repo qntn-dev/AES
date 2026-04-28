@@ -50,6 +50,10 @@ git pull
 
 Then reload the extension in your browser.
 
+## Privacy
+
+See [PRIVACY_POLICY.md](/Users/quintenvannoorloos/Desktop/Autotask%20Userscript/PRIVACY_POLICY.md) for the repository privacy policy used for store/distribution documentation.
+
 ## Project Structure
 
 - `chrome-extension/`: primary source of truth
