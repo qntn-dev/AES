@@ -29,11 +29,17 @@
     if (typeof AES.state.hideEarlyAccessLabels !== 'boolean') {
         AES.state.hideEarlyAccessLabels = false;
     }
+    if (typeof AES.state.replaceCalendarWithResourcePlanner !== 'boolean') {
+        AES.state.replaceCalendarWithResourcePlanner = false;
+    }
     if (typeof AES.state.showTabBarOnNonIframePages !== 'boolean') {
         AES.state.showTabBarOnNonIframePages = false;
     }
     if (typeof AES.state.resizableTabBarEnabled !== 'boolean') {
         AES.state.resizableTabBarEnabled = false;
+    }
+    if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
+        AES.state.skipPeekBackdropCloseWarning = false;
     }
     if (typeof AES.state.tabBarWidth !== 'number') {
         AES.state.tabBarWidth = AES.BAR_W || 240;
@@ -133,8 +139,10 @@
             AES.state.barOrientation = readBarOrientation(settings);
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
             return;
         }
@@ -153,8 +161,10 @@
             AES.state.barOrientation = readBarOrientation(settings);
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
         } catch (e) {
             AES.state.extensionEnabled = true;
@@ -164,8 +174,10 @@
             AES.state.barOrientation = 'horizontal';
             AES.state.darkModeEnhancerEnabled = false;
             AES.state.hideEarlyAccessLabels = false;
+            AES.state.replaceCalendarWithResourcePlanner = false;
             AES.state.showTabBarOnNonIframePages = false;
             AES.state.resizableTabBarEnabled = false;
+            AES.state.skipPeekBackdropCloseWarning = false;
             AES.state.tabBarWidth = AES.BAR_W || 240;
         }
     };
@@ -179,8 +191,10 @@
             barOrientation: readBarOrientation(AES.state),
             darkModeEnhancerEnabled: !!AES.state.darkModeEnhancerEnabled,
             hideEarlyAccessLabels: !!AES.state.hideEarlyAccessLabels,
+            replaceCalendarWithResourcePlanner: !!AES.state.replaceCalendarWithResourcePlanner,
             showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
+            skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             tabBarWidth: readTabBarWidth(AES.state),
         };
         if (AES.hasChromeStorage()) {

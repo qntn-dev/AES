@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.5.0
+
+### New features:
+
+- Added `Replace legacy Dispatch Calendar with Resource Planner`, a separate UI Enhancement setting that turns the native Calendar button into a Resource Planner shortcut and removes the dropdown chevron.
+- Added `[BETA] Show tab bar on all Autotask pages` for modern non-iframe Onyx pages such as Resource Planner and Umbrella Contracts.
+- Added `[BETA] Allow resizing of the vertical tab bar`, including compact icon-only mode and delayed hover expansion.
+- Added a full extension enable/disable toggle in AES Settings.
+- Added a configurable Peek outside-click close confirmation with a matching AES Settings toggle.
+
+### Improvements:
+
+- Reworked AES Settings into category pages for General, UI Enhancement, Tab bar, and Miscellaneous settings.
+- Improved Peek performance by reusing the already-loaded tab iframe when possible.
+- Added smoother open and close animations for Peek and AES Settings, respecting reduced-motion preferences.
+- Limited active runtime behavior to regional `ww##.autotask.net` hosts and added feature gates for disabled-state behavior.
+- Restored Home/native activation when navigating with Autotask's own navigation and updated UI Enhancement colors to use `#1F2227`.
+
+### Fixes:
+
+- Prevented AES from running on Autotask authentication pages.
+- Added a specific `PageHeadingContainer` background override under UI Enhancement.
+- Reduced compact vertical tab bar hover/resize conflicts.
+- Fixed the Peek outside-click "Do not show this again" choice being effectively permanent by exposing it in settings.
+
 ## 0.4.4-experimental
 
 ### New features:

@@ -19,6 +19,7 @@
         nativeSettingsMenuItem: null,
         nativeSettingsObserver: null,
         nativeSettingsAvailable: false,
+        resourcePlannerShortcutObserver: null,
         topLevelRouteWatchInstalled: false,
         tabScroll: null,
         scrollLeftButton: null,
@@ -31,16 +32,22 @@
         nonIframeReservedContainer: null,
         settingsModal: null,
         settingsBackdrop: null,
+        settingsClosing: false,
         mapModal: null,
         mapBackdrop: null,
         peekBackdrop: null,
         peekWrapper: null,
         peekModal: null,
+        peekClosing: false,
+        peekCloseConfirmShade: null,
+        peekCloseConfirm: null,
         peekTabId: null,
+        peekPrewarm: null,
         peekReuseIframe: null,
         peekReusePrevStyle: '',
+        peekViewportPrevStyle: '',
         peekSyncOverlay: null,
-        peekResizeObs: null,
+        peekResizeObserver: null,
         hoverCard: null,
         hoverTabId: null,
         hoverShowTimer: 0,
@@ -81,8 +88,10 @@
         homeTitle: 'Home',
         darkModeEnhancerEnabled: !!(AES.state && AES.state.darkModeEnhancerEnabled),
         hideEarlyAccessLabels: !!(AES.state && AES.state.hideEarlyAccessLabels),
+        replaceCalendarWithResourcePlanner: !!(AES.state && AES.state.replaceCalendarWithResourcePlanner),
         showTabBarOnNonIframePages: !!(AES.state && AES.state.showTabBarOnNonIframePages),
         resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
+        skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
         tabBarHoverExpanded: false,
         tabBarExpandTimer: 0,
@@ -351,6 +360,83 @@
                 animation: at-tabs-spin 0.8s linear infinite;
             }
             @keyframes at-tabs-spin { to { transform: rotate(360deg); } }
+            @keyframes aes-backdrop-in {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes aes-backdrop-out {
+                from { opacity: 1; }
+                to { opacity: 0; }
+            }
+            @keyframes aes-settings-in {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, calc(-50% + 14px)) scale(0.975);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+            }
+            @keyframes aes-settings-out {
+                from {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: translate(-50%, calc(-50% + 12px)) scale(0.982);
+                }
+            }
+            @keyframes aes-peek-wrapper-in {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, calc(-50% + 18px)) scale(0.976);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+            }
+            @keyframes aes-peek-wrapper-out {
+                from {
+                    opacity: 1;
+                    transform: translate(-50%, -50%) scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: translate(-50%, calc(-50% + 14px)) scale(0.982);
+                }
+            }
+            @keyframes aes-peek-live-in {
+                from {
+                    opacity: 0;
+                    transform: translateY(18px) scale(0.976);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+            }
+            @keyframes aes-peek-live-out {
+                from {
+                    opacity: 1;
+                    transform: translateY(0) scale(1);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateY(14px) scale(0.982);
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .at-tabs-settings-backdrop,
+                .at-tabs-settings-modal,
+                .at-tabs-peek-backdrop,
+                .at-tabs-peek-wrapper,
+                .at-tabs-viewport.peek-active {
+                    animation: none !important;
+                }
+            }
 
             /* ============================================================
                Custom scrollbars for the top document. Uses :where() so the
@@ -757,6 +843,10 @@
                 inset: 0;
                 background: rgba(15, 23, 42, 0.16);
                 z-index: 1300;
+                animation: aes-backdrop-in 260ms ease-out both;
+            }
+            .at-tabs-settings-backdrop.closing {
+                animation: aes-backdrop-out 220ms ease-in both;
             }
             .at-tabs-map-backdrop {
                 position: fixed;
@@ -840,6 +930,10 @@
                 inset: 0;
                 background: rgba(15, 23, 42, 0.42);
                 z-index: 1500;
+                animation: aes-backdrop-in 280ms ease-out both;
+            }
+            .at-tabs-peek-backdrop.closing {
+                animation: aes-backdrop-out 240ms ease-in both;
             }
             .at-tabs-peek-wrapper {
                 position: fixed;
@@ -851,10 +945,14 @@
                 gap: 12px;
                 z-index: 1501;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                animation: aes-peek-wrapper-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+            .at-tabs-peek-wrapper.closing {
+                animation: aes-peek-wrapper-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
             }
             .at-tabs-peek-modal {
-                width: min(1100px, calc(100vw - 140px));
-                height: min(780px, calc(100vh - 60px));
+                width: min(1430px, calc(100vw - 96px));
+                height: min(1014px, calc(100vh - 48px));
                 background: #ffffff;
                 border: 1px solid #dbe2ea;
                 border-radius: 14px;
@@ -863,12 +961,71 @@
                 display: flex;
                 flex-direction: column;
             }
+            .at-tabs-peek-modal.live-reuse {
+                background: transparent;
+                border-color: transparent;
+            }
             .at-tabs-peek-frame {
                 width: 100%;
                 height: 100%;
                 border: 0;
                 flex: 1 1 auto;
                 background: #ffffff;
+            }
+            .at-tabs-viewport.peek-active {
+                position: fixed !important;
+                display: block !important;
+                overflow: hidden !important;
+                background: transparent !important;
+                border: 0 !important;
+                border-radius: 14px !important;
+                box-shadow: none !important;
+                z-index: 1502 !important;
+                scrollbar-gutter: auto !important;
+                transform-origin: center center !important;
+                animation: aes-peek-live-in 340ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+            .at-tabs-viewport.peek-closing {
+                animation: aes-peek-live-out 240ms cubic-bezier(0.4, 0, 1, 1) both !important;
+            }
+            .at-tabs-viewport.peek-active > iframe {
+                position: absolute !important;
+                inset: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                margin: 0 !important;
+                border: 0 !important;
+                background: transparent !important;
+                scrollbar-gutter: auto !important;
+            }
+            .at-tabs-viewport.peek-active > iframe.at-tab-peeking {
+                display: block !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+                pointer-events: auto !important;
+                z-index: 1 !important;
+            }
+            .at-tabs-peek-loader {
+                position: absolute;
+                inset: 0;
+                z-index: 2;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255, 255, 255, 0.85);
+                pointer-events: none;
+            }
+            .at-tabs-peek-loader.hidden {
+                display: none;
+            }
+            .at-tabs-peek-loader::before {
+                content: "";
+                width: 36px;
+                height: 36px;
+                border: 3px solid #cbd5e1;
+                border-top-color: #376A94;
+                border-radius: 50%;
+                animation: at-tabs-spin 0.8s linear infinite;
             }
             .at-tabs-peek-actions {
                 display: flex;
@@ -915,19 +1072,105 @@
             .at-tabs-peek-action.close-action:hover {
                 color: #0f172a;
             }
-            /* When peeking an already-open tab we re-use its existing iframe
-               instead of mounting a fresh one (which would force a reload).
-               Promote the iframe to a fixed overlay matching the modal area. */
-            .at-tabs-viewport > iframe.at-tab-peeking {
-                position: fixed !important;
-                inset: auto !important;
-                visibility: visible !important;
-                pointer-events: auto !important;
-                z-index: 1502 !important;
-                background: #ffffff !important;
-                border: 1px solid #dbe2ea !important;
-                border-radius: 14px !important;
-                box-shadow: 0 30px 80px rgba(15, 23, 42, 0.42) !important;
+            .at-tabs-peek-confirm-shade {
+                position: fixed;
+                inset: 0;
+                z-index: 1509;
+                background: rgba(2, 6, 23, 0.36);
+            }
+            .at-tabs-peek-confirm {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                z-index: 1510;
+                width: 360px;
+                max-width: calc(100vw - 32px);
+                padding: 18px;
+                border: 1px solid #dbe2ea;
+                border-radius: 14px;
+                background: #ffffff;
+                color: #0f172a;
+                box-shadow: 0 24px 70px rgba(15, 23, 42, 0.35);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+            }
+            .at-tabs-peek-confirm-title {
+                margin: 0 0 14px;
+                font-size: 15px;
+                line-height: 1.4;
+                font-weight: 700;
+            }
+            .at-tabs-peek-confirm-check {
+                display: flex;
+                align-items: center;
+                gap: 9px;
+                margin-bottom: 16px;
+                color: #475569;
+                font-size: 13px;
+                user-select: none;
+            }
+            .at-tabs-peek-confirm-check input {
+                appearance: none;
+                -webkit-appearance: none;
+                width: 16px;
+                height: 16px;
+                flex: 0 0 16px;
+                margin: 0;
+                border: 1.5px solid #94a3b8;
+                border-radius: 4px;
+                background: #ffffff;
+                display: inline-grid;
+                place-content: center;
+                cursor: pointer;
+            }
+            .at-tabs-peek-confirm-check input::after {
+                content: "";
+                width: 8px;
+                height: 5px;
+                border-left: 2px solid #ffffff;
+                border-bottom: 2px solid #ffffff;
+                transform: rotate(-45deg) translateY(-1px);
+                opacity: 0;
+            }
+            .at-tabs-peek-confirm-check input:checked {
+                border-color: #376A94;
+                background: #376A94;
+            }
+            .at-tabs-peek-confirm-check input:checked::after {
+                opacity: 1;
+            }
+            .at-tabs-peek-confirm-check input:focus-visible {
+                outline: 2px solid rgba(55, 106, 148, 0.35);
+                outline-offset: 2px;
+            }
+            .at-tabs-peek-confirm-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 8px;
+            }
+            .at-tabs-peek-confirm-button {
+                min-height: 34px;
+                padding: 7px 12px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                font: inherit;
+                font-size: 13px;
+                font-weight: 650;
+            }
+            .at-tabs-peek-confirm-button:hover {
+                background: #f8fafc;
+                color: #0f172a;
+            }
+            .at-tabs-peek-confirm-button.primary {
+                border-color: #376A94;
+                background: #376A94;
+                color: #ffffff;
+            }
+            .at-tabs-peek-confirm-button.primary:hover {
+                background: #2f5f85;
             }
             /* --- Tab hover preview card: shows tab metadata on hover-intent. --- */
             .at-tabs-hover-card {
@@ -997,6 +1240,20 @@
                 z-index: 1301;
                 overflow: hidden;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                animation: aes-settings-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+            .at-tabs-settings-modal.closing {
+                animation: aes-settings-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .at-tabs-settings-backdrop,
+                .at-tabs-settings-modal,
+                .at-tabs-peek-backdrop,
+                .at-tabs-peek-wrapper,
+                .at-tabs-viewport.peek-active,
+                .at-tabs-viewport.peek-closing {
+                    animation: none !important;
+                }
             }
             .at-tabs-settings-header {
                 display: flex;
@@ -1300,6 +1557,9 @@
             html.aes-dark .at-tabs-viewport {
                 background: #1F2227;
             }
+            html.aes-dark .at-tabs-viewport.peek-active > iframe {
+                color-scheme: dark !important;
+            }
             html.aes-dark .at-tabs-viewport.split {
                 background: #11161c;
             }
@@ -1548,6 +1808,13 @@
             html.aes-dark .at-tabs-peek-frame {
                 background: #1F2227;
             }
+            html.aes-dark .at-tabs-peek-loader {
+                background: rgba(31, 34, 39, 0.85);
+            }
+            html.aes-dark .at-tabs-peek-loader::before {
+                border-color: #475569;
+                border-top-color: #376A94;
+            }
             html.aes-dark .at-tabs-peek-action {
                 background: #232D37;
                 color: #f1f5f9;
@@ -1562,10 +1829,36 @@
             html.aes-dark .at-tabs-peek-action.close-action:hover {
                 color: #f1f5f9;
             }
-            html.aes-dark .at-tabs-viewport > iframe.at-tab-peeking {
-                background: #1F2227 !important;
-                border-color: #2a2e34 !important;
-                box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7) !important;
+            html.aes-dark .at-tabs-peek-confirm {
+                background: #1F2227;
+                color: #f1f5f9;
+                border-color: #2a2e34;
+                box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+            }
+            html.aes-dark .at-tabs-peek-confirm-check {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-peek-confirm-check input {
+                background: #111827;
+                border-color: #64748b;
+            }
+            html.aes-dark .at-tabs-peek-confirm-check input:checked {
+                background: #376A94;
+                border-color: #376A94;
+            }
+            html.aes-dark .at-tabs-peek-confirm-button {
+                background: #232D37;
+                border-color: #334155;
+                color: #e2e8f0;
+            }
+            html.aes-dark .at-tabs-peek-confirm-button:hover {
+                background: #2a3641;
+                color: #ffffff;
+            }
+            html.aes-dark .at-tabs-peek-confirm-button.primary {
+                background: #376A94;
+                border-color: #376A94;
+                color: #ffffff;
             }
             html.aes-dark .at-tabs-hover-card {
                 background: #1F2227;
@@ -2042,8 +2335,13 @@
         state.tabBarExpandTimer = 0;
     }
 
-    function scheduleTabBarHoverExpand() {
+    function isResizeHandleEvent(event) {
+        return !!(event && event.target && event.target.closest && event.target.closest('.at-tabs-resize-handle'));
+    }
+
+    function scheduleTabBarHoverExpand(event) {
         if (!isCompactVerticalBar() || state.tabBarResizing) return;
+        if (isResizeHandleEvent(event)) return;
         if (state.tabBarResizeHandleHovered) return;
         if (state.tabBarHoverExpanded || state.tabBarExpandTimer) return;
         state.tabBarExpandTimer = window.setTimeout(function () {
@@ -2279,6 +2577,10 @@
     function syncGeometry() {
         state.geometryRaf = 0;
         if (!state.bar) return;
+        if (state.peekReuseIframe && state.peekSyncOverlay) {
+            state.peekSyncOverlay();
+            return;
+        }
         const frame = findContentIframe();
         state.lastGeometryHadNativeFrame = !!frame;
         updateResizableBarClasses();
@@ -2995,6 +3297,7 @@
 
     function openTabContextMenu(tab, x, y) {
         closeTabContextMenu();
+        prewarmPeek(tab);
 
         const menu = document.createElement('div');
         menu.className = 'at-tabs-context-menu';
@@ -3226,6 +3529,7 @@
         });
         el.addEventListener('mouseenter', function () {
             scheduleHoverCard(tab, el);
+            prewarmPeek(tab);
         });
         el.addEventListener('mouseleave', function () {
             hideHoverCard(false);
@@ -3337,6 +3641,9 @@
         });
         handle.addEventListener('mouseleave', function () {
             state.tabBarResizeHandleHovered = false;
+            if (state.bar && state.bar.matches(':hover')) {
+                scheduleTabBarHoverExpand();
+            }
         });
         handle.addEventListener('click', function (event) {
             event.stopPropagation();
@@ -3569,7 +3876,44 @@
         updateTabScrollButtons();
     }
 
-    function closeSettingsModal() {
+    const AES_MODAL_EXIT_MS = 260;
+
+    function prefersReducedMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    }
+
+    function closeSettingsModal(immediate) {
+        if (state.settingsClosing) return;
+        if (immediate || prefersReducedMotion()) {
+            if (state.settingsModal) {
+                state.settingsModal.remove();
+                state.settingsModal = null;
+            }
+            if (state.settingsBackdrop) {
+                state.settingsBackdrop.remove();
+                state.settingsBackdrop = null;
+            }
+            state.settingsClosing = false;
+            return;
+        }
+        if (!state.settingsModal && !state.settingsBackdrop) return;
+        state.settingsClosing = true;
+        if (state.settingsModal) state.settingsModal.classList.add('closing');
+        if (state.settingsBackdrop) state.settingsBackdrop.classList.add('closing');
+        window.setTimeout(function () {
+            if (state.settingsModal) {
+                state.settingsModal.remove();
+                state.settingsModal = null;
+            }
+            if (state.settingsBackdrop) {
+                state.settingsBackdrop.remove();
+                state.settingsBackdrop = null;
+            }
+            state.settingsClosing = false;
+        }, AES_MODAL_EXIT_MS);
+    }
+
+    function removeSettingsModalNow() {
         if (state.settingsModal) {
             state.settingsModal.remove();
             state.settingsModal = null;
@@ -3578,6 +3922,7 @@
             state.settingsBackdrop.remove();
             state.settingsBackdrop = null;
         }
+        state.settingsClosing = false;
     }
 
     const SETTING_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
@@ -3593,7 +3938,7 @@
     }
 
     function openSettingsModal() {
-        if (state.settingsModal) return;
+        if (state.settingsModal || state.settingsClosing) return;
 
         const backdrop = document.createElement('div');
         backdrop.className = 'at-tabs-settings-backdrop';
@@ -3772,6 +4117,38 @@
         earlyAccessRow.appendChild(earlyAccessLabel);
         earlyAccessRow.appendChild(earlyAccessToggle);
 
+        const resourcePlannerRow = document.createElement('label');
+        resourcePlannerRow.className = 'at-tabs-setting-row';
+
+        const resourcePlannerLabel = document.createElement('span');
+        resourcePlannerLabel.className = 'at-tabs-setting-label';
+
+        const resourcePlannerName = document.createElement('span');
+        resourcePlannerName.className = 'at-tabs-setting-name';
+        resourcePlannerName.textContent = 'Replace legacy Dispatch Calendar with Resource Planner';
+        resourcePlannerLabel.appendChild(createSettingInfo('Changes the native Calendar button into a Resource Planner shortcut.'));
+        resourcePlannerLabel.appendChild(resourcePlannerName);
+
+        const resourcePlannerToggle = document.createElement('span');
+        resourcePlannerToggle.className = 'at-tabs-setting-toggle';
+
+        const resourcePlannerInput = document.createElement('input');
+        resourcePlannerInput.type = 'checkbox';
+        resourcePlannerInput.checked = !!state.replaceCalendarWithResourcePlanner;
+        resourcePlannerInput.addEventListener('change', function () {
+            state.replaceCalendarWithResourcePlanner = resourcePlannerInput.checked;
+            AES.state.replaceCalendarWithResourcePlanner = resourcePlannerInput.checked;
+            applyResourcePlannerCalendarShortcut(document);
+            void AES.saveSettings();
+        });
+
+        const resourcePlannerToggleUi = document.createElement('span');
+        resourcePlannerToggleUi.className = 'at-tabs-setting-toggle-ui';
+        resourcePlannerToggle.appendChild(resourcePlannerInput);
+        resourcePlannerToggle.appendChild(resourcePlannerToggleUi);
+        resourcePlannerRow.appendChild(resourcePlannerLabel);
+        resourcePlannerRow.appendChild(resourcePlannerToggle);
+
         appearanceSection.appendChild(appearanceTitle);
         appearanceSection.appendChild(themeRow);
         appearanceSection.appendChild(enhancerRow);
@@ -3826,8 +4203,8 @@
 
         const resizeName = document.createElement('span');
         resizeName.className = 'at-tabs-setting-name';
-        resizeName.textContent = 'Resizable vertical tab bar (test)';
-        resizeLabel.appendChild(createSettingInfo('Experimental: drag the right edge of the vertical tab bar. Very narrow widths switch to icon-only mode and expand on hover.'));
+        resizeName.textContent = '[BETA] Allow resizing of the vertical tab bar';
+        resizeLabel.appendChild(createSettingInfo('Allows the resizing of the vertical AES Tab Bar by dragging the line on the right side. May cause visual issues on the content'));
         resizeLabel.appendChild(resizeName);
 
         const resizeToggle = document.createElement('span');
@@ -3925,8 +4302,8 @@
 
         const everywhereName = document.createElement('span');
         everywhereName.className = 'at-tabs-setting-name';
-        everywhereName.textContent = 'Show on non-iframe pages (test)';
-        everywhereLabel.appendChild(createSettingInfo('Experimental: keeps the AES tab bar visible on modern top-level Onyx pages that do not use a native content iframe. Can overlap page content.'));
+        everywhereName.textContent = '[BETA] Show tab bar on all Autotask pages';
+        everywhereLabel.appendChild(createSettingInfo('Show the AES Tab Bar on all Autotask pages independent of the usage of iFrames, for example: Umbrella Contracts or Resource Planner'));
         everywhereLabel.appendChild(everywhereName);
 
         const everywhereToggle = document.createElement('span');
@@ -3954,6 +4331,37 @@
         everywhereToggle.appendChild(everywhereToggleUi);
         everywhereRow.appendChild(everywhereLabel);
         everywhereRow.appendChild(everywhereToggle);
+
+        const peekConfirmRow = document.createElement('label');
+        peekConfirmRow.className = 'at-tabs-setting-row';
+
+        const peekConfirmLabel = document.createElement('span');
+        peekConfirmLabel.className = 'at-tabs-setting-label';
+
+        const peekConfirmName = document.createElement('span');
+        peekConfirmName.className = 'at-tabs-setting-name';
+        peekConfirmName.textContent = 'Confirm before closing Peek by outside click';
+        peekConfirmLabel.appendChild(createSettingInfo('Shows a confirmation when closing a Peek window by clicking outside it. Disable this to keep the “Do not show this again” behavior.'));
+        peekConfirmLabel.appendChild(peekConfirmName);
+
+        const peekConfirmToggle = document.createElement('span');
+        peekConfirmToggle.className = 'at-tabs-setting-toggle';
+
+        const peekConfirmInput = document.createElement('input');
+        peekConfirmInput.type = 'checkbox';
+        peekConfirmInput.checked = !state.skipPeekBackdropCloseWarning;
+        peekConfirmInput.addEventListener('change', function () {
+            state.skipPeekBackdropCloseWarning = !peekConfirmInput.checked;
+            AES.state.skipPeekBackdropCloseWarning = state.skipPeekBackdropCloseWarning;
+            void AES.saveSettings();
+        });
+
+        const peekConfirmToggleUi = document.createElement('span');
+        peekConfirmToggleUi.className = 'at-tabs-setting-toggle-ui';
+        peekConfirmToggle.appendChild(peekConfirmInput);
+        peekConfirmToggle.appendChild(peekConfirmToggleUi);
+        peekConfirmRow.appendChild(peekConfirmLabel);
+        peekConfirmRow.appendChild(peekConfirmToggle);
 
         const phoneSection = document.createElement('div');
         phoneSection.className = 'at-tabs-settings-section';
@@ -4009,11 +4417,13 @@
         section.appendChild(persistRow);
         section.appendChild(persistNote);
         section.appendChild(everywhereRow);
+        section.appendChild(peekConfirmRow);
         phoneSection.appendChild(phoneRow);
         generalSection.appendChild(enabledRow);
         generalSection.appendChild(themeRow);
         uiSection.appendChild(enhancerRow);
         uiSection.appendChild(earlyAccessRow);
+        uiSection.appendChild(resourcePlannerRow);
 
         const nav = document.createElement('div');
         nav.className = 'at-tabs-settings-nav';
@@ -4179,26 +4589,133 @@
     // --- Peek modal ----------------------------------------------------------
     // Shows a tab's URL inside a modal overlay (Arc-style "peek") with a
     // vertical button column floating to the right: Close + Split-with-current.
-    // The modal mounts a *new* iframe at the same URL — we don't relocate the
-    // tab's existing iframe (DOM relocation forces a reload anyway and the
-    // tab might be visible in split mode).
-    function closePeekModal() {
-        // Restore re-used iframe back to its normal viewport position first
-        // (before the modal is removed, since the modal owns the geometry).
-        if (state.peekReuseIframe) {
-            state.peekReuseIframe.classList.remove('at-tab-peeking');
-            state.peekReuseIframe.style.cssText = state.peekReusePrevStyle || '';
+    function clearPeekPrewarm(keepUrl) {
+        if (!state.peekPrewarm) return null;
+        const prewarm = state.peekPrewarm;
+        if (keepUrl && prewarm.url === keepUrl) return prewarm;
+        try { prewarm.iframe.remove(); } catch (e) {}
+        state.peekPrewarm = null;
+        return null;
+    }
+
+    function prewarmPeek(tab) {
+        if (!tab || !tab.url || state.peekBackdrop) return;
+        if (state.peekPrewarm && state.peekPrewarm.url === tab.url) return;
+        clearPeekPrewarm();
+
+        const iframe = document.createElement('iframe');
+        iframe.className = 'at-tabs-peek-frame';
+        iframe.src = tab.url;
+        iframe.referrerPolicy = 'no-referrer-when-downgrade';
+        iframe.setAttribute('aria-hidden', 'true');
+        iframe.style.position = 'fixed';
+        iframe.style.left = '-10000px';
+        iframe.style.top = '0';
+        iframe.style.width = '1px';
+        iframe.style.height = '1px';
+        iframe.style.opacity = '0';
+        iframe.style.pointerEvents = 'none';
+        const prewarm = { url: tab.url, iframe: iframe, loaded: false };
+        iframe.addEventListener('load', function () {
+            prewarm.loaded = true;
+        }, { once: true });
+        document.body.appendChild(iframe);
+        state.peekPrewarm = prewarm;
+    }
+
+    function stopPeekLiveReuse() {
+        if (state.peekResizeObserver) {
+            try { state.peekResizeObserver.disconnect(); } catch (e) {}
+            state.peekResizeObserver = null;
+        }
+        window.removeEventListener('resize', requestSyncGeometry);
+        const iframe = state.peekReuseIframe;
+        if (iframe) {
+            iframe.classList.remove('at-tab-peeking');
+            iframe.style.cssText = state.peekReusePrevStyle || '';
             state.peekReuseIframe = null;
             state.peekReusePrevStyle = '';
         }
-        if (state.peekSyncOverlay) {
-            window.removeEventListener('resize', state.peekSyncOverlay);
-            state.peekSyncOverlay = null;
+        if (state.viewport) {
+            state.viewport.classList.remove('peek-closing');
+            state.viewport.classList.remove('peek-active');
+            state.viewport.style.cssText = state.peekViewportPrevStyle || '';
         }
-        if (state.peekResizeObs) {
-            state.peekResizeObs.disconnect();
-            state.peekResizeObs = null;
+        state.peekViewportPrevStyle = '';
+        state.peekSyncOverlay = null;
+        requestSyncGeometry();
+    }
+
+    function startPeekLiveReuse(tab, modal) {
+        const iframe = tab && tab.iframeEl;
+        if (!iframe || !iframe.isConnected || !state.viewport) return false;
+
+        clearPeekPrewarm();
+        state.peekReuseIframe = iframe;
+        state.peekReusePrevStyle = iframe.style.cssText || '';
+        state.peekViewportPrevStyle = state.viewport.style.cssText || '';
+
+        const syncOverlay = function () {
+            if (!state.viewport || !modal || !modal.isConnected) return;
+            const rect = modal.getBoundingClientRect();
+            state.viewport.classList.add('peek-active');
+            state.viewport.style.left = rect.left + 'px';
+            state.viewport.style.top = rect.top + 'px';
+            state.viewport.style.width = rect.width + 'px';
+            state.viewport.style.height = rect.height + 'px';
+            state.viewport.style.right = 'auto';
+            state.viewport.style.bottom = 'auto';
+        };
+
+        state.peekSyncOverlay = syncOverlay;
+        state.viewport.classList.add('peek-active');
+        iframe.classList.add('at-tab-peeking');
+        iframe.style.cssText = '';
+        iframe.style.position = 'absolute';
+        iframe.style.inset = '0';
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.display = 'block';
+        iframe.style.visibility = 'visible';
+        iframe.style.opacity = '1';
+        iframe.style.pointerEvents = 'auto';
+        iframe.style.zIndex = '1';
+
+        syncOverlay();
+        if (window.ResizeObserver) {
+            state.peekResizeObserver = new ResizeObserver(syncOverlay);
+            state.peekResizeObserver.observe(modal);
         }
+        window.addEventListener('resize', requestSyncGeometry);
+        console.info('[AES Peek Diagnostic] live iframe reuse enabled', {
+            tabId: tab.id,
+            url: tab.url,
+            iframeSrc: iframe.src,
+            viewportClassName: state.viewport.className
+        });
+        return true;
+    }
+
+    // Diagnostic mode: try to reuse the already-loaded real tab iframe for
+    // Peek. This intentionally stresses the shell so we can inspect why it
+    // fails; if it cannot reuse, it falls back to the temporary iframe path.
+    function closePeekModal(immediate) {
+        if (state.peekClosing && !immediate) return;
+        closePeekCloseConfirm();
+        if (immediate || prefersReducedMotion()) {
+            removePeekModalNow();
+            return;
+        }
+        if (!state.peekBackdrop && !state.peekWrapper && !state.peekReuseIframe) return;
+        state.peekClosing = true;
+        if (state.peekBackdrop) state.peekBackdrop.classList.add('closing');
+        if (state.peekWrapper) state.peekWrapper.classList.add('closing');
+        if (state.viewport && state.peekReuseIframe) state.viewport.classList.add('peek-closing');
+        window.setTimeout(removePeekModalNow, AES_MODAL_EXIT_MS);
+    }
+
+    function removePeekModalNow() {
+        stopPeekLiveReuse();
         if (state.peekBackdrop) {
             state.peekBackdrop.remove();
             state.peekBackdrop = null;
@@ -4209,20 +4726,94 @@
         }
         state.peekModal = null;
         state.peekTabId = null;
-        // Re-apply normal pane positioning in case the re-used iframe needs
-        // its hidden/primary-pane/split-pane classes back to working state.
-        syncTabPaneState();
+        state.peekClosing = false;
+    }
+
+    function closePeekCloseConfirm() {
+        if (state.peekCloseConfirm) {
+            state.peekCloseConfirm.remove();
+            state.peekCloseConfirm = null;
+        }
+        if (state.peekCloseConfirmShade) {
+            state.peekCloseConfirmShade.remove();
+            state.peekCloseConfirmShade = null;
+        }
+    }
+
+    function requestPeekBackdropClose() {
+        if (state.skipPeekBackdropCloseWarning) {
+            closePeekModal();
+            return;
+        }
+        if (state.peekCloseConfirm) return;
+
+        const shade = document.createElement('div');
+        shade.className = 'at-tabs-peek-confirm-shade';
+        shade.addEventListener('click', closePeekCloseConfirm);
+
+        const confirmBox = document.createElement('div');
+        confirmBox.className = 'at-tabs-peek-confirm';
+        confirmBox.setAttribute('role', 'dialog');
+        confirmBox.setAttribute('aria-modal', 'true');
+
+        const title = document.createElement('p');
+        title.className = 'at-tabs-peek-confirm-title';
+        title.textContent = 'Are you sure you want to close the Peek window?';
+
+        const checkLabel = document.createElement('label');
+        checkLabel.className = 'at-tabs-peek-confirm-check';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+
+        const checkText = document.createElement('span');
+        checkText.textContent = 'Do not show this again';
+        checkLabel.appendChild(checkbox);
+        checkLabel.appendChild(checkText);
+
+        const actions = document.createElement('div');
+        actions.className = 'at-tabs-peek-confirm-actions';
+
+        const cancelButton = document.createElement('button');
+        cancelButton.type = 'button';
+        cancelButton.className = 'at-tabs-peek-confirm-button';
+        cancelButton.textContent = 'Cancel';
+        cancelButton.addEventListener('click', closePeekCloseConfirm);
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'at-tabs-peek-confirm-button primary';
+        closeButton.textContent = 'Close Peek';
+        closeButton.addEventListener('click', function () {
+            if (checkbox.checked) {
+                state.skipPeekBackdropCloseWarning = true;
+                AES.state.skipPeekBackdropCloseWarning = true;
+                void AES.saveSettings();
+            }
+            closePeekModal();
+        });
+
+        actions.appendChild(cancelButton);
+        actions.appendChild(closeButton);
+        confirmBox.appendChild(title);
+        confirmBox.appendChild(checkLabel);
+        confirmBox.appendChild(actions);
+        document.body.appendChild(shade);
+        document.body.appendChild(confirmBox);
+        state.peekCloseConfirmShade = shade;
+        state.peekCloseConfirm = confirmBox;
+        closeButton.focus();
     }
 
     function openPeekModal(tab) {
         if (!tab || !tab.url) return;
-        closePeekModal();
+        closePeekModal(true);
         // Hide the hover preview so it doesn't hang over the modal.
         hideHoverCard(true);
 
         const backdrop = document.createElement('div');
         backdrop.className = 'at-tabs-peek-backdrop';
-        backdrop.addEventListener('click', closePeekModal);
+        backdrop.addEventListener('click', requestPeekBackdropClose);
 
         const wrapper = document.createElement('div');
         wrapper.className = 'at-tabs-peek-wrapper';
@@ -4230,17 +4821,35 @@
         const modal = document.createElement('div');
         modal.className = 'at-tabs-peek-modal';
 
-        // Re-use the tab's existing iframe if it's already mounted in the
-        // viewport — moving an iframe across the DOM forces it to reload, so
-        // instead we leave the iframe where it is and overlay it via a fixed-
-        // position class whose box matches the modal's bounding rect.
-        const reuseIframe = !!(tab.iframeEl && tab.iframeEl.isConnected);
-        if (!reuseIframe) {
-            const iframe = document.createElement('iframe');
+        const loader = document.createElement('div');
+        loader.className = 'at-tabs-peek-loader';
+        loader.setAttribute('aria-label', 'Loading');
+
+        const reusedLiveIframe = startPeekLiveReuse(tab, modal);
+        if (reusedLiveIframe) {
+            modal.classList.add('live-reuse');
+            loader.classList.add('hidden');
+            modal.appendChild(loader);
+        } else {
+            const prewarm = clearPeekPrewarm(tab.url);
+            const iframe = prewarm ? prewarm.iframe : document.createElement('iframe');
             iframe.className = 'at-tabs-peek-frame';
-            iframe.src = tab.url;
-            iframe.referrerPolicy = 'no-referrer-when-downgrade';
+            iframe.removeAttribute('aria-hidden');
+            iframe.style.cssText = '';
+            if (!prewarm) {
+                iframe.src = tab.url;
+                iframe.referrerPolicy = 'no-referrer-when-downgrade';
+            }
+            if (prewarm && prewarm.loaded) {
+                loader.classList.add('hidden');
+            } else {
+                iframe.addEventListener('load', function () {
+                    loader.classList.add('hidden');
+                }, { once: true });
+            }
             modal.appendChild(iframe);
+            modal.appendChild(loader);
+            state.peekPrewarm = null;
         }
 
         const actions = document.createElement('div');
@@ -4289,30 +4898,8 @@
         state.peekWrapper = wrapper;
         state.peekModal = modal;
         state.peekTabId = tab.id;
-
-        if (reuseIframe) {
-            const iframeEl = tab.iframeEl;
-            state.peekReuseIframe = iframeEl;
-            state.peekReusePrevStyle = iframeEl.style.cssText || '';
-            iframeEl.classList.add('at-tab-peeking');
-
-            const syncOverlay = function () {
-                if (!modal.isConnected || !iframeEl.isConnected) return;
-                const rect = modal.getBoundingClientRect();
-                iframeEl.style.top = rect.top + 'px';
-                iframeEl.style.left = rect.left + 'px';
-                iframeEl.style.width = rect.width + 'px';
-                iframeEl.style.height = rect.height + 'px';
-            };
-            // Run once now, again next frame after layout settles.
-            syncOverlay();
-            requestAnimationFrame(syncOverlay);
-            state.peekSyncOverlay = syncOverlay;
-            window.addEventListener('resize', syncOverlay);
-            if ('ResizeObserver' in window) {
-                state.peekResizeObs = new ResizeObserver(syncOverlay);
-                state.peekResizeObs.observe(modal);
-            }
+        if (reusedLiveIframe && state.peekSyncOverlay) {
+            requestAnimationFrame(state.peekSyncOverlay);
         }
     }
 
@@ -4863,6 +5450,107 @@
         state.earlyAccessObserver.observe(document.body, { childList: true, subtree: true });
     }
 
+    function findResourcePlannerMenuItem() {
+        const items = Array.from(document.querySelectorAll('li[role="menuitem"]'));
+        return items.find(function (item) {
+            return cleanEarlyAccessText(item.textContent) === 'Resource Planner'
+                || !!Array.from(item.querySelectorAll('span')).find(function (span) {
+                    return cleanEarlyAccessText(span.textContent) === 'Resource Planner';
+                });
+        }) || null;
+    }
+
+    function navigateToResourcePlanner() {
+        const item = findResourcePlannerMenuItem();
+        if (item) {
+            item.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+            item.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+            item.click();
+            return;
+        }
+        const url = new URL('/AutotaskOnyx/LandingPage?view=resource-planner&view-data=e30%3D', location.origin);
+        location.assign(url.href);
+    }
+
+    function applyResourcePlannerCalendarShortcut(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        const buttons = Array.from(scope.querySelectorAll('button[data-onyx-external-id="0C07O8TE"]'));
+        if (scope.matches && scope.matches('button[data-onyx-external-id="0C07O8TE"]')) {
+            buttons.push(scope);
+        }
+
+        buttons.forEach(function (button) {
+            const enabled = featuresEnabled() && !!state.replaceCalendarWithResourcePlanner;
+            const label = button.querySelector('div.flex-grow');
+            const chevron = button.querySelector('span.fa-chevron-down');
+            if (!button.dataset.aesOriginalCalendarLabel && label) {
+                button.dataset.aesOriginalCalendarLabel = label.textContent || 'Calendar';
+            }
+
+            if (!enabled) {
+                if (button.dataset.aesResourcePlannerShortcut === 'true') {
+                    if (label) label.textContent = button.dataset.aesOriginalCalendarLabel || 'Calendar';
+                    if (chevron) {
+                        chevron.style.display = chevron.dataset.aesOriginalDisplay || '';
+                        delete chevron.dataset.aesOriginalDisplay;
+                    }
+                    button.title = button.dataset.aesOriginalCalendarTitle || '';
+                    button.removeAttribute('data-aes-resource-planner-shortcut');
+                }
+                return;
+            }
+
+            if (label) label.textContent = 'Resource Planner';
+            if (!button.dataset.aesOriginalCalendarTitle) {
+                button.dataset.aesOriginalCalendarTitle = button.getAttribute('title') || '';
+            }
+            button.title = 'Open Resource Planner';
+            button.dataset.aesResourcePlannerShortcut = 'true';
+            if (chevron) {
+                if (!chevron.dataset.aesOriginalDisplay) {
+                    chevron.dataset.aesOriginalDisplay = chevron.style.display || '';
+                }
+                chevron.style.setProperty('display', 'none', 'important');
+            }
+        });
+    }
+
+    function installResourcePlannerShortcutWatcher() {
+        applyResourcePlannerCalendarShortcut(document);
+        if (state.resourcePlannerShortcutObserver || !document.body) return;
+        state.resourcePlannerShortcutObserver = new MutationObserver(function (mutations) {
+            for (const mutation of mutations) {
+                for (const node of mutation.addedNodes) {
+                    if (node && node.nodeType === 1) applyResourcePlannerCalendarShortcut(node);
+                }
+            }
+        });
+        state.resourcePlannerShortcutObserver.observe(document.body, { childList: true, subtree: true });
+
+        document.addEventListener('click', function (event) {
+            const button = event.target && event.target.closest
+                ? event.target.closest('button[data-aes-resource-planner-shortcut="true"]')
+                : null;
+            if (!button || !(featuresEnabled() && state.replaceCalendarWithResourcePlanner)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            navigateToResourcePlanner();
+        }, true);
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key !== 'Enter' && event.key !== ' ') return;
+            const button = event.target && event.target.closest
+                ? event.target.closest('button[data-aes-resource-planner-shortcut="true"]')
+                : null;
+            if (!button || !(featuresEnabled() && state.replaceCalendarWithResourcePlanner)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+            navigateToResourcePlanner();
+        }, true);
+    }
+
     function updateSettingsEntryVisibility() {
         if (!state.settingsButton) return;
         state.settingsButton.style.display = 'none';
@@ -5078,8 +5766,11 @@
 
         const bar = document.createElement('div');
         bar.className = 'at-tabs-bar';
-        bar.addEventListener('mouseenter', function () {
-            scheduleTabBarHoverExpand();
+        bar.addEventListener('mouseenter', function (event) {
+            scheduleTabBarHoverExpand(event);
+        });
+        bar.addEventListener('mousemove', function (event) {
+            scheduleTabBarHoverExpand(event);
         });
         bar.addEventListener('mouseleave', function () {
             collapseTabBarHoverExpand();
@@ -5139,6 +5830,9 @@
         if (typeof AES.state.hideEarlyAccessLabels === 'boolean') {
             state.hideEarlyAccessLabels = AES.state.hideEarlyAccessLabels;
         }
+        if (typeof AES.state.replaceCalendarWithResourcePlanner === 'boolean') {
+            state.replaceCalendarWithResourcePlanner = AES.state.replaceCalendarWithResourcePlanner;
+        }
         if (typeof AES.state.showTabBarOnNonIframePages === 'boolean') {
             state.showTabBarOnNonIframePages = AES.state.showTabBarOnNonIframePages;
         }
@@ -5158,6 +5852,7 @@
         installTabContextMenuDismissal();
         installThemeWatcher();
         installEarlyAccessLabelWatcher();
+        installResourcePlannerShortcutWatcher();
         installNativeSettingsMenuItemWatcher();
         if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
     };
