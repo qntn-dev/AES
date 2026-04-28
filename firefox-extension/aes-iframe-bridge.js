@@ -46,6 +46,20 @@
         catch (e) {}
     }
 
+    function extractHandledNavigationUrlFromEventTarget(target) {
+        const anchor = target && target.closest ? target.closest('a[href]') : null;
+        const anchorTargetUrl = extractAnchorUrl(anchor);
+        if (anchorTargetUrl) return anchorTargetUrl;
+
+        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick]') : null;
+        if (!el) return null;
+        const onclickText = el.getAttribute('onclick') || '';
+        if (!onclickText.includes('NewWindowPage') && !onclickText.includes('window.open')) return null;
+
+        const targetUrl = extractUrlFromOnclick(onclickText) || extractWindowOpenUrl(onclickText);
+        return targetUrl ? AES.toAbsoluteUrl(targetUrl) : null;
+    }
+
     // Style Autotask legacy-page primary-action buttons that use the
     // `Button2 ButtonIcon2 NormalBackground` class names (rendered as
     // `<div>`s with `.Spacer` / `.Icon2` / `.Text2` children, even though
@@ -854,6 +868,9 @@
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail') {
             return extractProjectInfo();
         }
+        if (p === '/mvc/projects/taskdetail.mvc') {
+            return extractGenericInfo('Task');
+        }
         if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') {
             return extractPersonInfo();
         }
@@ -1363,33 +1380,37 @@
 
         document.addEventListener('pointerdown', armMapOpenFromEvent, true);
         document.addEventListener('mousedown', armMapOpenFromEvent, true);
+        document.addEventListener('mousedown', function (event) {
+            if (event.button !== 1) return;
+            const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
+            if (!targetUrl) return;
+            event.preventDefault();
+        }, true);
 
         document.addEventListener('click', function (event) {
             armMapOpenFromEvent(event);
 
-            const anchor = event.target.closest('a[href]');
-            const anchorTargetUrl = extractAnchorUrl(anchor);
-            if (anchorTargetUrl) {
-                event.preventDefault();
-                event.stopPropagation();
-                event.stopImmediatePropagation();
-                postToTop({ type: 'open', url: anchorTargetUrl });
-                return;
-            }
-
-            const el = event.target.closest('td[onclick], a[onclick], div[onclick]');
-            if (!el) return;
-            const onclickText = el.getAttribute('onclick') || '';
-            if (!onclickText.includes('NewWindowPage') && !onclickText.includes('window.open')) return;
-
-            const targetUrl = extractUrlFromOnclick(onclickText) || extractWindowOpenUrl(onclickText);
+            const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
             if (!targetUrl) return;
 
             event.preventDefault();
             event.stopPropagation();
             event.stopImmediatePropagation();
 
-            postToTop({ type: 'open', url: AES.toAbsoluteUrl(targetUrl) });
+            postToTop({ type: 'open', url: targetUrl });
+        }, true);
+
+        document.addEventListener('auxclick', function (event) {
+            if (event.button !== 1) return;
+
+            const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
+            if (!targetUrl) return;
+
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+
+            postToTop({ type: 'open-duplicate', url: targetUrl });
         }, true);
 
         if (!window.__AESWindowOpenInterceptInstalled) {

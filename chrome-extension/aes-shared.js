@@ -5,7 +5,7 @@
     if (AES.sharedInitialized) return;
     AES.sharedInitialized = true;
 
-    AES.version = '0.4.2';
+    AES.version = '0.4.3';
     AES.isTop = window.top === window.self;
     AES.MSG_NS = 'autotask-tabs-v1';
     AES.HANDLED_PATHS = [
@@ -23,6 +23,7 @@
         '/timesheets/views/readonly/tmsreadonly_100.asp',
         '/mvc/inventory/costitem.mvc/shipping',
         '/mvc/projects/projectdetail.mvc/projectdetail',
+        '/mvc/projects/taskdetail.mvc',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',
     ];

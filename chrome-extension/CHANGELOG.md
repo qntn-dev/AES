@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.3
+
+### New features:
+
+- Middle-click on supported Autotask links now opens a duplicate AES tab in the background without stealing focus from the current tab.
+
+### Improvements:
+
+- Project task detail pages now open inside the AES tab bar instead of a separate browser tab.
+
+### Fixes:
+
+- Project tabs now keep their existing metadata when navigating to project subpages that do not expose the same details.
+
 ## 0.4.2
 
 ### New features:

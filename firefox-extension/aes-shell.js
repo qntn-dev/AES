@@ -2213,7 +2213,7 @@
             p.includes('/picklistdetailforshippinggrid') ||
             p.includes('/packinglistdetailforshippinggrid')) return 'inventory';
         if (p.startsWith('/contracts/views/contract')) return 'contract';
-        if (p === '/mvc/projects/projectdetail.mvc/projectdetail') return 'project';
+        if (p === '/mvc/projects/projectdetail.mvc/projectdetail' || p === '/mvc/projects/taskdetail.mvc') return 'project';
         return 'ticket';
     }
 
@@ -2257,6 +2257,14 @@
             return {
                 title: 'Project',
                 number: projectId ? 'ID ' + projectId : '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/projects/taskdetail.mvc') {
+            const taskId = params.get('taskId') || params.get('taskid');
+            return {
+                title: 'Task',
+                number: taskId ? 'ID ' + taskId : '',
                 contact: '',
             };
         }
@@ -3729,10 +3737,11 @@
     // Create a fresh tab for `url` and activate it. Bypasses the URL-dedup
     // check in `openTab` — used by `duplicateTab` so two tabs can legitimately
     // point at the same Autotask entity.
-    function createAndAddTab(url, seedFromTab) {
+    function createAndAddTab(url, seedFromTab, options) {
         if (!state.viewport) {
             return null;
         }
+        const opts = options || {};
         const iframeEl = createTabIframe(url);
         state.viewport.appendChild(iframeEl);
         const fallback = fallbackTabMetadataForUrl(url);
@@ -3755,7 +3764,12 @@
         };
         state.tabs.push(normalizeTabState(tab));
         renderTabs();
-        activateTab(tab.id);
+        if (opts.activate === false) {
+            syncTabPaneState();
+            updateHomeTabActive();
+        } else {
+            activateTab(tab.id);
+        }
         requestSyncGeometry();
         saveTabs();
         return tab;
@@ -3800,6 +3814,10 @@
         }
     }
 
+    function shouldPreserveSparseNavMetadata(url) {
+        return tabTypeForUrl(url) === 'project';
+    }
+
     function handleMessage(event) {
         const data = event.data;
         if (!data || data.__ns !== AES.MSG_NS) return;
@@ -3821,6 +3839,11 @@
             return;
         }
 
+        if (data.type === 'open-duplicate' && data.url) {
+            createAndAddTab(data.url, null, { activate: false });
+            return;
+        }
+
         if (data.type === 'map' && data.url) {
             openMapModal(data.url);
             return;
@@ -3830,9 +3853,18 @@
             const tab = findTabFromWindow(event.source);
             if (!tab) return;
             if (data.url) tab.url = data.url;
-            if (data.title) tab.title = data.title;
-            if (data.number !== undefined) tab.number = data.number;
-            if (data.contact !== undefined) tab.contact = data.contact;
+            const preserveSparse = shouldPreserveSparseNavMetadata(tab.url);
+            if (data.title && (!preserveSparse || data.title.trim())) tab.title = data.title;
+            if (data.number !== undefined) {
+                if (!preserveSparse || (typeof data.number === 'string' ? data.number.trim() : data.number)) {
+                    tab.number = data.number;
+                }
+            }
+            if (data.contact !== undefined) {
+                if (!preserveSparse || (typeof data.contact === 'string' ? data.contact.trim() : data.contact)) {
+                    tab.contact = data.contact;
+                }
+            }
             if (data.primaryResource !== undefined) tab.primaryResource = data.primaryResource || null;
             if (data.priority !== undefined) tab.priority = data.priority || '';
             if (data.status !== undefined) tab.status = data.status || '';

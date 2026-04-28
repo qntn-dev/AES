@@ -6,6 +6,7 @@
 
     const MSG_NS = 'autotask-tabs-v1';
     let pendingMapOpenUntil = 0;
+    let pendingDuplicateOpenUntil = 0;
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
         '/mvc/crm/accountdetail.mvc',
@@ -20,6 +21,8 @@
         '/autotask/autotaskextend/directory_view.aspx',
         '/timesheets/views/readonly/tmsreadonly_100.asp',
         '/mvc/inventory/costitem.mvc/shipping',
+        '/mvc/projects/projectdetail.mvc/projectdetail',
+        '/mvc/projects/taskdetail.mvc',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',
     ];
@@ -37,6 +40,10 @@
         'contactID',
         'resourceId',
         'resourceID',
+        'projectId',
+        'projectID',
+        'taskId',
+        'taskID',
         'personId',
         'personID',
         'recurring_ticket_id',
@@ -141,8 +148,20 @@
         return true;
     }
 
+    function postOpenDuplicate(url) {
+        const targetUrl = absoluteUrl(url);
+        if (!targetUrl || !isHandledUrl(targetUrl)) return false;
+        pendingDuplicateOpenUntil = 0;
+        window.postMessage({ __ns: MSG_NS, type: 'open-duplicate', url: targetUrl }, location.origin);
+        return true;
+    }
+
     function isPendingMapOpen() {
         return pendingMapOpenUntil && Date.now() < pendingMapOpenUntil;
+    }
+
+    function isPendingDuplicateOpen() {
+        return pendingDuplicateOpenUntil && Date.now() < pendingDuplicateOpenUntil;
     }
 
     function isMapUrl(url) {
@@ -187,8 +206,47 @@
         return !!clickedMapIcon;
     }
 
+    function extractHandledNavigationUrlFromEventTarget(target) {
+        const anchor = target && target.closest ? target.closest('a[href]') : null;
+        if (anchor) {
+            const hrefUrl = absoluteUrl(anchor.href || anchor.getAttribute('href') || '');
+            if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
+        }
+
+        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick]') : null;
+        if (!el) return '';
+        const onclickText = el.getAttribute('onclick') || '';
+        const newWindowMatch = onclickText.match(
+            /NewWindowPage\s*\(\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*(?:true|false)\s*,\s*'([^']+)'\s*,\s*'([^']+)'/
+        );
+        if (newWindowMatch) {
+            const baseUrl = newWindowMatch[1] || '';
+            const key = newWindowMatch[2] || '';
+            const value = newWindowMatch[3] || '';
+            const url = new URL(absoluteUrl(baseUrl), location.origin);
+            if (!isHandledUrl(url.href)) return '';
+            if (key && value && !url.searchParams.has(key)) url.searchParams.set(key, value);
+            return url.href;
+        }
+
+        const windowOpenMatch = onclickText.match(/window\.open\s*\(\s*['"]([^'"]+)['"]/i);
+        if (windowOpenMatch) {
+            const hrefUrl = absoluteUrl(windowOpenMatch[1] || '');
+            if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
+        }
+
+        return '';
+    }
+
     document.addEventListener('pointerdown', armMapOpenFromEvent, true);
     document.addEventListener('mousedown', armMapOpenFromEvent, true);
+    document.addEventListener('mousedown', function (event) {
+        if (event.button !== 1) return;
+        const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
+        if (!targetUrl) return;
+        pendingDuplicateOpenUntil = Date.now() + 1500;
+        event.preventDefault();
+    }, true);
 
     document.addEventListener('click', function (event) {
         armMapOpenFromEvent(event);
@@ -202,10 +260,20 @@
             }
         }
     }, true);
+    document.addEventListener('auxclick', function (event) {
+        if (event.button !== 1) return;
+        const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
+        if (!targetUrl) return;
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        postOpenDuplicate(targetUrl);
+    }, true);
 
     const originalOpen = window.open;
     window.open = function (url, target, features) {
         if (postMap(url)) return createMapWindow(url);
+        if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return null;
         if (postOpen(url)) return null;
         return originalOpen.apply(window, arguments);
     };
@@ -228,6 +296,7 @@
                 if (mapUrl && postMap(mapUrl)) return false;
             }
             const url = extractHandledUrlFromPageObject(pageObject);
+            if (url && isPendingDuplicateOpen() && postOpenDuplicate(url)) return false;
             if (url && postOpen(url)) return false;
             return originalOpenPage.apply(this, arguments);
         };
