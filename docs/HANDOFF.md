@@ -1,7 +1,7 @@
 # Autotask Enhancement Suite Handoff
 
-Last updated: 2026-04-28  
-Current snapshot: `0.5.0`
+Last updated: 2026-04-29
+Current snapshot: `0.5.2`
 
 This document is the handoff point for continuing work on Autotask Enhancement Suite. It replaces the older extension-readiness notes, which were written before the project became a full browser extension.
 
@@ -41,7 +41,9 @@ These files live under both `chrome-extension/src/` and `firefox-extension/src/`
 - Left-click opens/focuses an AES tab where supported.
 - Split-screen support through the tab right-click menu.
 - Tab organization: drag tabs, pin tabs, color tabs, duplicate tabs, peek tabs, and copy tab/ticket info from context menu actions.
+- The tab context menu includes `Refresh tab` as its first action, which reloads that tab's iframe without refreshing the full browser page.
 - Rich tab metadata for supported pages, including ticket title/number/account/resource avatar or initials, project metadata, timesheet date/resource, contact/account metadata, and LiveLinks icon handling.
+- Visible tab metadata is refreshed automatically on a lightweight timer for the active tab and split tab only, so title/details stay current without polling every background tab.
 - Custom tab hover cards instead of native browser URL tooltips.
 - Optional tab restore after browser close via extension storage.
 - Optional clickable phone numbers inside Autotask pages.
@@ -52,9 +54,7 @@ These files live under both `chrome-extension/src/` and `firefox-extension/src/`
 - Optional Resource Planner replacement changes the native Calendar button into a Resource Planner shortcut and hides the dropdown chevron.
 - Optional beta all-pages tab bar shows the AES tab bar on modern non-iframe Onyx pages. New non-iframe Onyx pages still render on Home because AES tabs depend on iframe-backed pages.
 - Optional beta resizable vertical tab bar supports compact icon-only mode and delayed hover expansion.
-- Optional experimental readonly timesheet enhancement modernizes the legacy approval table/header styling inside the nested timesheet frames.
-- Optional experimental Preferences page enhancement modernizes the legacy user Preferences page inside the Onyx frame.
-- Optional experimental My Workspace & Queues enhancement modernizes the legacy ticket summary iframe inside the Onyx frame.
+- Experimental page redesign toggles are currently hidden in public builds via `SHOW_PAGE_REDESIGN_EXPERIMENTS = false`. The dormant runtime code remains in place for local testing, but users will not see those settings unless the flag is enabled in local source.
 - Peek uses the already-loaded tab iframe where possible, has smoother open/close animation, and includes configurable outside-click close confirmation.
 - Full extension disable toggle keeps settings reachable while suppressing AES behavior.
 
@@ -65,7 +65,7 @@ The settings modal is organized into pages:
 - General: enable/disable the extension and choose theme behavior.
 - UI Enhancement: Autotask UI Enhancement, hide Early Access labels, and Resource Planner replacement.
 - Tab bar: orientation, visibility, persistence, and Peek close confirmation.
-- Experimental: beta layout features and page-specific experiments such as all-pages tab bar, resizable vertical tab bar, readonly timesheet UI enhancement, Preferences page UI enhancement, and My Workspace & Queues UI enhancement.
+- Experimental: beta layout features. Page-specific redesign experiments are hidden in public builds unless `SHOW_PAGE_REDESIGN_EXPERIMENTS` is enabled locally.
 - Miscellaneous: phone number linking.
 
 ## Beta Work In This Snapshot
@@ -97,6 +97,8 @@ Before a stable release, verify in Chrome at minimum:
 - Supported links from iframes and top navigation open in AES tabs.
 - Middle-click opens a background tab without stealing focus.
 - Home tab spinner clears correctly after native iframe loads.
+- Refreshing the browser while a custom tab is active does not let that tab's title overwrite the Home tab label.
+- `Refresh tab` in the tab context menu reloads only the selected custom-tab iframe.
 - Context menus and hover dropdowns inside Autotask iframe pages still work.
 - Vertical tab bar, pinned tabs, colored tabs, drag/drop, split view, and tab overflow still behave correctly.
 - Non-iframe tab bar experiment does not crash or overlap unusably on modern Onyx pages.
@@ -107,27 +109,11 @@ Before a stable release, verify in Chrome at minimum:
 ## Release Notes For Current Snapshot
 
 New features:
-- Added `Replace legacy Dispatch Calendar with Resource Planner`, a separate UI Enhancement setting that turns the native Calendar button into a Resource Planner shortcut and removes the dropdown chevron.
-- Added `[BETA] Show tab bar on all Autotask pages` for modern non-iframe Onyx pages such as Resource Planner and Umbrella Contracts.
-- Added `[BETA] Allow resizing of the vertical tab bar`, including compact icon-only mode and delayed hover expansion.
-- Added `[EXPERIMENTAL] Modernize readonly timesheets` for a scoped visual pass on legacy timesheet approval pages.
-- Added `[EXPERIMENTAL] Modernize Preferences page` for a scoped visual pass on the legacy user Preferences page.
-- Added `[EXPERIMENTAL] Modernize My Workspace & Queues` for a scoped visual pass on the legacy ticket summary iframe.
-- Added full extension enable/disable control in AES Settings.
-- Added configurable Peek outside-click close confirmation with a matching AES Settings toggle.
+- Added `Refresh tab` to the top of the tab right-click menu. It reloads the selected Autotask iframe without refreshing the browser page.
 
 Improvements:
-- Reworked AES Settings into category pages: General, UI Enhancement, Tab bar, and Miscellaneous.
-- Improved Peek performance by reusing the already-loaded tab iframe when possible.
-- Added smoother open and close animations for Peek and AES Settings, respecting reduced-motion preferences.
-- Improved regional-host safety so AES only runs on `ww##.autotask.net`.
-- Restored Home/native activation when navigating via Autotask's native navigation.
-- Updated UI Enhancement colors from `#1E2227` to `#1F2227`.
-- Added a specific `PageHeadingContainer` white background override under UI Enhancement.
+- Visible tabs now request fresh metadata every 7 seconds for the active tab and split tab only.
+- The `Clear tab color` action now uses a clearer swatch-with-slash icon.
 
 Fixes:
-- Prevented AES from running on Autotask authentication pages.
-- Added runtime feature gates so iframe/page bridges stop intercepting when the extension is disabled.
-- Reduced compact tab bar hover/resize conflicts by suppressing expansion while dragging the resize handle.
-- Fixed Resource Planner replacement getting overwritten by Autotask nav overflow updates, which could leave Firefox showing `More` with a chevron.
-- Exposed the Peek outside-click `Do not show this again` preference in AES Settings so it is reversible.
+- Fixed a browser-refresh race where the Home tab could inherit the title of the restored active custom tab instead of the actual native Home iframe.

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.2
+
+### New features:
+
+- Added a `Refresh tab` action to the tab right-click menu. It appears at the top of the menu and reloads the selected Autotask iframe.
+
+### Improvements:
+
+- Added a lightweight automatic metadata refresh for visible tabs, so tab titles and ticket details stay fresher without manually reloading.
+- Updated the `Clear tab color` menu icon to better match what the action actually does.
+
+### Fixes:
+
+- Fixed an issue where refreshing the browser could make the Home tab inherit the title of an open custom tab instead of the real Home iframe.
+
 ## 0.5.1
 
 ### New features:

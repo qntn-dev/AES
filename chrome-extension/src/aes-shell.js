@@ -102,8 +102,10 @@
         tabBarExpandTimer: 0,
         tabBarResizeHandleHovered: false,
         tabBarResizing: false,
+        metadataRefreshTimerId: 0,
     });
     const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
+    const METADATA_REFRESH_INTERVAL_MS = 7000;
 
     const ICONS = {
         home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
@@ -143,6 +145,53 @@
             saveTabs();
         });
         return iframeEl;
+    }
+
+    function requestTabMetadataRefresh(tab) {
+        if (!tab || !tab.iframeEl || !tab.iframeEl.contentWindow) return;
+        try {
+            tab.iframeEl.contentWindow.postMessage({
+                __ns: AES.MSG_NS,
+                type: 'metadata-refresh',
+            }, '*');
+        } catch (e) {
+            // Cross-frame refresh requests are best-effort; the next iframe
+            // navigation/load will still update metadata through the bridge.
+        }
+    }
+
+    function requestVisibleTabMetadataRefresh() {
+        if (!featuresEnabled()) return;
+        const visibleIds = [state.activeId, state.splitId];
+        const seen = new Set();
+        for (const id of visibleIds) {
+            if (id === null || id === undefined || seen.has(id)) continue;
+            seen.add(id);
+            const tab = state.tabs.find(t => t.id === id);
+            if (!tab || tab.loading) continue;
+            requestTabMetadataRefresh(tab);
+        }
+    }
+
+    function startMetadataRefreshTimer() {
+        if (state.metadataRefreshTimerId) return;
+        state.metadataRefreshTimerId = window.setInterval(
+            requestVisibleTabMetadataRefresh,
+            METADATA_REFRESH_INTERVAL_MS
+        );
+        window.setTimeout(requestVisibleTabMetadataRefresh, 1000);
+    }
+
+    function refreshTabIframe(tab) {
+        if (!tab || !tab.iframeEl) return;
+        tab.loading = true;
+        updateTabEl(tab);
+        updateLoaderVisibility();
+        try {
+            tab.iframeEl.contentWindow.location.reload();
+        } catch (e) {
+            tab.iframeEl.src = tab.iframeEl.src || tab.url;
+        }
     }
 
     function updateLoaderVisibility() {
@@ -2968,6 +3017,26 @@
         return null;
     }
 
+    function windowBelongsToIframe(win, iframeEl) {
+        if (!win || !iframeEl || !iframeEl.contentWindow) return false;
+        let w = win;
+        try {
+            while (w) {
+                if (w === iframeEl.contentWindow) return true;
+                if (w.parent === w) break;
+                w = w.parent;
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function findNativeFrameFromWindow(win) {
+        if (windowBelongsToIframe(win, state.nativeFrame)) return state.nativeFrame;
+        const currentNativeFrame = findContentIframe();
+        if (windowBelongsToIframe(win, currentNativeFrame)) return currentNativeFrame;
+        return null;
+    }
+
     function tabTypeForUrl(url) {
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
@@ -3334,6 +3403,15 @@
         menu.className = 'at-tabs-context-menu';
         menu.setAttribute('role', 'menu');
 
+        const refreshButton = createContextMenuItem(
+            'Refresh tab',
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 5v6h-6"/></svg>',
+            function () {
+                closeTabContextMenu();
+                refreshTabIframe(tab);
+            }
+        );
+
         const splitButton = createContextMenuItem(
             '',
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M12 5v14"/></svg>'
@@ -3375,7 +3453,7 @@
 
         const clearColorButton = createContextMenuItem(
             'Clear tab color',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M7 16l10-10"/><path d="M8 7l9 9"/><path d="M14 4l6 6"/></svg>',
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M4 20 20 4"/></svg>',
             function () {
                 closeTabContextMenu();
                 setTabColor(tab.id, '');
@@ -3383,6 +3461,7 @@
         );
         clearColorButton.disabled = !tab.color;
 
+        menu.appendChild(refreshButton);
         menu.appendChild(splitButton);
         menu.appendChild(pinButton);
         menu.appendChild(createContextMenuDivider());
@@ -5422,8 +5501,11 @@
             // Iframe bridge reports its <title>. Tab iframes get their label
             // from the existing 'nav' metadata path, so we ignore those here
             // and only honor titles coming from the native iframe (the page
-            // backing the Home tab).
+            // backing the Home tab). During browser refresh a restored tab can
+            // report before it is fully registered, so require a positive
+            // native-frame source match instead of trusting "not a tab".
             if (findTabFromWindow(event.source)) return;
+            if (!findNativeFrameFromWindow(event.source)) return;
             setHomeTitle(data.title);
             return;
         }
@@ -6278,6 +6360,7 @@
         installEarlyAccessLabelWatcher();
         installResourcePlannerShortcutWatcher();
         installNativeSettingsMenuItemWatcher();
+        startMetadataRefreshTimer();
         if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
     };
 
