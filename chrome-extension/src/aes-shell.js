@@ -6142,12 +6142,10 @@
         titleEl.textContent = tab.title || 'Tab';
         card.appendChild(titleEl);
 
-        if (tab.number) {
-            const numEl = document.createElement('div');
-            numEl.className = 'hc-number';
-            numEl.textContent = tab.number;
-            card.appendChild(numEl);
-        }
+        const typeEl = document.createElement('div');
+        typeEl.className = 'hc-number';
+        typeEl.textContent = tabMetadataFields(tab).type || tabTypeLabel(tab);
+        card.appendChild(typeEl);
 
         function addRow(label, value, copyable) {
             if (!value) return;
