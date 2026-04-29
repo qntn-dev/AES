@@ -56,15 +56,18 @@ See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the repository privacy policy use
 
 ## Project Structure
 
-- `chrome-extension/`: primary source of truth
-- `firefox-extension/`: Firefox build
+- `chrome-extension/`: loadable Chrome extension build
+- `firefox-extension/`: loadable Firefox extension build
 - `safari-extension/`: Safari conversion project
-- `AUTOTASK_ENHANCEMENT_SUITE_EXTENSION_READINESS.md`: current project handoff, status, and release notes
-- `autotask-iframe-simple.legacy.js`, `autotask-iframe.user.legacy.js`, `autotask-iframe-tabs.js`: historical userscript-era reference files
+- `docs/HANDOFF.md`: current project handoff, status, and release notes
+- `docs/ARCHITECTURE.md`: source layout and contributor/LLM orientation
+- `assets/`: source artwork and shared project assets
+- `legacy-userscripts/`: historical userscript-era reference files
+- `scripts/verify-extension-sources.sh`: lightweight validation helper
 
 ## Main Source Files
 
-Inside `chrome-extension/`:
+Inside `chrome-extension/src/` and `firefox-extension/src/`:
 
 - `content-tabs.js`: bootstrap entrypoint
 - `aes-shared.js`: shared constants, route handling, helpers
@@ -74,3 +77,11 @@ Inside `chrome-extension/`:
 - `aes-iframe-bridge.js`: iframe-side metadata and navigation interception
 - `aes-shell.js`: tab shell, settings modal, split view, map modal, layout sync
 - `aes-background.js`: toolbar action handling
+
+## Validation
+
+Run the lightweight source checks before packaging or releasing:
+
+```bash
+scripts/verify-extension-sources.sh
+```

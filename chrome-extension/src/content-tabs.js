@@ -10,22 +10,6 @@
 
     const settingsReady = AES.loadSettings ? AES.loadSettings() : Promise.resolve();
 
-    function injectTopLevelPageBridge() {
-        if (!AES.isTop) return;
-        if (document.documentElement.dataset.aesPageBridgeInjected === 'true') return;
-        document.documentElement.dataset.aesPageBridgeInjected = 'true';
-
-        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
-            ? browser.runtime
-            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
-        if (!runtime || typeof runtime.getURL !== 'function') return;
-
-        const script = document.createElement('script');
-        script.src = runtime.getURL('aes-page-bridge.js');
-        script.onload = function () { script.remove(); };
-        (document.documentElement || document.head).appendChild(script);
-    }
-
     function initSettingsBackedFeatures() {
         return settingsReady.then(function () {
             if (AES.initPhoneLinks) {

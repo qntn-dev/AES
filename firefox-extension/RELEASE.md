@@ -15,6 +15,12 @@
 
 ## Packaging
 
-Create a zip from the contents of this folder, not the folder itself.
+Create an `.xpi` from the contents of this folder, not the folder itself:
 
-For publication, submit the zip to Mozilla Add-ons for signing.
+```bash
+scripts/build-firefox-release.sh
+```
+
+The generated file is written to `dist/autotask-enhancement-suite-firefox-v<version>.xpi`.
+
+For publication, submit the `.xpi` to Mozilla Add-ons for signing.

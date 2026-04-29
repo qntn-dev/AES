@@ -22,5 +22,9 @@
    - Home layout spacing
    - settings modal toggles
    - clickable phone number toggle and `tel:` links inside iframe pages
-3. If icons changed, confirm the extension icon updated in Chrome.
-4. Commit both source and extension-folder changes together.
+3. Build both release artifacts:
+   - `scripts/build-chrome-release.sh`
+   - `scripts/build-firefox-release.sh`
+4. Confirm `dist/` contains the Chrome `.zip` and Firefox `.xpi` for the current manifest version.
+5. If icons changed, confirm the extension icon updated in Chrome.
+6. Commit both source and extension-folder changes together.

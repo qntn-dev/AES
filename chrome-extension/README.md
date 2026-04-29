@@ -4,13 +4,13 @@ This is the first Chrome extension scaffold for the current Autotask work.
 
 ## Current setup
 
-- `aes-shared.js`: shared constants and URL helpers
-- `aes-storage.js`: settings and persistence backend logic
-- `aes-phone-links.js`: phone number detection and `tel:` link creation
-- `aes-page-bridge.js`: page-context navigation bridge for Autotask script-driven opens
-- `aes-iframe-bridge.js`: iframe-side click interception and page metadata reporting
-- `aes-shell.js`: top-page tab shell, settings modal, layout sync, and navigation handling
-- `content-tabs.js`: tiny bootstrap that wires the modules together
+- `src/aes-shared.js`: shared constants and URL helpers
+- `src/aes-storage.js`: settings and persistence backend logic
+- `src/aes-phone-links.js`: phone number detection and `tel:` link creation
+- `src/aes-page-bridge.js`: page-context navigation bridge for Autotask script-driven opens
+- `src/aes-iframe-bridge.js`: iframe-side click interception and page metadata reporting
+- `src/aes-shell.js`: top-page tab shell, settings modal, layout sync, and navigation handling
+- `src/content-tabs.js`: tiny bootstrap that wires the modules together
 - `icons/`: generated Chrome extension icon set based on the original ticket + toolbox artwork
 - `CHANGELOG.md`: human-readable version history
 - `RELEASE.md`: simple local release checklist

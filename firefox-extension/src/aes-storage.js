@@ -38,6 +38,15 @@
     if (typeof AES.state.resizableTabBarEnabled !== 'boolean') {
         AES.state.resizableTabBarEnabled = false;
     }
+    if (typeof AES.state.timesheetUiEnhancementEnabled !== 'boolean') {
+        AES.state.timesheetUiEnhancementEnabled = false;
+    }
+    if (typeof AES.state.preferencesUiEnhancementEnabled !== 'boolean') {
+        AES.state.preferencesUiEnhancementEnabled = false;
+    }
+    if (typeof AES.state.workspaceQueuesUiEnhancementEnabled !== 'boolean') {
+        AES.state.workspaceQueuesUiEnhancementEnabled = false;
+    }
     if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
         AES.state.skipPeekBackdropCloseWarning = false;
     }
@@ -142,6 +151,9 @@
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.timesheetUiEnhancementEnabled = !!(settings && settings.timesheetUiEnhancementEnabled);
+            AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
+            AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
             return;
@@ -164,6 +176,9 @@
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.timesheetUiEnhancementEnabled = !!(settings && settings.timesheetUiEnhancementEnabled);
+            AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
+            AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
         } catch (e) {
@@ -177,6 +192,9 @@
             AES.state.replaceCalendarWithResourcePlanner = false;
             AES.state.showTabBarOnNonIframePages = false;
             AES.state.resizableTabBarEnabled = false;
+            AES.state.timesheetUiEnhancementEnabled = false;
+            AES.state.preferencesUiEnhancementEnabled = false;
+            AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = false;
             AES.state.tabBarWidth = AES.BAR_W || 240;
         }
@@ -194,6 +212,9 @@
             replaceCalendarWithResourcePlanner: !!AES.state.replaceCalendarWithResourcePlanner,
             showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
+            timesheetUiEnhancementEnabled: !!AES.state.timesheetUiEnhancementEnabled,
+            preferencesUiEnhancementEnabled: !!AES.state.preferencesUiEnhancementEnabled,
+            workspaceQueuesUiEnhancementEnabled: !!AES.state.workspaceQueuesUiEnhancementEnabled,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             tabBarWidth: readTabBarWidth(AES.state),
         };

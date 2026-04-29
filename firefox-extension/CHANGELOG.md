@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.5.1
+
+### New features:
+
+- Added a Reset settings button in AES Settings to restore extension settings to their defaults while leaving open tabs intact.
+
+### Improvements:
+
+- No additional improvements in this release.
+
+### Fixes:
+
+- No additional fixes in this release.
+
 ## 0.5.0
 
 ### New features:
@@ -7,6 +21,7 @@
 - Added `Replace legacy Dispatch Calendar with Resource Planner`, a separate UI Enhancement setting that turns the native Calendar button into a Resource Planner shortcut and removes the dropdown chevron.
 - Added `[BETA] Show tab bar on all Autotask pages` for modern non-iframe Onyx pages such as Resource Planner and Umbrella Contracts.
 - Added `[BETA] Allow resizing of the vertical tab bar`, including compact icon-only mode and delayed hover expansion.
+- Added `[EXPERIMENTAL] Modernize readonly timesheets`, `[EXPERIMENTAL] Modernize Preferences page`, and `[EXPERIMENTAL] Modernize My Workspace & Queues` for scoped legacy-page visual passes.
 - Added a full extension enable/disable toggle in AES Settings.
 - Added a configurable Peek outside-click close confirmation with a matching AES Settings toggle.
 
@@ -23,6 +38,7 @@
 - Prevented AES from running on Autotask authentication pages.
 - Added a specific `PageHeadingContainer` background override under UI Enhancement.
 - Reduced compact vertical tab bar hover/resize conflicts.
+- Fixed Resource Planner replacement getting overwritten by Autotask nav overflow updates, which could leave Firefox showing `More` with a chevron.
 - Fixed the Peek outside-click "Do not show this again" choice being effectively permanent by exposing it in settings.
 
 ## 0.4.4-experimental

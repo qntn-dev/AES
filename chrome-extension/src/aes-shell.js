@@ -18,8 +18,10 @@
         settingsButton: null,
         nativeSettingsMenuItem: null,
         nativeSettingsObserver: null,
+        nativeSettingsRaf: 0,
         nativeSettingsAvailable: false,
         resourcePlannerShortcutObserver: null,
+        resourcePlannerShortcutRaf: 0,
         topLevelRouteWatchInstalled: false,
         tabScroll: null,
         scrollLeftButton: null,
@@ -91,6 +93,9 @@
         replaceCalendarWithResourcePlanner: !!(AES.state && AES.state.replaceCalendarWithResourcePlanner),
         showTabBarOnNonIframePages: !!(AES.state && AES.state.showTabBarOnNonIframePages),
         resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
+        timesheetUiEnhancementEnabled: !!(AES.state && AES.state.timesheetUiEnhancementEnabled),
+        preferencesUiEnhancementEnabled: !!(AES.state && AES.state.preferencesUiEnhancementEnabled),
+        workspaceQueuesUiEnhancementEnabled: !!(AES.state && AES.state.workspaceQueuesUiEnhancementEnabled),
         skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
         tabBarHoverExpanded: false,
@@ -98,6 +103,7 @@
         tabBarResizeHandleHovered: false,
         tabBarResizing: false,
     });
+    const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
 
     const ICONS = {
         home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
@@ -1350,12 +1356,33 @@
                 display: flex;
             }
             .at-tabs-settings-footer {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
                 padding: 12px 16px 14px;
                 border-top: 1px solid #e2e8f0;
                 font-size: 11px;
                 line-height: 1.4;
                 color: #64748b;
-                text-align: center;
+                text-align: left;
+            }
+            .at-tabs-settings-reset {
+                appearance: none;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                flex: 0 0 auto;
+                font: 700 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                padding: 8px 10px;
+                transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+            }
+            .at-tabs-settings-reset:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
             }
             .at-tabs-settings-section {
                 display: flex;
@@ -1733,6 +1760,17 @@
             }
             html.aes-dark .at-tabs-settings-footer {
                 border-top-color: #2a2e34;
+                color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-settings-reset {
+                background: #1f2937;
+                border-color: #334155;
+                color: #e2e8f0;
+            }
+            html.aes-dark .at-tabs-settings-reset:hover {
+                background: #263244;
+                border-color: #475569;
+                color: #ffffff;
             }
             html.aes-dark .at-tabs-settings-title,
             html.aes-dark .at-tabs-settings-section-title,
@@ -2359,10 +2397,6 @@
         updateResizableBarClasses();
     }
 
-    function barAxisAmount() {
-        return isVerticalBar() ? currentVerticalBarWidth() : AES.BAR_H;
-    }
-
     function reservationAxis(el) {
         // Returns the axis that's currently reserved on the given element via
         // our dataset markers, even if state.barOrientation has since changed.
@@ -2388,13 +2422,6 @@
         if (el.dataset.aesNonIframeReservedAxis === 'horizontal') return 'horizontal';
         if (el.dataset.aesNonIframeReserved === 'true') return 'horizontal';
         return null;
-    }
-
-    function nonIframeReservationAmount(el) {
-        const axis = nonIframeReservationAxis(el);
-        if (!axis) return { top: 0, left: 0 };
-        if (axis === 'vertical') return { top: 0, left: currentVerticalBarWidth() };
-        return { top: AES.BAR_H, left: 0 };
     }
 
     function findNonIframeContentContainer() {
@@ -2736,8 +2763,8 @@
             state.rootMutationObserver = new MutationObserver(function (mutations) {
                 const noIframeTestMode = state.showTabBarOnNonIframePages && !state.lastGeometryHadNativeFrame;
                 for (const mutation of mutations) {
+                    if (isShellOwnedMutationTarget(mutation.target)) continue;
                     if (mutation.type === 'childList') {
-                        if (isShellOwnedMutationTarget(mutation.target)) continue;
                         const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
                         if (nodes.some(node => node && (
                             node.nodeName === 'IFRAME' ||
@@ -2799,6 +2826,8 @@
             stopNonIframeTitleWatcher();
             if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(false);
             broadcastDarkModeEnhancerState();
+            broadcastTimesheetUiEnhancementState();
+            broadcastPreferencesUiEnhancementState();
         } else {
             if (AES.initPhoneLinks) AES.initPhoneLinks();
             injectTopLevelPageBridgeFromShell();
@@ -2811,6 +2840,8 @@
                 });
             }
             broadcastDarkModeEnhancerState();
+            broadcastTimesheetUiEnhancementState();
+            broadcastPreferencesUiEnhancementState();
         }
         broadcastFeatureEnabledState();
         updateShellVisibility();
@@ -3780,12 +3811,6 @@
         }
     }
 
-    function tabTooltipFor(tab) {
-        const title = typeof tab.title === 'string' ? tab.title.trim() : '';
-        if (title) return title;
-        return tab.loading ? 'Loading...' : tab.url;
-    }
-
     function applyTabColorStyle(tab) {
         if (!tab || !tab.tabEl) return;
         tab.tabEl.classList.toggle('pinned', !!tab.pinned);
@@ -3913,18 +3938,6 @@
         }, AES_MODAL_EXIT_MS);
     }
 
-    function removeSettingsModalNow() {
-        if (state.settingsModal) {
-            state.settingsModal.remove();
-            state.settingsModal = null;
-        }
-        if (state.settingsBackdrop) {
-            state.settingsBackdrop.remove();
-            state.settingsBackdrop = null;
-        }
-        state.settingsClosing = false;
-    }
-
     const SETTING_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
 
     function createSettingInfo(text) {
@@ -3935,6 +3948,26 @@
         span.setAttribute('role', 'img');
         span.innerHTML = SETTING_INFO_SVG;
         return span;
+    }
+
+    function defaultSettingsState() {
+        return {
+            extensionEnabled: true,
+            rememberTabsAfterClose: false,
+            phoneLinksEnabled: true,
+            themePreference: 'auto',
+            barOrientation: 'horizontal',
+            darkModeEnhancerEnabled: false,
+            hideEarlyAccessLabels: false,
+            replaceCalendarWithResourcePlanner: false,
+            showTabBarOnNonIframePages: false,
+            resizableTabBarEnabled: false,
+            timesheetUiEnhancementEnabled: false,
+            preferencesUiEnhancementEnabled: false,
+            workspaceQueuesUiEnhancementEnabled: false,
+            skipPeekBackdropCloseWarning: false,
+            tabBarWidth: AES.BAR_W || 240,
+        };
     }
 
     function openSettingsModal() {
@@ -3970,10 +4003,6 @@
         const generalSection = document.createElement('div');
         generalSection.className = 'at-tabs-settings-section';
 
-        const generalTitle = document.createElement('div');
-        generalTitle.className = 'at-tabs-settings-section-title';
-        generalTitle.textContent = 'General';
-
         const enabledRow = document.createElement('label');
         enabledRow.className = 'at-tabs-setting-row';
 
@@ -4004,14 +4033,6 @@
         enabledToggle.appendChild(enabledToggleUi);
         enabledRow.appendChild(enabledLabel);
         enabledRow.appendChild(enabledToggle);
-
-        // Appearance section ----------------------------------------------
-        const appearanceSection = document.createElement('div');
-        appearanceSection.className = 'at-tabs-settings-section';
-
-        const appearanceTitle = document.createElement('div');
-        appearanceTitle.className = 'at-tabs-settings-section-title';
-        appearanceTitle.textContent = 'Appearance';
 
         const themeRow = document.createElement('label');
         themeRow.className = 'at-tabs-setting-row';
@@ -4149,18 +4170,9 @@
         resourcePlannerRow.appendChild(resourcePlannerLabel);
         resourcePlannerRow.appendChild(resourcePlannerToggle);
 
-        appearanceSection.appendChild(appearanceTitle);
-        appearanceSection.appendChild(themeRow);
-        appearanceSection.appendChild(enhancerRow);
-        appearanceSection.appendChild(earlyAccessRow);
-
         // Tabbar section --------------------------------------------------
         const section = document.createElement('div');
         section.className = 'at-tabs-settings-section';
-
-        const sectionTitle = document.createElement('div');
-        sectionTitle.className = 'at-tabs-settings-section-title';
-        sectionTitle.textContent = 'Tab bar';
 
         // Tab bar position row (horizontal/vertical).
         const orientationRow = document.createElement('label');
@@ -4366,9 +4378,104 @@
         const phoneSection = document.createElement('div');
         phoneSection.className = 'at-tabs-settings-section';
 
-        const phoneSectionTitle = document.createElement('div');
-        phoneSectionTitle.className = 'at-tabs-settings-section-title';
-        phoneSectionTitle.textContent = 'Phone number';
+        const experimentalSection = document.createElement('div');
+        experimentalSection.className = 'at-tabs-settings-section';
+
+        const timesheetUiRow = document.createElement('label');
+        timesheetUiRow.className = 'at-tabs-setting-row';
+
+        const timesheetUiLabel = document.createElement('span');
+        timesheetUiLabel.className = 'at-tabs-setting-label';
+
+        const timesheetUiName = document.createElement('span');
+        timesheetUiName.className = 'at-tabs-setting-name';
+        timesheetUiName.textContent = '[EXPERIMENTAL] Modernize readonly timesheets';
+        timesheetUiLabel.appendChild(createSettingInfo('Applies a more polished dark table and header treatment to legacy readonly timesheet approval pages.'));
+        timesheetUiLabel.appendChild(timesheetUiName);
+
+        const timesheetUiToggle = document.createElement('span');
+        timesheetUiToggle.className = 'at-tabs-setting-toggle';
+
+        const timesheetUiInput = document.createElement('input');
+        timesheetUiInput.type = 'checkbox';
+        timesheetUiInput.checked = !!state.timesheetUiEnhancementEnabled;
+        timesheetUiInput.addEventListener('change', function () {
+            state.timesheetUiEnhancementEnabled = timesheetUiInput.checked;
+            AES.state.timesheetUiEnhancementEnabled = timesheetUiInput.checked;
+            broadcastTimesheetUiEnhancementState();
+            void AES.saveSettings();
+        });
+
+        const timesheetUiToggleUi = document.createElement('span');
+        timesheetUiToggleUi.className = 'at-tabs-setting-toggle-ui';
+        timesheetUiToggle.appendChild(timesheetUiInput);
+        timesheetUiToggle.appendChild(timesheetUiToggleUi);
+        timesheetUiRow.appendChild(timesheetUiLabel);
+        timesheetUiRow.appendChild(timesheetUiToggle);
+
+        const preferencesUiRow = document.createElement('label');
+        preferencesUiRow.className = 'at-tabs-setting-row';
+
+        const preferencesUiLabel = document.createElement('span');
+        preferencesUiLabel.className = 'at-tabs-setting-label';
+
+        const preferencesUiName = document.createElement('span');
+        preferencesUiName.className = 'at-tabs-setting-name';
+        preferencesUiName.textContent = '[EXPERIMENTAL] Modernize Preferences page';
+        preferencesUiLabel.appendChild(createSettingInfo('Applies a scoped visual pass to the legacy user Preferences page inside the Onyx frame.'));
+        preferencesUiLabel.appendChild(preferencesUiName);
+
+        const preferencesUiToggle = document.createElement('span');
+        preferencesUiToggle.className = 'at-tabs-setting-toggle';
+
+        const preferencesUiInput = document.createElement('input');
+        preferencesUiInput.type = 'checkbox';
+        preferencesUiInput.checked = !!state.preferencesUiEnhancementEnabled;
+        preferencesUiInput.addEventListener('change', function () {
+            state.preferencesUiEnhancementEnabled = preferencesUiInput.checked;
+            AES.state.preferencesUiEnhancementEnabled = preferencesUiInput.checked;
+            broadcastPreferencesUiEnhancementState();
+            void AES.saveSettings();
+        });
+
+        const preferencesUiToggleUi = document.createElement('span');
+        preferencesUiToggleUi.className = 'at-tabs-setting-toggle-ui';
+        preferencesUiToggle.appendChild(preferencesUiInput);
+        preferencesUiToggle.appendChild(preferencesUiToggleUi);
+        preferencesUiRow.appendChild(preferencesUiLabel);
+        preferencesUiRow.appendChild(preferencesUiToggle);
+
+        const workspaceQueuesUiRow = document.createElement('label');
+        workspaceQueuesUiRow.className = 'at-tabs-setting-row';
+
+        const workspaceQueuesUiLabel = document.createElement('span');
+        workspaceQueuesUiLabel.className = 'at-tabs-setting-label';
+
+        const workspaceQueuesUiName = document.createElement('span');
+        workspaceQueuesUiName.className = 'at-tabs-setting-name';
+        workspaceQueuesUiName.textContent = '[EXPERIMENTAL] Modernize My Workspace & Queues';
+        workspaceQueuesUiLabel.appendChild(createSettingInfo('Applies a scoped visual pass to the legacy My Workspace & Queues ticket summary iframe.'));
+        workspaceQueuesUiLabel.appendChild(workspaceQueuesUiName);
+
+        const workspaceQueuesUiToggle = document.createElement('span');
+        workspaceQueuesUiToggle.className = 'at-tabs-setting-toggle';
+
+        const workspaceQueuesUiInput = document.createElement('input');
+        workspaceQueuesUiInput.type = 'checkbox';
+        workspaceQueuesUiInput.checked = !!state.workspaceQueuesUiEnhancementEnabled;
+        workspaceQueuesUiInput.addEventListener('change', function () {
+            state.workspaceQueuesUiEnhancementEnabled = workspaceQueuesUiInput.checked;
+            AES.state.workspaceQueuesUiEnhancementEnabled = workspaceQueuesUiInput.checked;
+            broadcastWorkspaceQueuesUiEnhancementState();
+            void AES.saveSettings();
+        });
+
+        const workspaceQueuesUiToggleUi = document.createElement('span');
+        workspaceQueuesUiToggleUi.className = 'at-tabs-setting-toggle-ui';
+        workspaceQueuesUiToggle.appendChild(workspaceQueuesUiInput);
+        workspaceQueuesUiToggle.appendChild(workspaceQueuesUiToggleUi);
+        workspaceQueuesUiRow.appendChild(workspaceQueuesUiLabel);
+        workspaceQueuesUiRow.appendChild(workspaceQueuesUiToggle);
 
         const phoneRow = document.createElement('label');
         phoneRow.className = 'at-tabs-setting-row';
@@ -4407,17 +4514,18 @@
         const uiSection = document.createElement('div');
         uiSection.className = 'at-tabs-settings-section';
 
-        const uiTitle = document.createElement('div');
-        uiTitle.className = 'at-tabs-settings-section-title';
-        uiTitle.textContent = 'UI Enhancement';
-
         section.appendChild(orientationRow);
-        section.appendChild(resizeRow);
         section.appendChild(hideRow);
         section.appendChild(persistRow);
         section.appendChild(persistNote);
-        section.appendChild(everywhereRow);
         section.appendChild(peekConfirmRow);
+        experimentalSection.appendChild(resizeRow);
+        experimentalSection.appendChild(everywhereRow);
+        if (SHOW_PAGE_REDESIGN_EXPERIMENTS) {
+            experimentalSection.appendChild(timesheetUiRow);
+            experimentalSection.appendChild(preferencesUiRow);
+            experimentalSection.appendChild(workspaceQueuesUiRow);
+        }
         phoneSection.appendChild(phoneRow);
         generalSection.appendChild(enabledRow);
         generalSection.appendChild(themeRow);
@@ -4432,7 +4540,8 @@
         const pageDefs = [
             { id: 'general', label: 'General', description: 'Core extension controls and theme behavior.', section: generalSection },
             { id: 'ui', label: 'UI Enhancement', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
-            { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, experimental tab bar behavior, and visibility.', section: section },
+            { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, Peek behavior, and visibility.', section: section },
+            { id: 'experimental', label: 'Experimental', description: 'Beta features and page-specific experiments that may need extra testing.', section: experimentalSection },
             { id: 'misc', label: 'Miscellaneous', description: 'Extra productivity helpers that do not belong to the tab shell.', section: phoneSection },
         ];
         const navButtons = [];
@@ -4475,9 +4584,66 @@
         body.appendChild(nav);
         body.appendChild(pages);
 
+        function resetSettingsToDefaults() {
+            if (!window.confirm('Reset AES settings to their defaults? Open tabs will stay open.')) return;
+
+            const defaults = defaultSettingsState();
+            Object.assign(state, defaults);
+            Object.assign(AES.state, defaults);
+            state.shellHidden = false;
+
+            enabledInput.checked = defaults.extensionEnabled;
+            themeSelect.value = defaults.themePreference;
+            enhancerInput.checked = defaults.darkModeEnhancerEnabled;
+            earlyAccessInput.checked = defaults.hideEarlyAccessLabels;
+            resourcePlannerInput.checked = defaults.replaceCalendarWithResourcePlanner;
+            orientationSelect.value = defaults.barOrientation;
+            resizeInput.checked = defaults.resizableTabBarEnabled;
+            hideInput.checked = state.shellHidden;
+            persistInput.checked = defaults.rememberTabsAfterClose;
+            everywhereInput.checked = defaults.showTabBarOnNonIframePages;
+            peekConfirmInput.checked = !defaults.skipPeekBackdropCloseWarning;
+            timesheetUiInput.checked = defaults.timesheetUiEnhancementEnabled;
+            preferencesUiInput.checked = defaults.preferencesUiEnhancementEnabled;
+            workspaceQueuesUiInput.checked = defaults.workspaceQueuesUiEnhancementEnabled;
+            phoneInput.checked = defaults.phoneLinksEnabled;
+
+            applyAutotaskTheme();
+            applyBarOrientationClass();
+            updateResizableBarClasses();
+            updateShellVisibility();
+            applyExtensionEnabledState();
+            applyEarlyAccessLabelVisibility(document);
+            applyResourcePlannerCalendarShortcut(document);
+            if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(defaults.phoneLinksEnabled);
+            if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
+            else stopNonIframeTitleWatcher();
+            broadcastDarkModeEnhancerState();
+            broadcastTimesheetUiEnhancementState();
+            broadcastPreferencesUiEnhancementState();
+            broadcastWorkspaceQueuesUiEnhancementState();
+            requestSyncGeometry();
+
+            void AES.saveSettings().then(function () {
+                if (AES.syncTabsPersistenceMode) {
+                    return AES.syncTabsPersistenceMode(buildTabsPayload());
+                }
+                return null;
+            });
+        }
+
         const footer = document.createElement('div');
         footer.className = 'at-tabs-settings-footer';
-        footer.textContent = 'Developed by QNTN.dev with help of Generative AI';
+        const footerText = document.createElement('span');
+        footerText.textContent = 'Developed by QNTN.dev with help of Generative AI';
+        const resetButton = document.createElement('button');
+        resetButton.type = 'button';
+        resetButton.className = 'at-tabs-settings-reset';
+        resetButton.textContent = 'Reset settings';
+        resetButton.title = 'Reset AES settings to defaults';
+        resetButton.addEventListener('click', resetSettingsToDefaults);
+        footer.appendChild(footerText);
+        footer.appendChild(resetButton);
 
         modal.appendChild(header);
         modal.appendChild(body);
@@ -5163,6 +5329,42 @@
             return;
         }
 
+        if (data.type === 'timesheet-ui-enhancement-request') {
+            const respond = function () {
+                broadcastTimesheetUiEnhancementState();
+            };
+            if (!state.bar && AES.loadSettings) {
+                void AES.loadSettings().then(respond).catch(respond);
+            } else {
+                respond();
+            }
+            return;
+        }
+
+        if (data.type === 'preferences-ui-enhancement-request') {
+            const respond = function () {
+                broadcastPreferencesUiEnhancementState();
+            };
+            if (!state.bar && AES.loadSettings) {
+                void AES.loadSettings().then(respond).catch(respond);
+            } else {
+                respond();
+            }
+            return;
+        }
+
+        if (data.type === 'workspace-queues-ui-enhancement-request') {
+            const respond = function () {
+                broadcastWorkspaceQueuesUiEnhancementState();
+            };
+            if (!state.bar && AES.loadSettings) {
+                void AES.loadSettings().then(respond).catch(respond);
+            } else {
+                respond();
+            }
+            return;
+        }
+
         if (!featuresEnabled()) return;
 
         if (data.type === 'open' && data.url) {
@@ -5265,7 +5467,7 @@
         if (!runtime || typeof runtime.getURL !== 'function') return;
         document.documentElement.dataset.aesPageBridgeInjected = 'true';
         const script = document.createElement('script');
-        script.src = runtime.getURL('aes-page-bridge.js');
+        script.src = runtime.getURL('src/aes-page-bridge.js');
         script.onload = function () {
             script.remove();
             broadcastFeatureEnabledState();
@@ -5278,7 +5480,7 @@
         state.topLevelRouteWatchInstalled = true;
         window.addEventListener('popstate', maybePromoteTopLevelLandingRoute);
         window.addEventListener('hashchange', maybePromoteTopLevelLandingRoute);
-        setInterval(maybePromoteTopLevelLandingRoute, 250);
+        window.setInterval(maybePromoteTopLevelLandingRoute, 750);
         maybePromoteTopLevelLandingRoute();
     }
 
@@ -5337,6 +5539,8 @@
         // Iframes need to know the effective theme so the dark mode enhancer
         // can decide whether to apply its overrides.
         broadcastDarkModeEnhancerState();
+        broadcastTimesheetUiEnhancementState();
+        broadcastPreferencesUiEnhancementState();
     }
 
     function applyBarOrientationClass() {
@@ -5352,6 +5556,63 @@
         const enabled = featuresEnabled() && !!state.darkModeEnhancerEnabled;
         const dark = effectiveDarkMode();
         const payload = { __ns: AES.MSG_NS, type: 'dark-enhancer', enabled: enabled, dark: dark };
+        function postToFrames(win) {
+            try {
+                for (let i = 0; i < win.frames.length; i++) {
+                    const child = win.frames[i];
+                    try { child.postMessage(payload, '*'); } catch (e) {}
+                    try { postToFrames(child); } catch (e) {}
+                }
+            } catch (e) {}
+        }
+        postToFrames(window);
+    }
+
+    function broadcastTimesheetUiEnhancementState() {
+        const payload = {
+            __ns: AES.MSG_NS,
+            type: 'timesheet-ui-enhancement',
+            enabled: featuresEnabled() && !!state.timesheetUiEnhancementEnabled,
+            dark: effectiveDarkMode(),
+        };
+        function postToFrames(win) {
+            try {
+                for (let i = 0; i < win.frames.length; i++) {
+                    const child = win.frames[i];
+                    try { child.postMessage(payload, '*'); } catch (e) {}
+                    try { postToFrames(child); } catch (e) {}
+                }
+            } catch (e) {}
+        }
+        postToFrames(window);
+    }
+
+    function broadcastPreferencesUiEnhancementState() {
+        const payload = {
+            __ns: AES.MSG_NS,
+            type: 'preferences-ui-enhancement',
+            enabled: featuresEnabled() && !!state.preferencesUiEnhancementEnabled,
+            dark: effectiveDarkMode(),
+        };
+        function postToFrames(win) {
+            try {
+                for (let i = 0; i < win.frames.length; i++) {
+                    const child = win.frames[i];
+                    try { child.postMessage(payload, '*'); } catch (e) {}
+                    try { postToFrames(child); } catch (e) {}
+                }
+            } catch (e) {}
+        }
+        postToFrames(window);
+    }
+
+    function broadcastWorkspaceQueuesUiEnhancementState() {
+        const payload = {
+            __ns: AES.MSG_NS,
+            type: 'workspace-queues-ui-enhancement',
+            enabled: featuresEnabled() && !!state.workspaceQueuesUiEnhancementEnabled,
+            dark: effectiveDarkMode(),
+        };
         function postToFrames(win) {
             try {
                 for (let i = 0; i < win.frames.length; i++) {
@@ -5458,46 +5719,199 @@
         location.assign(url.href);
     }
 
+    function isResourcePlannerCalendarButton(button) {
+        if (!button) return false;
+        if (button.dataset && button.dataset.aesResourcePlannerShortcut === 'true') return true;
+        if (button.getAttribute('data-onyx-external-id') === '0C07O8TE') return true;
+
+        const text = cleanEarlyAccessText(button.textContent).toLowerCase();
+        return text === 'calendar' || text === 'dispatch calendar' || text === 'resource planner';
+    }
+
+    function findResourcePlannerShortcutLabel(button) {
+        if (!button) return null;
+        const preferred = button.querySelector('.flex-grow');
+        if (preferred) return preferred;
+
+        const labels = Array.from(button.querySelectorAll('span, div'));
+        return labels.find(function (el) {
+            const text = cleanEarlyAccessText(el.textContent).toLowerCase();
+            return text === 'more'
+                || text === 'calendar'
+                || text === 'dispatch calendar'
+                || text === 'resource planner';
+        }) || null;
+    }
+
+    function findResourcePlannerShortcutChevrons(button) {
+        if (!button) return [];
+        return Array.from(button.querySelectorAll('span, i, svg, use')).filter(function (el) {
+            const className = String(el.getAttribute('class') || '').toLowerCase();
+            const iconName = String(el.getAttribute('data-icon') || '').toLowerCase();
+            const aria = String(el.getAttribute('aria-label') || '').toLowerCase();
+            return (className.includes('chevron') && className.includes('down'))
+                || iconName === 'chevron-down'
+                || aria === 'chevron down';
+        });
+    }
+
+    function restoreResourcePlannerShortcutButton(button, label, chevrons) {
+        const originalLabel = button.dataset.aesOriginalCalendarLabel || 'Calendar';
+        if (label && label.textContent !== originalLabel) label.textContent = originalLabel;
+        chevrons.forEach(function (chevron) {
+            chevron.style.display = chevron.dataset.aesOriginalDisplay || '';
+            delete chevron.dataset.aesOriginalDisplay;
+        });
+        const originalTitle = button.dataset.aesOriginalCalendarTitle || '';
+        if (button.title !== originalTitle) button.title = originalTitle;
+        if (button.dataset.aesHadInvisibleClass === 'true') {
+            button.classList.add('invisible');
+            delete button.dataset.aesHadInvisibleClass;
+        }
+        if (button.dataset.aesOriginalVisibility !== undefined) {
+            button.style.visibility = button.dataset.aesOriginalVisibility || '';
+            delete button.dataset.aesOriginalVisibility;
+        }
+        if (button.dataset.aesOriginalDisplay !== undefined) {
+            button.style.display = button.dataset.aesOriginalDisplay || '';
+            delete button.dataset.aesOriginalDisplay;
+        }
+        button.removeAttribute('data-aes-resource-planner-shortcut');
+    }
+
+    function restoreResourcePlannerHiddenMoreButtons(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        scope.querySelectorAll('button[data-aes-resource-planner-hidden-more="true"]').forEach(function (button) {
+            button.style.display = button.dataset.aesResourcePlannerMoreDisplay || '';
+            delete button.dataset.aesResourcePlannerMoreDisplay;
+            button.style.visibility = button.dataset.aesResourcePlannerMoreVisibility || '';
+            delete button.dataset.aesResourcePlannerMoreVisibility;
+            if (button.dataset.aesResourcePlannerMoreAriaHidden !== undefined) {
+                const originalAriaHidden = button.dataset.aesResourcePlannerMoreAriaHidden;
+                if (originalAriaHidden) button.setAttribute('aria-hidden', originalAriaHidden);
+                else button.removeAttribute('aria-hidden');
+                delete button.dataset.aesResourcePlannerMoreAriaHidden;
+            }
+            delete button.dataset.aesResourcePlannerHiddenMore;
+        });
+    }
+
+    function findResourcePlannerAdjacentMoreButton(button) {
+        if (!button || !button.parentElement) return null;
+        const siblings = Array.from(button.parentElement.querySelectorAll('button'));
+        const ownIndex = siblings.indexOf(button);
+        if (ownIndex < 0) return null;
+        return siblings.find(function (candidate, index) {
+            if (candidate === button) return false;
+            if (Math.abs(index - ownIndex) > 2) return false;
+            if (candidate.getAttribute('data-onyx-external-id')) return false;
+            return cleanEarlyAccessText(candidate.textContent).toLowerCase() === 'more';
+        }) || null;
+    }
+
+    function hideResourcePlannerAdjacentMoreButton(button) {
+        const moreButton = findResourcePlannerAdjacentMoreButton(button);
+        if (!moreButton) return;
+        if (moreButton.dataset.aesResourcePlannerHiddenMore !== 'true') {
+            moreButton.dataset.aesResourcePlannerMoreDisplay = moreButton.style.display || '';
+            moreButton.dataset.aesResourcePlannerMoreVisibility = moreButton.style.visibility || '';
+            moreButton.dataset.aesResourcePlannerMoreAriaHidden = moreButton.getAttribute('aria-hidden') || '';
+            moreButton.dataset.aesResourcePlannerHiddenMore = 'true';
+        }
+        moreButton.setAttribute('aria-hidden', 'true');
+        moreButton.style.setProperty('display', 'none', 'important');
+        moreButton.style.setProperty('visibility', 'hidden', 'important');
+    }
+
+    function forceResourcePlannerShortcutVisible(button) {
+        if (!button || button.getAttribute('data-onyx-external-id') !== '0C07O8TE') return;
+        let forcedVisible = button.dataset.aesHadInvisibleClass === 'true';
+        if (button.classList && button.classList.contains('invisible')) {
+            button.dataset.aesHadInvisibleClass = 'true';
+            button.classList.remove('invisible');
+            forcedVisible = true;
+        }
+        try {
+            const style = getComputedStyle(button);
+            if (style.display === 'none' || style.visibility === 'hidden') forcedVisible = true;
+        } catch (e) {}
+        if (!Object.prototype.hasOwnProperty.call(button.dataset, 'aesOriginalVisibility')) {
+            button.dataset.aesOriginalVisibility = button.style.visibility || '';
+        }
+        if (!Object.prototype.hasOwnProperty.call(button.dataset, 'aesOriginalDisplay')) {
+            button.dataset.aesOriginalDisplay = button.style.display || '';
+        }
+        button.style.setProperty('visibility', 'visible', 'important');
+        button.style.setProperty('display', 'flex', 'important');
+        if (forcedVisible) hideResourcePlannerAdjacentMoreButton(button);
+        else restoreResourcePlannerHiddenMoreButtons(button.parentElement || document);
+    }
+
+    function collectResourcePlannerCalendarButtons(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        const buttons = [];
+        function addButton(candidate) {
+            const button = candidate && candidate.matches && candidate.matches('button')
+                ? candidate
+                : candidate && candidate.closest
+                    ? candidate.closest('button')
+                    : null;
+            if (!button || buttons.includes(button)) return;
+            if (isResourcePlannerCalendarButton(button)) buttons.push(button);
+        }
+
+        if (scope.matches) {
+            if (scope.matches('button, [data-onyx-external-id="0C07O8TE"]')) addButton(scope);
+            const ancestor = scope.closest && scope.closest('button[data-aes-resource-planner-shortcut="true"]');
+            if (ancestor) addButton(ancestor);
+        }
+
+        scope.querySelectorAll('button[data-onyx-external-id="0C07O8TE"], button[data-aes-resource-planner-shortcut="true"], button').forEach(addButton);
+        return buttons;
+    }
+
     function applyResourcePlannerCalendarShortcut(root) {
         const scope = root && root.querySelectorAll ? root : document;
-        const buttons = Array.from(scope.querySelectorAll('button[data-onyx-external-id="0C07O8TE"]'));
-        if (scope.matches && scope.matches('button[data-onyx-external-id="0C07O8TE"]')) {
-            buttons.push(scope);
-        }
+        const buttons = collectResourcePlannerCalendarButtons(scope);
 
         buttons.forEach(function (button) {
             const enabled = featuresEnabled() && !!state.replaceCalendarWithResourcePlanner;
-            const label = button.querySelector('div.flex-grow');
-            const chevron = button.querySelector('span.fa-chevron-down');
+            const label = findResourcePlannerShortcutLabel(button);
+            const chevrons = findResourcePlannerShortcutChevrons(button);
             if (!button.dataset.aesOriginalCalendarLabel && label) {
                 button.dataset.aesOriginalCalendarLabel = label.textContent || 'Calendar';
             }
 
             if (!enabled) {
                 if (button.dataset.aesResourcePlannerShortcut === 'true') {
-                    if (label) label.textContent = button.dataset.aesOriginalCalendarLabel || 'Calendar';
-                    if (chevron) {
-                        chevron.style.display = chevron.dataset.aesOriginalDisplay || '';
-                        delete chevron.dataset.aesOriginalDisplay;
-                    }
-                    button.title = button.dataset.aesOriginalCalendarTitle || '';
-                    button.removeAttribute('data-aes-resource-planner-shortcut');
+                    restoreResourcePlannerShortcutButton(button, label, chevrons);
                 }
+                restoreResourcePlannerHiddenMoreButtons(document);
                 return;
             }
 
-            if (label) label.textContent = 'Resource Planner';
+            if (label && label.textContent !== 'Resource Planner') label.textContent = 'Resource Planner';
             if (!button.dataset.aesOriginalCalendarTitle) {
                 button.dataset.aesOriginalCalendarTitle = button.getAttribute('title') || '';
             }
-            button.title = 'Open Resource Planner';
+            if (button.title !== 'Open Resource Planner') button.title = 'Open Resource Planner';
             button.dataset.aesResourcePlannerShortcut = 'true';
-            if (chevron) {
+            forceResourcePlannerShortcutVisible(button);
+            chevrons.forEach(function (chevron) {
                 if (!chevron.dataset.aesOriginalDisplay) {
                     chevron.dataset.aesOriginalDisplay = chevron.style.display || '';
                 }
                 chevron.style.setProperty('display', 'none', 'important');
-            }
+            });
+        });
+    }
+
+    function scheduleResourcePlannerShortcutRefresh() {
+        if (state.resourcePlannerShortcutRaf) return;
+        const raf = window.requestAnimationFrame || function (callback) { return window.setTimeout(callback, 16); };
+        state.resourcePlannerShortcutRaf = raf(function () {
+            state.resourcePlannerShortcutRaf = 0;
+            applyResourcePlannerCalendarShortcut(document);
         });
     }
 
@@ -5505,13 +5919,24 @@
         applyResourcePlannerCalendarShortcut(document);
         if (state.resourcePlannerShortcutObserver || !document.body) return;
         state.resourcePlannerShortcutObserver = new MutationObserver(function (mutations) {
+            let shouldRefreshAll = false;
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     if (node && node.nodeType === 1) applyResourcePlannerCalendarShortcut(node);
                 }
+                if (mutation.type === 'attributes' || mutation.type === 'characterData') {
+                    shouldRefreshAll = true;
+                }
             }
+            if (shouldRefreshAll) scheduleResourcePlannerShortcutRefresh();
         });
-        state.resourcePlannerShortcutObserver.observe(document.body, { childList: true, subtree: true });
+        state.resourcePlannerShortcutObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['class', 'data-onyx-external-id', 'title', 'aria-label'],
+            characterData: true,
+            childList: true,
+            subtree: true,
+        });
 
         document.addEventListener('click', function (event) {
             const button = event.target && event.target.closest
@@ -5713,7 +6138,11 @@
         ensureNativeSettingsMenuItem();
         if (state.nativeSettingsObserver || !document.body) return;
         state.nativeSettingsObserver = new MutationObserver(function () {
-            window.requestAnimationFrame(ensureNativeSettingsMenuItem);
+            if (state.nativeSettingsRaf) return;
+            state.nativeSettingsRaf = window.requestAnimationFrame(function () {
+                state.nativeSettingsRaf = 0;
+                ensureNativeSettingsMenuItem();
+            });
         });
         state.nativeSettingsObserver.observe(document.body, { childList: true, subtree: true });
     }
@@ -5824,6 +6253,15 @@
         }
         if (typeof AES.state.resizableTabBarEnabled === 'boolean') {
             state.resizableTabBarEnabled = AES.state.resizableTabBarEnabled;
+        }
+        if (typeof AES.state.timesheetUiEnhancementEnabled === 'boolean') {
+            state.timesheetUiEnhancementEnabled = AES.state.timesheetUiEnhancementEnabled;
+        }
+        if (typeof AES.state.preferencesUiEnhancementEnabled === 'boolean') {
+            state.preferencesUiEnhancementEnabled = AES.state.preferencesUiEnhancementEnabled;
+        }
+        if (typeof AES.state.workspaceQueuesUiEnhancementEnabled === 'boolean') {
+            state.workspaceQueuesUiEnhancementEnabled = AES.state.workspaceQueuesUiEnhancementEnabled;
         }
         state.tabBarWidth = normalizedTabBarWidth(AES.state.tabBarWidth);
         AES.state.tabBarWidth = state.tabBarWidth;

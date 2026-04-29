@@ -44,7 +44,12 @@
     }
 
     function postToTop(payload) {
-        if (!featureEnabled && payload.type !== 'dark-enhancer-request' && payload.type !== 'feature-enabled-request') return;
+        if (!featureEnabled
+            && payload.type !== 'dark-enhancer-request'
+            && payload.type !== 'feature-enabled-request'
+            && payload.type !== 'timesheet-ui-enhancement-request'
+            && payload.type !== 'preferences-ui-enhancement-request'
+            && payload.type !== 'workspace-queues-ui-enhancement-request') return;
         try { window.top.postMessage({ __ns: AES.MSG_NS, ...payload }, '*'); }
         catch (e) {}
     }
@@ -409,7 +414,7 @@
         document.documentElement.dataset.aesPageBridgeInjected = 'true';
 
         const script = document.createElement('script');
-        script.src = chrome.runtime.getURL('aes-page-bridge.js');
+        script.src = chrome.runtime.getURL('src/aes-page-bridge.js');
         script.onload = function () { script.remove(); };
         (document.documentElement || document.head).appendChild(script);
     }
@@ -574,6 +579,8 @@
         return '';
     }
 
+    // Read the value of a `.ReadOnlyData` quick-edit field whose label matches
+    // any of the given names. Used to pull Priority / Status from ticket pages.
     function findReadOnlyValueByLabel(labelNames) {
         const wanted = labelNames.map(function (n) { return n.toLowerCase(); });
         const labels = document.querySelectorAll(
@@ -584,6 +591,10 @@
             if (wanted.indexOf(text) === -1) continue;
             const data = label.closest('.ReadOnlyData');
             if (!data) continue;
+            // The visible value sits in `.ReadOnlyValueContainer .Value`. The
+            // colored ColorBand layout puts the readable label in
+            // `.Text.ColorSample`, but plainer fields just have a `.Value` text
+            // node; cover both by querying the value container's textContent.
             const valueContainer = data.querySelector('.ReadOnlyValueContainer .Value');
             if (!valueContainer) continue;
             const colorSample = valueContainer.querySelector('.Right .Text.ColorSample');
@@ -594,6 +605,9 @@
         return '';
     }
 
+    // The ticket activity feed renders newest-first. The first
+    // `.ConversationChunk .ConversationItem .Footer .Timestamp` is therefore
+    // the most-recent activity timestamp (notes, time entries, attachments).
     function extractTicketLastActivity() {
         const ts = document.querySelector(
             '.ConversationChunk .ConversationItem .Footer .Timestamp'
@@ -797,6 +811,9 @@
             const titleEl = heading.querySelector('.Title > .Text');
             if (titleEl) title = cleanText(titleEl.textContent);
         }
+        // Project pages typically have an Organization / Account field linking
+        // the project to its customer — surface it as the tab's secondary line
+        // so users can tell which client a project belongs to at a glance.
         const organization = findFieldValue('Organization') ||
             findFieldValue('Organization Name') ||
             findFieldValue('Account') ||
@@ -1305,6 +1322,1252 @@
         removeStyleById('aes-legacy-chrome-overrides-style');
     }
 
+    const TIMESHEET_UI_STYLE_ID = 'aes-timesheet-ui-enhancement-style';
+    let timesheetUiEnhancementEnabled = false;
+    let timesheetUiEnhancementActiveTheme = false;
+
+    function isReadonlyTimesheetFrame() {
+        const path = (location.pathname || '').toLowerCase();
+        return path.endsWith('/timesheets/views/readonly/tmsreadonly_100.asp')
+            || path.endsWith('/timesheets/views/readonly/wrkreadonlyframemid.asp')
+            || path.endsWith('/home/timeentry/reportviews/wrktimesheetview.asp');
+    }
+
+    function removeTimesheetUiEnhancementStyle() {
+        removeStyleById(TIMESHEET_UI_STYLE_ID);
+        document.documentElement.classList.remove('aes-timesheet-ui-enhancement-active');
+        document.documentElement.classList.remove('aes-timesheet-ui-enhancement-dark');
+        document.documentElement.classList.remove('aes-timesheet-ui-enhancement-light');
+    }
+
+    function applyTimesheetUiEnhancementTheme() {
+        document.documentElement.classList.toggle(
+            'aes-timesheet-ui-enhancement-dark',
+            !!timesheetUiEnhancementActiveTheme
+        );
+        document.documentElement.classList.toggle(
+            'aes-timesheet-ui-enhancement-light',
+            !timesheetUiEnhancementActiveTheme
+        );
+    }
+
+    function injectTimesheetUiEnhancementStyle() {
+        if (!isReadonlyTimesheetFrame()) return;
+        document.documentElement.classList.add('aes-timesheet-ui-enhancement-active');
+        applyTimesheetUiEnhancementTheme();
+        if (document.getElementById(TIMESHEET_UI_STYLE_ID)) return;
+
+        const style = document.createElement('style');
+        style.id = TIMESHEET_UI_STYLE_ID;
+        style.textContent = [
+            'html.aes-timesheet-ui-enhancement-active {',
+            '    --aes-ts-canvas: #FFFFFF;',
+            '    --aes-ts-panel: #FFFFFF;',
+            '    --aes-ts-panel-alt: #F6F7F8;',
+            '    --aes-ts-header: #E5E5E5;',
+            '    --aes-ts-title: #1F2227;',
+            '    --aes-ts-text: #3F464F;',
+            '    --aes-ts-muted: #66707A;',
+            '    --aes-ts-border: #D9DDE2;',
+            '    --aes-ts-grid-border: #E5E5E5;',
+            '    --aes-ts-row-border: #E5E5E5;',
+            '    --aes-ts-hover: #ECEFF2;',
+            '    --aes-ts-menu-hover: #E5E5E5;',
+            '    --aes-ts-link: #376A94;',
+            '    --aes-ts-link-hover: #24475f;',
+            '    --aes-ts-button-bg: #376A94;',
+            '    --aes-ts-button-bg-hover: #2c567a;',
+            '    --aes-ts-button-bg-active: #24475f;',
+            '    --aes-ts-button-border: #2c567a;',
+            '    --aes-ts-shadow: 0 12px 28px rgba(31,34,39,0.10);',
+            '    --aes-ts-button-shadow: 0 1px 0 rgba(255,255,255,0.25) inset, 0 1px 2px rgba(31,34,39,0.12);',
+            '    --aes-ts-input: #FFFFFF;',
+            '    --aes-ts-icon-filter: brightness(0) invert(1) opacity(0.92);',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active.aes-timesheet-ui-enhancement-dark {',
+            '    --aes-ts-canvas: #090B0D;',
+            '    --aes-ts-panel: #1F2227;',
+            '    --aes-ts-panel-alt: #1A1C20;',
+            '    --aes-ts-header: #17191D;',
+            '    --aes-ts-title: #F2F3F5;',
+            '    --aes-ts-text: #DDE1E6;',
+            '    --aes-ts-muted: #A9A9A9;',
+            '    --aes-ts-border: #48505A;',
+            '    --aes-ts-grid-border: #343941;',
+            '    --aes-ts-row-border: #2D3138;',
+            '    --aes-ts-hover: #2A2F36;',
+            '    --aes-ts-menu-hover: #2A2F36;',
+            '    --aes-ts-link: #7DB8EA;',
+            '    --aes-ts-link-hover: #A9D7FF;',
+            '    --aes-ts-button-bg: #376A94;',
+            '    --aes-ts-button-bg-hover: #2c567a;',
+            '    --aes-ts-button-bg-active: #24475f;',
+            '    --aes-ts-button-border: #2c567a;',
+            '    --aes-ts-shadow: 0 12px 28px rgba(0,0,0,0.22);',
+            '    --aes-ts-button-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;',
+            '    --aes-ts-input: #17191D;',
+            '    --aes-ts-icon-filter: brightness(0) invert(1) opacity(0.92);',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active,',
+            'html.aes-timesheet-ui-enhancement-active body {',
+            '    background: var(--aes-ts-canvas) !important;',
+            '    color: var(--aes-ts-text) !important;',
+            '    font-family: Roboto, Arial, Helvetica, Tahoma, sans-serif !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active iframe {',
+            '    display: block !important;',
+            '    border: 0 !important;',
+            '    background: var(--aes-ts-canvas) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .HeaderRow {',
+            '    height: 36px !important;',
+            '    margin: 0 0 6px !important;',
+            '    padding-left: 12px !important;',
+            '    box-sizing: border-box !important;',
+            '    background: var(--aes-ts-canvas) !important;',
+            '    border-bottom: 1px solid var(--aes-ts-row-border) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .HeaderRow tr {',
+            '    height: 36px !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .HeaderRow span {',
+            '    top: 8px !important;',
+            '    width: calc(100% - 24px) !important;',
+            '    color: var(--aes-ts-title) !important;',
+            '    font-size: 14px !important;',
+            '    font-weight: 800 !important;',
+            '    letter-spacing: 0.01em !important;',
+            '    text-transform: none !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .HeaderRow .SecondaryTitle {',
+            '    color: var(--aes-ts-muted) !important;',
+            '    font-weight: 500 !important;',
+            '    text-transform: none !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar {',
+            '    background: var(--aes-ts-canvas) !important;',
+            '    padding: 0 12px 6px !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul {',
+            '    display: flex !important;',
+            '    align-items: center !important;',
+            '    gap: 6px !important;',
+            '    height: 30px !important;',
+            '    overflow: hidden !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li {',
+            '    float: none !important;',
+            '    margin: 0 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a,',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a:visited {',
+            '    display: inline-flex !important;',
+            '    align-items: center !important;',
+            '    justify-content: center !important;',
+            '    gap: 5px !important;',
+            '    height: 28px !important;',
+            '    min-height: 28px !important;',
+            '    padding: 5px 16px !important;',
+            '    box-sizing: border-box !important;',
+            '    border-radius: 6px !important;',
+            '    background-color: var(--aes-ts-button-bg) !important;',
+            '    background-image: none !important;',
+            '    border: 1px solid var(--aes-ts-button-border) !important;',
+            '    color: #FFFFFF !important;',
+            '    box-shadow: var(--aes-ts-button-shadow) !important;',
+            '    transition: background-color 150ms ease, transform 150ms ease, box-shadow 150ms ease !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a:hover {',
+            '    background-color: var(--aes-ts-button-bg-hover) !important;',
+            '    color: #FFFFFF !important;',
+            '    transform: translateY(-1px) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a:active,',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a.SelectedState {',
+            '    background-color: var(--aes-ts-button-bg-active) !important;',
+            '    color: #FFFFFF !important;',
+            '    transform: translateY(0) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar ul li a span.Text {',
+            '    color: #FFFFFF !important;',
+            '    font-weight: 800 !important;',
+            '    line-height: 1 !important;',
+            '    padding: 0 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .ButtonBar img {',
+            '    filter: var(--aes-ts-icon-filter) !important;',
+            '    margin: 0 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenu {',
+            '    background: var(--aes-ts-panel) !important;',
+            '    border: 1px solid var(--aes-ts-border) !important;',
+            '    border-radius: 12px !important;',
+            '    padding: 8px !important;',
+            '    box-shadow: var(--aes-ts-shadow) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItemText,',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItemThirdColumn,',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItemTextHighlight,',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItemThirdColumnHighlight {',
+            '    color: var(--aes-ts-text) !important;',
+            '    background: transparent !important;',
+            '    border-radius: 7px !important;',
+            '    padding: 7px 12px !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItemHighlight .DropDownMenuItemTextHighlight,',
+            'html.aes-timesheet-ui-enhancement-active .DropDownMenuItem:hover .DropDownMenuItemText {',
+            '    background: var(--aes-ts-menu-hover) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active body > div:first-child {',
+            '    margin: 0 12px 8px !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .SubTitle {',
+            '    color: var(--aes-ts-title) !important;',
+            '    font-size: 14px !important;',
+            '    font-weight: 800 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active input[type="checkbox"] {',
+            '    accent-color: #376A94 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .SearchResultContainer {',
+            '    margin: 0 12px 12px !important;',
+            '    border: 0 !important;',
+            '    background: transparent !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active .grid.GridContainer {',
+            '    margin: 0 !important;',
+            '    background: var(--aes-ts-panel) !important;',
+            '    border: 1px solid var(--aes-ts-border) !important;',
+            '    border-radius: 12px !important;',
+            '    overflow: hidden !important;',
+            '    box-shadow: var(--aes-ts-shadow) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable {',
+            '    width: 100% !important;',
+            '    background: var(--aes-ts-panel) !important;',
+            '    border: 0 !important;',
+            '    border-collapse: separate !important;',
+            '    border-spacing: 0 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable thead {',
+            '    background: var(--aes-ts-header) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable thead td {',
+            '    position: sticky !important;',
+            '    top: 0 !important;',
+            '    z-index: 2 !important;',
+            '    background: var(--aes-ts-header) !important;',
+            '    color: var(--aes-ts-title) !important;',
+            '    border: 0 !important;',
+            '    border-bottom: 1px solid var(--aes-ts-border) !important;',
+            '    padding: 8px 9px !important;',
+            '    font-size: 12px !important;',
+            '    font-weight: 800 !important;',
+            '    line-height: 1.25 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable tbody td,',
+            'html.aes-timesheet-ui-enhancement-active #listTable tfoot td {',
+            '    background: var(--aes-ts-panel) !important;',
+            '    color: var(--aes-ts-text) !important;',
+            '    border: 0 !important;',
+            '    border-left: 1px solid var(--aes-ts-grid-border) !important;',
+            '    border-bottom: 1px solid var(--aes-ts-row-border) !important;',
+            '    padding: 8px 9px !important;',
+            '    line-height: 1.35 !important;',
+            '    vertical-align: top !important;',
+            '    transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable tbody tr td:first-child,',
+            'html.aes-timesheet-ui-enhancement-active #listTable tfoot tr td:first-child {',
+            '    border-left: 0 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable tbody tr:nth-child(even) td {',
+            '    background: var(--aes-ts-panel-alt) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable tbody tr:hover td {',
+            '    background: var(--aes-ts-hover) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #TotalRow td,',
+            'html.aes-timesheet-ui-enhancement-active #LastRow td {',
+            '    background: var(--aes-ts-header) !important;',
+            '    color: var(--aes-ts-title) !important;',
+            '    font-weight: 800 !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable a {',
+            '    color: var(--aes-ts-link) !important;',
+            '    font-weight: 800 !important;',
+            '    text-decoration: none !important;',
+            '    border-bottom: 1px solid rgba(125,184,234,0.35) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active #listTable a:hover {',
+            '    color: var(--aes-ts-link-hover) !important;',
+            '    border-bottom-color: rgba(169,215,255,0.75) !important;',
+            '}',
+            'html.aes-timesheet-ui-enhancement-active textarea,',
+            'html.aes-timesheet-ui-enhancement-active input[type="text"],',
+            'html.aes-timesheet-ui-enhancement-active select {',
+            '    background: var(--aes-ts-input) !important;',
+            '    color: var(--aes-ts-text) !important;',
+            '    border: 1px solid var(--aes-ts-border) !important;',
+            '    border-radius: 8px !important;',
+            '}',
+        ].join('\n');
+        function attach() {
+            (document.head || document.documentElement).appendChild(style);
+        }
+        if (document.head || document.documentElement) attach();
+        else document.addEventListener('DOMContentLoaded', attach, { once: true });
+    }
+
+    function syncTimesheetUiEnhancement() {
+        if (timesheetUiEnhancementEnabled && isReadonlyTimesheetFrame()) {
+            injectTimesheetUiEnhancementStyle();
+        } else {
+            removeTimesheetUiEnhancementStyle();
+        }
+    }
+
+    function handleTimesheetUiEnhancementMessage(data) {
+        timesheetUiEnhancementEnabled = !!data.enabled;
+        timesheetUiEnhancementActiveTheme = !!data.dark;
+        syncTimesheetUiEnhancement();
+    }
+
+    function requestTimesheetUiEnhancementState() {
+        postToTop({ type: 'timesheet-ui-enhancement-request' });
+    }
+
+    const PREFERENCES_UI_STYLE_ID = 'aes-preferences-ui-enhancement-style';
+    const PREFERENCES_UI_STYLE_ATTR = 'data-aes-preferences-ui-style';
+    const PREFERENCES_UI_STYLE_PROPS = [
+        'background-color',
+        'color',
+        'border',
+        'border-color',
+        'border-bottom',
+        'border-radius',
+        'box-shadow',
+        'padding',
+        'margin',
+        'opacity',
+    ];
+    let preferencesUiEnhancementEnabled = false;
+    let preferencesUiEnhancementActiveTheme = false;
+    let preferencesUiObserver = null;
+    let preferencesUiInlineScheduled = false;
+
+    function isPreferencesFrame() {
+        const path = (location.pathname || '').toLowerCase();
+        return path === '/mvc/user/preferences.mvc/index'
+            || path.endsWith('/mvc/user/preferences.mvc/index');
+    }
+
+    function preferencesUiPalette() {
+        if (preferencesUiEnhancementActiveTheme) {
+            return {
+                canvas: '#090B0D',
+                panel: '#1F2227',
+                panelAlt: '#17191D',
+                elevated: '#24282E',
+                input: '#17191D',
+                inputMuted: '#343941',
+                text: '#F2F3F5',
+                title: '#FFFFFF',
+                muted: '#A9A9A9',
+                border: '#48505A',
+                borderSubtle: '#343941',
+                hover: '#2A2F36',
+                selected: '#2D3138',
+                primary: '#376A94',
+                primaryHover: '#2c567a',
+                primaryActive: '#24475f',
+                shadow: '0 14px 30px rgba(0,0,0,0.24)',
+                overlayShadow: '0 18px 42px rgba(0,0,0,0.34)',
+                buttonShadow: '0 1px 0 rgba(255,255,255,0.08) inset',
+            };
+        }
+
+        return {
+            canvas: '#FFFFFF',
+            panel: '#FFFFFF',
+            panelAlt: '#F6F7F8',
+            elevated: '#FFFFFF',
+            input: '#FFFFFF',
+            inputMuted: '#F1F3F5',
+            text: '#1F2227',
+            title: '#1F2227',
+            muted: '#66707A',
+            border: '#D9DDE2',
+            borderSubtle: '#E5E5E5',
+            hover: '#ECEFF2',
+            selected: '#E5E5E5',
+            primary: '#376A94',
+            primaryHover: '#2c567a',
+            primaryActive: '#24475f',
+            shadow: '0 14px 30px rgba(31,34,39,0.10)',
+            overlayShadow: '0 18px 42px rgba(31,34,39,0.18)',
+            buttonShadow: '0 1px 0 rgba(255,255,255,0.35) inset, 0 1px 2px rgba(31,34,39,0.10)',
+        };
+    }
+
+    function preferencesUiStyleToken(prop) {
+        return prop.replace(/[^a-z0-9]+/gi, '-');
+    }
+
+    function setPreferencesUiStyle(el, prop, value) {
+        if (!el || !el.style) return;
+        const token = preferencesUiStyleToken(prop);
+        const valueAttr = 'data-aes-preferences-prev-' + token;
+        const priorityAttr = valueAttr + '-priority';
+        if (!el.hasAttribute(valueAttr)) {
+            el.setAttribute(valueAttr, el.style.getPropertyValue(prop) || '');
+            el.setAttribute(priorityAttr, el.style.getPropertyPriority(prop) || '');
+        }
+        el.setAttribute(PREFERENCES_UI_STYLE_ATTR, '1');
+        el.style.setProperty(prop, value, 'important');
+    }
+
+    function restorePreferencesUiInlineStyles() {
+        const elements = document.querySelectorAll('[' + PREFERENCES_UI_STYLE_ATTR + ']');
+        elements.forEach(function (el) {
+            PREFERENCES_UI_STYLE_PROPS.forEach(function (prop) {
+                const token = preferencesUiStyleToken(prop);
+                const valueAttr = 'data-aes-preferences-prev-' + token;
+                const priorityAttr = valueAttr + '-priority';
+                if (!el.hasAttribute(valueAttr)) return;
+                const previous = el.getAttribute(valueAttr) || '';
+                const priority = el.getAttribute(priorityAttr) || '';
+                if (previous) el.style.setProperty(prop, previous, priority);
+                else el.style.removeProperty(prop);
+                el.removeAttribute(valueAttr);
+                el.removeAttribute(priorityAttr);
+            });
+            el.removeAttribute(PREFERENCES_UI_STYLE_ATTR);
+        });
+    }
+
+    function paintPreferencesUi(selector, styles) {
+        document.querySelectorAll(selector).forEach(function (el) {
+            Object.keys(styles).forEach(function (prop) {
+                setPreferencesUiStyle(el, prop, styles[prop]);
+            });
+        });
+    }
+
+    function removePreferencesUiEnhancementStyle() {
+        removeStyleById(PREFERENCES_UI_STYLE_ID);
+        document.documentElement.classList.remove('aes-preferences-ui-enhancement-active');
+        document.documentElement.classList.remove('aes-preferences-ui-enhancement-dark');
+        document.documentElement.classList.remove('aes-preferences-ui-enhancement-light');
+        if (preferencesUiObserver) {
+            preferencesUiObserver.disconnect();
+            preferencesUiObserver = null;
+        }
+        preferencesUiInlineScheduled = false;
+        restorePreferencesUiInlineStyles();
+    }
+
+    function applyPreferencesUiEnhancementTheme() {
+        document.documentElement.classList.toggle(
+            'aes-preferences-ui-enhancement-dark',
+            !!preferencesUiEnhancementActiveTheme
+        );
+        document.documentElement.classList.toggle(
+            'aes-preferences-ui-enhancement-light',
+            !preferencesUiEnhancementActiveTheme
+        );
+    }
+
+    function injectPreferencesUiEnhancementStyle() {
+        if (!isPreferencesFrame()) return;
+        document.documentElement.classList.add('aes-preferences-ui-enhancement-active');
+        applyPreferencesUiEnhancementTheme();
+        if (document.getElementById(PREFERENCES_UI_STYLE_ID)) return;
+
+        const style = document.createElement('style');
+        style.id = PREFERENCES_UI_STYLE_ID;
+        style.textContent = [
+            'html.aes-preferences-ui-enhancement-active {',
+            '    --aes-pref-canvas: #FFFFFF;',
+            '    --aes-pref-panel: #FFFFFF;',
+            '    --aes-pref-panel-alt: #F6F7F8;',
+            '    --aes-pref-elevated: #FFFFFF;',
+            '    --aes-pref-input: #FFFFFF;',
+            '    --aes-pref-input-muted: #F1F3F5;',
+            '    --aes-pref-title: #1F2227;',
+            '    --aes-pref-text: #1F2227;',
+            '    --aes-pref-muted: #66707A;',
+            '    --aes-pref-border: #D9DDE2;',
+            '    --aes-pref-border-subtle: #E5E5E5;',
+            '    --aes-pref-hover: #ECEFF2;',
+            '    --aes-pref-selected: #E5E5E5;',
+            '    --aes-pref-primary: #376A94;',
+            '    --aes-pref-primary-hover: #2c567a;',
+            '    --aes-pref-primary-active: #24475f;',
+            '    --aes-pref-shadow: 0 14px 30px rgba(31,34,39,0.10);',
+            '    --aes-pref-overlay-shadow: 0 18px 42px rgba(31,34,39,0.18);',
+            '    --aes-pref-button-shadow: 0 1px 0 rgba(255,255,255,0.35) inset, 0 1px 2px rgba(31,34,39,0.10);',
+            '}',
+            'html.aes-preferences-ui-enhancement-active.aes-preferences-ui-enhancement-dark {',
+            '    --aes-pref-canvas: #090B0D;',
+            '    --aes-pref-panel: #1F2227;',
+            '    --aes-pref-panel-alt: #17191D;',
+            '    --aes-pref-elevated: #24282E;',
+            '    --aes-pref-input: #17191D;',
+            '    --aes-pref-input-muted: #343941;',
+            '    --aes-pref-title: #FFFFFF;',
+            '    --aes-pref-text: #F2F3F5;',
+            '    --aes-pref-muted: #A9A9A9;',
+            '    --aes-pref-border: #48505A;',
+            '    --aes-pref-border-subtle: #343941;',
+            '    --aes-pref-hover: #2A2F36;',
+            '    --aes-pref-selected: #2D3138;',
+            '    --aes-pref-shadow: 0 14px 30px rgba(0,0,0,0.24);',
+            '    --aes-pref-overlay-shadow: 0 18px 42px rgba(0,0,0,0.34);',
+            '    --aes-pref-button-shadow: 0 1px 0 rgba(255,255,255,0.08) inset;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active,',
+            'html.aes-preferences-ui-enhancement-active body {',
+            '    background: var(--aes-pref-canvas) !important;',
+            '    color: var(--aes-pref-text) !important;',
+            '    font-family: Roboto, Arial, Helvetica, Tahoma, sans-serif !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .PageContentContainer,',
+            'html.aes-preferences-ui-enhancement-active .PageHeadingContainer,',
+            'html.aes-preferences-ui-enhancement-active .TabbedContentContainer,',
+            'html.aes-preferences-ui-enhancement-active .ScrollingContentContainer,',
+            'html.aes-preferences-ui-enhancement-active .ScrollingContainer {',
+            '    background: var(--aes-pref-canvas) !important;',
+            '    color: var(--aes-pref-text) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .PageHeadingContainer {',
+            '    padding: 8px 10px 0 !important;',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabBar {',
+            '    display: flex !important;',
+            '    align-items: center !important;',
+            '    gap: 8px !important;',
+            '    height: auto !important;',
+            '    margin: 0 0 12px !important;',
+            '    padding: 0 !important;',
+            '    border-bottom: 1px solid var(--aes-pref-border-subtle) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabBar a.Button.ButtonIcon {',
+            '    display: inline-flex !important;',
+            '    align-items: center !important;',
+            '    justify-content: center !important;',
+            '    height: 34px !important;',
+            '    min-height: 34px !important;',
+            '    padding: 0 14px !important;',
+            '    margin: 0 !important;',
+            '    border: 1px solid transparent !important;',
+            '    border-radius: 10px 10px 0 0 !important;',
+            '    background: transparent !important;',
+            '    color: var(--aes-pref-muted) !important;',
+            '    box-shadow: none !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabBar a.Button.ButtonIcon.SelectedState {',
+            '    background: var(--aes-pref-panel) !important;',
+            '    border-color: var(--aes-pref-border-subtle) !important;',
+            '    border-bottom-color: var(--aes-pref-panel) !important;',
+            '    color: var(--aes-pref-title) !important;',
+            '    transform: translateY(1px) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabBar a.Button.ButtonIcon:hover {',
+            '    background: var(--aes-pref-hover) !important;',
+            '    color: var(--aes-pref-title) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabBar .Text {',
+            '    color: currentColor !important;',
+            '    font-size: 12px !important;',
+            '    font-weight: 800 !important;',
+            '    line-height: 1 !important;',
+            '    padding: 0 !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .TabHeadingContainer {',
+            '    height: auto !important;',
+            '    padding: 0 10px 10px !important;',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBar {',
+            '    display: flex !important;',
+            '    align-items: center !important;',
+            '    gap: 8px !important;',
+            '    min-height: 34px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBarItem {',
+            '    margin: 0 !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBar .Button2.NormalBackground:not(.ButtonIcon2) {',
+            '    display: inline-flex !important;',
+            '    align-items: center !important;',
+            '    justify-content: center !important;',
+            '    height: 32px !important;',
+            '    min-height: 32px !important;',
+            '    padding: 0 14px !important;',
+            '    border: 1px solid var(--aes-pref-border) !important;',
+            '    border-radius: 6px !important;',
+            '    background: var(--aes-pref-panel-alt) !important;',
+            '    color: var(--aes-pref-text) !important;',
+            '    box-shadow: var(--aes-pref-button-shadow) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBar .Button2.NormalBackground:not(.ButtonIcon2):hover,',
+            'html.aes-preferences-ui-enhancement-active .ToolBar .Button2.NormalBackground:not(.ButtonIcon2).HoverBackground {',
+            '    background: var(--aes-pref-hover) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBar .Button2.Disabled2 {',
+            '    opacity: 0.58 !important;',
+            '    cursor: default !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ToolBar .Button2.NormalBackground:not(.ButtonIcon2) .Text2 {',
+            '    color: var(--aes-pref-text) !important;',
+            '    font-size: 12px !important;',
+            '    font-weight: 800 !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ScrollingContainer {',
+            '    padding: 0 12px 18px !important;',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Normal.Section {',
+            '    overflow: hidden !important;',
+            '    background: var(--aes-pref-panel) !important;',
+            '    border: 1px solid var(--aes-pref-border-subtle) !important;',
+            '    border-radius: 14px !important;',
+            '    padding: 0 !important;',
+            '    margin: 0 0 14px !important;',
+            '    box-shadow: var(--aes-pref-shadow) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Normal.Section > .CollapsibleSectionContainer > .HeadingContainer {',
+            '    background: var(--aes-pref-panel-alt) !important;',
+            '    border-bottom: 1px solid var(--aes-pref-border-subtle) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Normal.Section > .CollapsibleSectionContainer > .HeadingContainer .Heading {',
+            '    min-height: 38px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Normal.Section > .CollapsibleSectionContainer > .HeadingContainer .Text .PrimaryText {',
+            '    color: var(--aes-pref-title) !important;',
+            '    font-size: 13px !important;',
+            '    font-weight: 900 !important;',
+            '    letter-spacing: 0.01em !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Normal.Section > .CollapsibleSectionContainer > .ContentContainer > .Content {',
+            '    padding: 16px 28px 20px !important;',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .EditorLabelContainer1 {',
+            '    margin-bottom: 6px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .LabelContainer1 .PrimaryText,',
+            'html.aes-preferences-ui-enhancement-active .Paragraph {',
+            '    color: var(--aes-pref-text) !important;',
+            '    font-size: 12px !important;',
+            '    font-weight: 700 !important;',
+            '    line-height: 1.35 !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Paragraph {',
+            '    color: var(--aes-pref-muted) !important;',
+            '    font-weight: 600 !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 > .ContentContainer {',
+            '    background: var(--aes-pref-input) !important;',
+            '    border: 1px solid var(--aes-pref-border) !important;',
+            '    border-radius: 8px !important;',
+            '    box-shadow: none !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 .SelectionDisplay {',
+            '    background: var(--aes-pref-input) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 .TargetPreview,',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 .SelectionDisplay .Text,',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 .SelectionDisplay span,',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 input[type="text"] {',
+            '    color: var(--aes-pref-text) !important;',
+            '    font-size: 12px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .SingleItemSelector2 .Triangle {',
+            '    border-left: 1px solid var(--aes-pref-border-subtle) !important;',
+            '    background: var(--aes-pref-panel-alt) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay {',
+            '    background: var(--aes-pref-panel) !important;',
+            '    border: 1px solid var(--aes-pref-border) !important;',
+            '    border-radius: 12px !important;',
+            '    padding: 6px !important;',
+            '    box-shadow: var(--aes-pref-overlay-shadow) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay .Item {',
+            '    border-radius: 8px !important;',
+            '    color: var(--aes-pref-text) !important;',
+            '    padding: 6px 8px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay .Item:hover,',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay .Item[data-is-targeted="true"] {',
+            '    background: var(--aes-pref-hover) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay .Item[data-is-selected="true"] {',
+            '    background: var(--aes-pref-selected) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay .Text,',
+            'html.aes-preferences-ui-enhancement-active .ContextOverlay.SingleItemSelectorDropDownOverlay span {',
+            '    color: var(--aes-pref-text) !important;',
+            '    font-size: 12px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Checkbox2 .TabIndexHack,',
+            'html.aes-preferences-ui-enhancement-active .RadioButton .TabIndexHack.RadioButtonItem {',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Checkbox2 .TabIndexHack.Unchecked {',
+            '    background: var(--aes-pref-input) !important;',
+            '    border: 1px solid var(--aes-pref-border) !important;',
+            '    border-radius: 3px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Checkbox2 .TabIndexHack.Checked {',
+            '    background: var(--aes-pref-primary) !important;',
+            '    border: 1px solid var(--aes-pref-primary) !important;',
+            '    border-radius: 3px !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .Checkbox2 .Checkmark path {',
+            '    fill: #FFFFFF !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .RadioButton .TabIndexHack.RadioButtonItem {',
+            '    border: 1px solid var(--aes-pref-border) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .RadioButton .TabIndexHack.RadioButtonItem.Selected {',
+            '    border-color: var(--aes-pref-primary) !important;',
+            '}',
+            'html.aes-preferences-ui-enhancement-active .RadioButton .TabIndexHack.RadioButtonItem.Selected .Fill {',
+            '    background: var(--aes-pref-primary) !important;',
+            '}',
+        ].join('\n');
+        function attach() {
+            (document.head || document.documentElement).appendChild(style);
+        }
+        if (document.head || document.documentElement) attach();
+        else document.addEventListener('DOMContentLoaded', attach, { once: true });
+    }
+
+    function applyPreferencesUiInlineStyles() {
+        if (!preferencesUiEnhancementEnabled || !isPreferencesFrame()) return;
+        const palette = preferencesUiPalette();
+
+        paintPreferencesUi('html, body, .PageContentContainer, .PageHeadingContainer, .TabbedContentContainer, .ScrollingContentContainer, .ScrollingContainer', {
+            'background-color': palette.canvas,
+            color: palette.text,
+        });
+        paintPreferencesUi('.Normal.Section', {
+            'background-color': palette.panel,
+            color: palette.text,
+            border: '1px solid ' + palette.borderSubtle,
+            'border-radius': '14px',
+            padding: '0',
+            margin: '0 0 14px',
+            'box-shadow': palette.shadow,
+        });
+        paintPreferencesUi('.Normal.Section > .CollapsibleSectionContainer > .HeadingContainer', {
+            'background-color': palette.panelAlt,
+            'border-bottom': '1px solid ' + palette.borderSubtle,
+        });
+        paintPreferencesUi('.Normal.Section > .CollapsibleSectionContainer > .ContentContainer', {
+            'background-color': palette.panel,
+            color: palette.text,
+        });
+        paintPreferencesUi('.SingleItemSelector2 > .ContentContainer', {
+            'background-color': palette.input,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '8px',
+            'box-shadow': 'none',
+        });
+        paintPreferencesUi('.SingleItemSelector2 .SelectionDisplay', {
+            'background-color': palette.input,
+            color: palette.text,
+        });
+        paintPreferencesUi('.ContextOverlay.SingleItemSelectorDropDownOverlay', {
+            'background-color': palette.panel,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '12px',
+            padding: '6px',
+            'box-shadow': palette.overlayShadow,
+        });
+        paintPreferencesUi('.ToolBar .Button2.NormalBackground:not(.ButtonIcon2)', {
+            'background-color': palette.panelAlt,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '6px',
+            'box-shadow': palette.buttonShadow,
+        });
+        paintPreferencesUi('.ToolBar .Button2.NormalBackground:not(.ButtonIcon2) .Text2', {
+            color: palette.text,
+        });
+        paintPreferencesUi('.ToolBar .Button2.Disabled2', {
+            opacity: '0.58',
+        });
+        paintPreferencesUi('.Checkbox2 .TabIndexHack.Unchecked', {
+            'background-color': palette.input,
+            border: '1px solid ' + palette.border,
+            'border-radius': '3px',
+        });
+        paintPreferencesUi('.Checkbox2 .TabIndexHack.Checked', {
+            'background-color': palette.primary,
+            border: '1px solid ' + palette.primary,
+            'border-radius': '3px',
+        });
+        paintPreferencesUi('.RadioButton .TabIndexHack.RadioButtonItem', {
+            border: '1px solid ' + palette.border,
+        });
+        paintPreferencesUi('.RadioButton .TabIndexHack.RadioButtonItem.Selected', {
+            border: '1px solid ' + palette.primary,
+        });
+    }
+
+    function schedulePreferencesUiInlineStyles() {
+        if (preferencesUiInlineScheduled) return;
+        preferencesUiInlineScheduled = true;
+        const run = function () {
+            preferencesUiInlineScheduled = false;
+            applyPreferencesUiInlineStyles();
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', run, { once: true });
+            return;
+        }
+        const raf = window.requestAnimationFrame || function (callback) { return window.setTimeout(callback, 16); };
+        raf(run);
+    }
+
+    function startPreferencesUiObserver() {
+        if (preferencesUiObserver || !document.body || !window.MutationObserver) return;
+        preferencesUiObserver = new MutationObserver(function () {
+            schedulePreferencesUiInlineStyles();
+        });
+        preferencesUiObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    function syncPreferencesUiEnhancement() {
+        if (preferencesUiEnhancementEnabled && isPreferencesFrame()) {
+            injectPreferencesUiEnhancementStyle();
+            schedulePreferencesUiInlineStyles();
+            if (document.body) startPreferencesUiObserver();
+            else document.addEventListener('DOMContentLoaded', startPreferencesUiObserver, { once: true });
+        } else {
+            removePreferencesUiEnhancementStyle();
+        }
+    }
+
+    function handlePreferencesUiEnhancementMessage(data) {
+        preferencesUiEnhancementEnabled = !!data.enabled;
+        preferencesUiEnhancementActiveTheme = !!data.dark;
+        syncPreferencesUiEnhancement();
+    }
+
+    function requestPreferencesUiEnhancementState() {
+        postToTop({ type: 'preferences-ui-enhancement-request' });
+    }
+
+    const WORKSPACE_QUEUES_UI_STYLE_ID = 'aes-workspace-queues-ui-enhancement-style';
+    const WORKSPACE_QUEUES_UI_STYLE_ATTR = 'data-aes-workspace-queues-ui-style';
+    const WORKSPACE_QUEUES_UI_STYLE_PROPS = [
+        'background-color',
+        'color',
+        'border',
+        'border-color',
+        'border-radius',
+        'box-shadow',
+        'padding',
+        'margin',
+    ];
+    let workspaceQueuesUiEnhancementEnabled = false;
+    let workspaceQueuesUiEnhancementActiveTheme = false;
+    let workspaceQueuesUiObserver = null;
+    let workspaceQueuesUiInlineScheduled = false;
+
+    function isWorkspaceQueuesFrame() {
+        const path = (location.pathname || '').toLowerCase();
+        return path === '/mvc/servicedesk/myworkspaceandqueuestickets.mvc/summary'
+            || path.endsWith('/mvc/servicedesk/myworkspaceandqueuestickets.mvc/summary');
+    }
+
+    function workspaceQueuesUiPalette() {
+        if (workspaceQueuesUiEnhancementActiveTheme) {
+            return {
+                canvas: '#090B0D',
+                panel: '#1F2227',
+                panelAlt: '#17191D',
+                elevated: '#24282E',
+                text: '#F2F3F5',
+                title: '#FFFFFF',
+                muted: '#A9A9A9',
+                border: '#48505A',
+                borderSubtle: '#343941',
+                hover: '#2A2F36',
+                selected: '#2D3138',
+                input: '#17191D',
+                shadow: '0 14px 30px rgba(0,0,0,0.24)',
+                overlayShadow: '0 18px 42px rgba(0,0,0,0.34)',
+            };
+        }
+
+        return {
+            canvas: '#FFFFFF',
+            panel: '#FFFFFF',
+            panelAlt: '#F6F7F8',
+            elevated: '#FFFFFF',
+            text: '#1F2227',
+            title: '#1F2227',
+            muted: '#66707A',
+            border: '#D9DDE2',
+            borderSubtle: '#E5E5E5',
+            hover: '#ECEFF2',
+            selected: '#E5E5E5',
+            input: '#FFFFFF',
+            shadow: '0 14px 30px rgba(31,34,39,0.10)',
+            overlayShadow: '0 18px 42px rgba(31,34,39,0.18)',
+        };
+    }
+
+    function workspaceQueuesUiStyleToken(prop) {
+        return prop.replace(/[^a-z0-9]+/gi, '-');
+    }
+
+    function setWorkspaceQueuesUiStyle(el, prop, value) {
+        if (!el || !el.style) return;
+        const token = workspaceQueuesUiStyleToken(prop);
+        const valueAttr = 'data-aes-workspace-queues-prev-' + token;
+        const priorityAttr = valueAttr + '-priority';
+        if (!el.hasAttribute(valueAttr)) {
+            el.setAttribute(valueAttr, el.style.getPropertyValue(prop) || '');
+            el.setAttribute(priorityAttr, el.style.getPropertyPriority(prop) || '');
+        }
+        el.setAttribute(WORKSPACE_QUEUES_UI_STYLE_ATTR, '1');
+        el.style.setProperty(prop, value, 'important');
+    }
+
+    function restoreWorkspaceQueuesUiInlineStyles() {
+        document.querySelectorAll('[' + WORKSPACE_QUEUES_UI_STYLE_ATTR + ']').forEach(function (el) {
+            WORKSPACE_QUEUES_UI_STYLE_PROPS.forEach(function (prop) {
+                const token = workspaceQueuesUiStyleToken(prop);
+                const valueAttr = 'data-aes-workspace-queues-prev-' + token;
+                const priorityAttr = valueAttr + '-priority';
+                if (!el.hasAttribute(valueAttr)) return;
+                const previous = el.getAttribute(valueAttr) || '';
+                const priority = el.getAttribute(priorityAttr) || '';
+                if (previous) el.style.setProperty(prop, previous, priority);
+                else el.style.removeProperty(prop);
+                el.removeAttribute(valueAttr);
+                el.removeAttribute(priorityAttr);
+            });
+            el.removeAttribute(WORKSPACE_QUEUES_UI_STYLE_ATTR);
+        });
+    }
+
+    function paintWorkspaceQueuesUi(selector, styles) {
+        document.querySelectorAll(selector).forEach(function (el) {
+            Object.keys(styles).forEach(function (prop) {
+                setWorkspaceQueuesUiStyle(el, prop, styles[prop]);
+            });
+        });
+    }
+
+    function removeWorkspaceQueuesUiEnhancementStyle() {
+        removeStyleById(WORKSPACE_QUEUES_UI_STYLE_ID);
+        document.documentElement.classList.remove('aes-workspace-queues-ui-enhancement-active');
+        document.documentElement.classList.remove('aes-workspace-queues-ui-enhancement-dark');
+        document.documentElement.classList.remove('aes-workspace-queues-ui-enhancement-light');
+        if (workspaceQueuesUiObserver) {
+            workspaceQueuesUiObserver.disconnect();
+            workspaceQueuesUiObserver = null;
+        }
+        workspaceQueuesUiInlineScheduled = false;
+        restoreWorkspaceQueuesUiInlineStyles();
+    }
+
+    function applyWorkspaceQueuesUiEnhancementTheme() {
+        document.documentElement.classList.toggle(
+            'aes-workspace-queues-ui-enhancement-dark',
+            !!workspaceQueuesUiEnhancementActiveTheme
+        );
+        document.documentElement.classList.toggle(
+            'aes-workspace-queues-ui-enhancement-light',
+            !workspaceQueuesUiEnhancementActiveTheme
+        );
+    }
+
+    function injectWorkspaceQueuesUiEnhancementStyle() {
+        if (!isWorkspaceQueuesFrame()) return;
+        document.documentElement.classList.add('aes-workspace-queues-ui-enhancement-active');
+        applyWorkspaceQueuesUiEnhancementTheme();
+        if (document.getElementById(WORKSPACE_QUEUES_UI_STYLE_ID)) return;
+
+        const style = document.createElement('style');
+        style.id = WORKSPACE_QUEUES_UI_STYLE_ID;
+        style.textContent = [
+            'html.aes-workspace-queues-ui-enhancement-active {',
+            '    --aes-wq-canvas: #FFFFFF;',
+            '    --aes-wq-panel: #FFFFFF;',
+            '    --aes-wq-panel-alt: #F6F7F8;',
+            '    --aes-wq-elevated: #FFFFFF;',
+            '    --aes-wq-title: #1F2227;',
+            '    --aes-wq-text: #1F2227;',
+            '    --aes-wq-muted: #66707A;',
+            '    --aes-wq-border: #D9DDE2;',
+            '    --aes-wq-border-subtle: #E5E5E5;',
+            '    --aes-wq-hover: #ECEFF2;',
+            '    --aes-wq-selected: #E5E5E5;',
+            '    --aes-wq-input: #FFFFFF;',
+            '    --aes-wq-shadow: 0 14px 30px rgba(31,34,39,0.10);',
+            '    --aes-wq-overlay-shadow: 0 18px 42px rgba(31,34,39,0.18);',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active.aes-workspace-queues-ui-enhancement-dark {',
+            '    --aes-wq-canvas: #090B0D;',
+            '    --aes-wq-panel: #1F2227;',
+            '    --aes-wq-panel-alt: #17191D;',
+            '    --aes-wq-elevated: #24282E;',
+            '    --aes-wq-title: #FFFFFF;',
+            '    --aes-wq-text: #F2F3F5;',
+            '    --aes-wq-muted: #A9A9A9;',
+            '    --aes-wq-border: #48505A;',
+            '    --aes-wq-border-subtle: #343941;',
+            '    --aes-wq-hover: #2A2F36;',
+            '    --aes-wq-selected: #2D3138;',
+            '    --aes-wq-input: #17191D;',
+            '    --aes-wq-shadow: 0 14px 30px rgba(0,0,0,0.24);',
+            '    --aes-wq-overlay-shadow: 0 18px 42px rgba(0,0,0,0.34);',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active,',
+            'html.aes-workspace-queues-ui-enhancement-active body {',
+            '    background: var(--aes-wq-canvas) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    font-family: Roboto, Arial, Helvetica, Tahoma, sans-serif !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .PageContentContainer,',
+            'html.aes-workspace-queues-ui-enhancement-active .PageHeadingContainer,',
+            'html.aes-workspace-queues-ui-enhancement-active .MainContainer1,',
+            'html.aes-workspace-queues-ui-enhancement-active .PrimaryContentContainer1,',
+            'html.aes-workspace-queues-ui-enhancement-active .StandardViewContainer1,',
+            'html.aes-workspace-queues-ui-enhancement-active .GridViewContainer1,',
+            'html.aes-workspace-queues-ui-enhancement-active .VerticalContainer {',
+            '    background: var(--aes-wq-canvas) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .MainContainer1 {',
+            '    gap: 12px !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .PageHeadingContainer {',
+            '    padding: 8px 10px 0 !important;',
+            '    box-sizing: border-box !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .MenuContainer1,',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenu1 {',
+            '    background: var(--aes-wq-panel) !important;',
+            '    border: 1px solid var(--aes-wq-border-subtle) !important;',
+            '    border-radius: 14px !important;',
+            '    box-shadow: var(--aes-wq-shadow) !important;',
+            '    overflow: hidden !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryGroupMenuItem1 {',
+            '    background: var(--aes-wq-panel-alt) !important;',
+            '    color: var(--aes-wq-title) !important;',
+            '    border-bottom: 1px solid var(--aes-wq-border-subtle) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .GroupMenuItemText1,',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryGroupMenuItem1 .SecondaryText {',
+            '    color: var(--aes-wq-title) !important;',
+            '    font-weight: 900 !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenuItem1 {',
+            '    color: var(--aes-wq-text) !important;',
+            '    border-radius: 8px !important;',
+            '    margin: 2px 6px !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenuItem1:hover,',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenuItem1.Selected,',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenuItem1.SelectedState {',
+            '    background: var(--aes-wq-hover) !important;',
+            '    color: var(--aes-wq-title) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .SummaryMenuItem1 .SecondaryText {',
+            '    color: var(--aes-wq-muted) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ToolBar {',
+            '    background: var(--aes-wq-canvas) !important;',
+            '    padding: 8px 10px !important;',
+            '    gap: 8px !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .Button2,',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Button2.NormalBackground {',
+            '    border: 1px solid var(--aes-wq-border) !important;',
+            '    border-radius: 7px !important;',
+            '    background: var(--aes-wq-panel-alt) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    min-height: 32px !important;',
+            '    box-shadow: none !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .Button2:hover,',
+            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .Button2.HoverBackground,',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Button2.NormalBackground:hover {',
+            '    background: var(--aes-wq-hover) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .Button2 .Text2,',
+            'html.aes-workspace-queues-ui-enhancement-active .Button .Text {',
+            '    color: var(--aes-wq-text) !important;',
+            '    font-weight: 800 !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .SearchResultContainer,',
+            'html.aes-workspace-queues-ui-enhancement-active .GridContainer,',
+            'html.aes-workspace-queues-ui-enhancement-active .grid {',
+            '    background: var(--aes-wq-panel) !important;',
+            '    border-color: var(--aes-wq-border-subtle) !important;',
+            '    border-radius: 14px !important;',
+            '    box-shadow: var(--aes-wq-shadow) !important;',
+            '    overflow: hidden !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .grid thead td,',
+            'html.aes-workspace-queues-ui-enhancement-active .grid tr.Heading td {',
+            '    background: var(--aes-wq-panel-alt) !important;',
+            '    color: var(--aes-wq-title) !important;',
+            '    border-color: var(--aes-wq-border-subtle) !important;',
+            '    font-weight: 900 !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .grid tbody td {',
+            '    background: var(--aes-wq-panel) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    border-color: var(--aes-wq-border-subtle) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .grid tbody tr:nth-child(even) td {',
+            '    background: var(--aes-wq-panel-alt) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .grid tbody tr:hover td {',
+            '    background: var(--aes-wq-hover) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active input,',
+            'html.aes-workspace-queues-ui-enhancement-active select,',
+            'html.aes-workspace-queues-ui-enhancement-active textarea {',
+            '    background: var(--aes-wq-input) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    border: 1px solid var(--aes-wq-border) !important;',
+            '    border-radius: 8px !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay {',
+            '    background: var(--aes-wq-panel) !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    border: 1px solid var(--aes-wq-border) !important;',
+            '    border-radius: 12px !important;',
+            '    box-shadow: var(--aes-wq-overlay-shadow) !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Heading1 .Text1 {',
+            '    color: var(--aes-wq-muted) !important;',
+            '    font-weight: 900 !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay a.Button {',
+            '    background: transparent !important;',
+            '    color: var(--aes-wq-text) !important;',
+            '    border-radius: 8px !important;',
+            '}',
+            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay a.Button:hover {',
+            '    background: var(--aes-wq-hover) !important;',
+            '}',
+        ].join('\n');
+        function attach() {
+            (document.head || document.documentElement).appendChild(style);
+        }
+        if (document.head || document.documentElement) attach();
+        else document.addEventListener('DOMContentLoaded', attach, { once: true });
+    }
+
+    function applyWorkspaceQueuesUiInlineStyles() {
+        if (!workspaceQueuesUiEnhancementEnabled || !isWorkspaceQueuesFrame()) return;
+        const palette = workspaceQueuesUiPalette();
+
+        paintWorkspaceQueuesUi('html, body, .PageContentContainer, .PageHeadingContainer, .MainContainer1, .PrimaryContentContainer1, .StandardViewContainer1, .GridViewContainer1, .VerticalContainer', {
+            'background-color': palette.canvas,
+            color: palette.text,
+        });
+        paintWorkspaceQueuesUi('.MenuContainer1, .SummaryMenu1, .SearchResultContainer, .GridContainer, .grid', {
+            'background-color': palette.panel,
+            color: palette.text,
+            border: '1px solid ' + palette.borderSubtle,
+            'border-radius': '14px',
+            'box-shadow': palette.shadow,
+        });
+        paintWorkspaceQueuesUi('.SummaryGroupMenuItem1, .grid thead td, .grid tr.Heading td', {
+            'background-color': palette.panelAlt,
+            color: palette.title,
+            'border-color': palette.borderSubtle,
+        });
+        paintWorkspaceQueuesUi('.ToolBar .Button2, .ContextOverlay .Button2.NormalBackground', {
+            'background-color': palette.panelAlt,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '7px',
+            'box-shadow': 'none',
+        });
+        paintWorkspaceQueuesUi('.ContextOverlay', {
+            'background-color': palette.panel,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '12px',
+            'box-shadow': palette.overlayShadow,
+        });
+        paintWorkspaceQueuesUi('input, select, textarea', {
+            'background-color': palette.input,
+            color: palette.text,
+            border: '1px solid ' + palette.border,
+            'border-radius': '8px',
+        });
+    }
+
+    function scheduleWorkspaceQueuesUiInlineStyles() {
+        if (workspaceQueuesUiInlineScheduled) return;
+        workspaceQueuesUiInlineScheduled = true;
+        const run = function () {
+            workspaceQueuesUiInlineScheduled = false;
+            applyWorkspaceQueuesUiInlineStyles();
+        };
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', run, { once: true });
+            return;
+        }
+        const raf = window.requestAnimationFrame || function (callback) { return window.setTimeout(callback, 16); };
+        raf(run);
+    }
+
+    function startWorkspaceQueuesUiObserver() {
+        if (workspaceQueuesUiObserver || !document.body || !window.MutationObserver) return;
+        workspaceQueuesUiObserver = new MutationObserver(function () {
+            scheduleWorkspaceQueuesUiInlineStyles();
+        });
+        workspaceQueuesUiObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
+    function syncWorkspaceQueuesUiEnhancement() {
+        if (workspaceQueuesUiEnhancementEnabled && isWorkspaceQueuesFrame()) {
+            injectWorkspaceQueuesUiEnhancementStyle();
+            scheduleWorkspaceQueuesUiInlineStyles();
+            if (document.body) startWorkspaceQueuesUiObserver();
+            else document.addEventListener('DOMContentLoaded', startWorkspaceQueuesUiObserver, { once: true });
+        } else {
+            removeWorkspaceQueuesUiEnhancementStyle();
+        }
+    }
+
+    function handleWorkspaceQueuesUiEnhancementMessage(data) {
+        workspaceQueuesUiEnhancementEnabled = !!data.enabled;
+        workspaceQueuesUiEnhancementActiveTheme = !!data.dark;
+        syncWorkspaceQueuesUiEnhancement();
+    }
+
+    function requestWorkspaceQueuesUiEnhancementState() {
+        postToTop({ type: 'workspace-queues-ui-enhancement-request' });
+    }
+
     // The "Autotask UI Enhancement" toggle gates three sets of overrides:
     //   1. Always when enabled, regardless of theme:
     //      - Brand-blue legacy/Onyx-style buttons (injectModernButtonStyles)
@@ -1355,9 +2618,26 @@
                 handleDarkEnhancerMessage(data);
                 return;
             }
+            if (data && data.__ns === AES.MSG_NS && data.type === 'timesheet-ui-enhancement') {
+                handleTimesheetUiEnhancementMessage(data);
+                return;
+            }
+            if (data && data.__ns === AES.MSG_NS && data.type === 'preferences-ui-enhancement') {
+                handlePreferencesUiEnhancementMessage(data);
+                return;
+            }
+            if (data && data.__ns === AES.MSG_NS && data.type === 'workspace-queues-ui-enhancement') {
+                handleWorkspaceQueuesUiEnhancementMessage(data);
+                return;
+            }
             if (data && data.__ns === AES.MSG_NS && data.type === 'feature-enabled') {
                 featureEnabled = data.enabled !== false;
-                if (!featureEnabled) handleDarkEnhancerMessage({ enabled: false, dark: false });
+                if (!featureEnabled) {
+                    handleDarkEnhancerMessage({ enabled: false, dark: false });
+                    handleTimesheetUiEnhancementMessage({ enabled: false });
+                    handlePreferencesUiEnhancementMessage({ enabled: false });
+                    handleWorkspaceQueuesUiEnhancementMessage({ enabled: false });
+                }
                 return;
             }
 
@@ -1380,10 +2660,22 @@
         // gated by the "Autotask UI Enhancement" toggle and applied via
         // syncDarkEnhancer() when the shell broadcasts the current state.
         requestDarkEnhancerState();
+        requestTimesheetUiEnhancementState();
+        requestPreferencesUiEnhancementState();
+        requestWorkspaceQueuesUiEnhancementState();
         postToTop({ type: 'feature-enabled-request' });
         window.setTimeout(requestDarkEnhancerState, 250);
         window.setTimeout(requestDarkEnhancerState, 1000);
         window.setTimeout(requestDarkEnhancerState, 2500);
+        window.setTimeout(requestTimesheetUiEnhancementState, 250);
+        window.setTimeout(requestTimesheetUiEnhancementState, 1000);
+        window.setTimeout(requestTimesheetUiEnhancementState, 2500);
+        window.setTimeout(requestPreferencesUiEnhancementState, 250);
+        window.setTimeout(requestPreferencesUiEnhancementState, 1000);
+        window.setTimeout(requestPreferencesUiEnhancementState, 2500);
+        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 250);
+        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 1000);
+        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 2500);
         startMapButtonEnhancement();
 
         function armMapOpenFromEvent(event) {
