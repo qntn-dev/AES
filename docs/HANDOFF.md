@@ -43,7 +43,7 @@ These files live under both `chrome-extension/src/` and `firefox-extension/src/`
 - Tab organization: drag tabs, pin tabs, color tabs, duplicate tabs, peek tabs, and copy tab/ticket info from context menu actions.
 - The tab context menu includes `Refresh tab` as its first action, which reloads that tab's iframe without refreshing the full browser page.
 - Rich tab metadata for supported pages, including ticket title/number/account/resource avatar or initials, project metadata, timesheet date/resource, contact/account metadata, and LiveLinks icon handling.
-- Visible tab metadata is refreshed automatically on a lightweight timer for the active tab and split tab only, so title/details stay current without polling every background tab.
+- Metadata is refreshed automatically on a lightweight timer for all loaded custom tabs, including background tabs. This does not reload pages; it asks each iframe bridge to re-report its current metadata.
 - Custom tab hover cards instead of native browser URL tooltips.
 - Optional tab restore after browser close via extension storage.
 - Optional clickable phone numbers inside Autotask pages.
@@ -112,7 +112,7 @@ New features:
 - Added `Refresh tab` to the top of the tab right-click menu. It reloads the selected Autotask iframe without refreshing the browser page.
 
 Improvements:
-- Visible tabs now request fresh metadata every 7 seconds for the active tab and split tab only.
+- All loaded custom tabs now request fresh metadata every 7 seconds, including background tabs.
 - The `Clear tab color` action now uses a clearer swatch-with-slash icon.
 
 Fixes:

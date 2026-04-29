@@ -8,7 +8,7 @@
 
 ### Improvements:
 
-- Added a lightweight automatic metadata refresh for visible tabs, so tab titles and ticket details stay fresher without manually reloading.
+- Added a lightweight automatic metadata refresh for all loaded custom tabs, including background tabs, so tab titles and ticket details stay fresher without manually reloading.
 - Updated the `Clear tab color` menu icon to better match what the action actually does.
 
 ### Fixes:

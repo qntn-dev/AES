@@ -160,14 +160,9 @@
         }
     }
 
-    function requestVisibleTabMetadataRefresh() {
+    function requestAllTabMetadataRefresh() {
         if (!featuresEnabled()) return;
-        const visibleIds = [state.activeId, state.splitId];
-        const seen = new Set();
-        for (const id of visibleIds) {
-            if (id === null || id === undefined || seen.has(id)) continue;
-            seen.add(id);
-            const tab = state.tabs.find(t => t.id === id);
+        for (const tab of state.tabs) {
             if (!tab || tab.loading) continue;
             requestTabMetadataRefresh(tab);
         }
@@ -176,10 +171,10 @@
     function startMetadataRefreshTimer() {
         if (state.metadataRefreshTimerId) return;
         state.metadataRefreshTimerId = window.setInterval(
-            requestVisibleTabMetadataRefresh,
+            requestAllTabMetadataRefresh,
             METADATA_REFRESH_INTERVAL_MS
         );
-        window.setTimeout(requestVisibleTabMetadataRefresh, 1000);
+        window.setTimeout(requestAllTabMetadataRefresh, 1000);
     }
 
     function refreshTabIframe(tab) {
