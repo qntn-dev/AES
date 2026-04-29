@@ -12,28 +12,57 @@
         '/mvc/servicedesk/ticketdetail.mvc',
         '/mvc/crm/accountdetail.mvc',
         '/mvc/crm/contactdetail.mvc',
+        '/mvc/crm/installedproductdetail.mvc',
+        '/mvc/crm/note.mvc/view',
+        '/mvc/crm/opportunitydetail.mvc',
         '/mvc/administrationsetup/resourcedetail.mvc',
         '/mvc/administration/resourcedetail.mvc',
         '/mvc/administrationsetup/resource.mvc/resourcedetail',
         '/mvc/administrationsetup/persondetail.mvc',
         '/autotask35/grapevine/profile.aspx',
+        '/autotask35/crm/salesorder/salesorderdetail.aspx',
+        '/autotask/inventory/inventory_edit_order.aspx',
+        '/opportunity/quotes/quote.asp',
+        '/opportunity/quotes/newquote.asp',
+        '/mvc/crm/quotetemplate.mvc/editproperties',
         '/autotask/popups/tickets/recurring_ticket.aspx',
         '/autotask/autotaskextend/livelinks/livelinkeditor.aspx',
         '/autotask/autotaskextend/directory_view.aspx',
+        '/autotask/views/crm/contact_group_management.aspx',
+        '/autotask35/crm/contactgroupmanager.aspx',
         '/timesheets/views/readonly/tmsreadonly_100.asp',
-        '/mvc/inventory/costitem.mvc/shipping',
+        '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx',
+        '/mvc/crm/contractbillingruleassociation.mvc/editcontact',
         '/mvc/projects/projectdetail.mvc/projectdetail',
         '/mvc/projects/taskdetail.mvc',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',
     ];
+    const NATIVE_HOME_PATHS = [
+        '/mvc/inventory/costitem.mvc/shipping',
+    ];
     const HANDLED_PATH_INCLUDES = [
         '/ticketprintview.mvc',
         '/picklistdetailforshippinggrid',
         '/packinglistdetailforshippinggrid',
+        '/billingproduct',
+        '/billingproducts',
+        '/billing_product',
+        '/billing_products',
+        '/billingrule',
+        '/billingrules',
+        '/billing_rule',
+        '/billing_rules',
+        '/billingassociation',
+        '/billingassociations',
+        '/billingproductassociation',
+        '/billingruleassociation',
     ];
     const ID_KEYS = [
+        'ID',
         'ticketId',
+        'ticketID',
+        'genericId',
         'accountId',
         'contractID',
         'contractId',
@@ -45,6 +74,25 @@
         'projectID',
         'taskId',
         'taskID',
+        'installedProductId',
+        'installedProductID',
+        'configurationItemId',
+        'configurationItemID',
+        'opportunityId',
+        'opportunityID',
+        'salesorderid',
+        'salesOrderId',
+        'salesOrderID',
+        'purchaseOrderId',
+        'purchaseorderid',
+        'purchaseOrderID',
+        'QuoteID',
+        'quoteID',
+        'quoteId',
+        'objectID',
+        'groupid',
+        'groupId',
+        'groupID',
         'personId',
         'personID',
         'recurring_ticket_id',
@@ -58,6 +106,7 @@
 
     function isHandledUrl(url) {
         const path = pathOf(url);
+        if (NATIVE_HOME_PATHS.includes(path)) return false;
         return HANDLED_PATHS.includes(path) ||
             HANDLED_PATH_INCLUDES.some(fragment => path.includes(fragment)) ||
             path.includes('/contactdetail') ||
@@ -67,8 +116,12 @@
     }
 
     function absoluteUrl(url) {
-        try { return new URL(String(url || ''), location.origin).href; }
+        try { return new URL(decodeUrl(String(url || '')), location.origin).href; }
         catch (e) { return ''; }
+    }
+
+    function decodeUrl(url) {
+        return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
     }
 
     function looksLikeUrl(value) {

@@ -12,6 +12,9 @@
     if (typeof AES.state.rememberTabsAfterClose !== 'boolean') {
         AES.state.rememberTabsAfterClose = false;
     }
+    if (typeof AES.state.openNewTabsAtStart !== 'boolean') {
+        AES.state.openNewTabsAtStart = false;
+    }
     if (typeof AES.state.phoneLinksEnabled !== 'boolean') {
         AES.state.phoneLinksEnabled = true;
     }
@@ -52,6 +55,12 @@
     }
     if (typeof AES.state.tabBarWidth !== 'number') {
         AES.state.tabBarWidth = AES.BAR_W || 240;
+    }
+    if (!AES.state.tabLine2Fields || typeof AES.state.tabLine2Fields !== 'object') {
+        AES.state.tabLine2Fields = {};
+    }
+    if (!AES.state.tabLine3Fields || typeof AES.state.tabLine3Fields !== 'object') {
+        AES.state.tabLine3Fields = {};
     }
 
     AES.hasChromeStorage = function hasChromeStorage() {
@@ -141,6 +150,7 @@
                 ? settings.extensionEnabled
                 : true;
             AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
+            AES.state.openNewTabsAtStart = !!(settings && settings.openNewTabsAtStart);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
                 : true;
@@ -156,6 +166,8 @@
             AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
+            AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
+            AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
             return;
         }
 
@@ -166,6 +178,7 @@
                 ? settings.extensionEnabled
                 : true;
             AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
+            AES.state.openNewTabsAtStart = !!(settings && settings.openNewTabsAtStart);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
                 : true;
@@ -181,9 +194,12 @@
             AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.tabBarWidth = readTabBarWidth(settings);
+            AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
+            AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
         } catch (e) {
             AES.state.extensionEnabled = true;
             AES.state.rememberTabsAfterClose = false;
+            AES.state.openNewTabsAtStart = false;
             AES.state.phoneLinksEnabled = true;
             AES.state.themePreference = 'auto';
             AES.state.barOrientation = 'horizontal';
@@ -197,6 +213,8 @@
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = false;
             AES.state.tabBarWidth = AES.BAR_W || 240;
+            AES.state.tabLine2Fields = {};
+            AES.state.tabLine3Fields = {};
         }
     };
 
@@ -204,6 +222,7 @@
         const payload = {
             extensionEnabled: AES.state.extensionEnabled !== false,
             rememberTabsAfterClose: !!AES.state.rememberTabsAfterClose,
+            openNewTabsAtStart: !!AES.state.openNewTabsAtStart,
             phoneLinksEnabled: !!AES.state.phoneLinksEnabled,
             themePreference: readThemePreference(AES.state),
             barOrientation: readBarOrientation(AES.state),
@@ -217,6 +236,8 @@
             workspaceQueuesUiEnhancementEnabled: !!AES.state.workspaceQueuesUiEnhancementEnabled,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             tabBarWidth: readTabBarWidth(AES.state),
+            tabLine2Fields: AES.state.tabLine2Fields || {},
+            tabLine3Fields: AES.state.tabLine3Fields || {},
         };
         if (AES.hasChromeStorage()) {
             await AES.setChromeLocal({ [AES.SETTINGS_STORAGE_KEY]: payload });

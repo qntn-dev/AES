@@ -605,6 +605,58 @@
         return '';
     }
 
+    function findReadOnlyColorFieldByLabel(labelNames) {
+        const wanted = labelNames.map(function (n) { return n.toLowerCase(); });
+        const labels = document.querySelectorAll(
+            '.ReadOnlyData .ReadOnlyLabelContainer .PrimaryText'
+        );
+        for (const label of labels) {
+            const text = (label.textContent || '').trim().toLowerCase();
+            if (wanted.indexOf(text) === -1) continue;
+            const data = label.closest('.ReadOnlyData');
+            if (!data) continue;
+            const valueContainer = data.querySelector('.ReadOnlyValueContainer .Value');
+            if (!valueContainer) continue;
+            const colorSample = valueContainer.querySelector('.Right .Text.ColorSample');
+            const value = cleanText(colorSample ? colorSample.textContent : valueContainer.textContent);
+            if (!value) continue;
+            const colorSource = valueContainer.querySelector('.Left.ColorSample, .BackgroundPatch.ColorSample, .ColorBand.ColorSwatch, .ColorSample');
+            const color = colorSource ? window.getComputedStyle(colorSource).backgroundColor : '';
+            return { value: value, color: color };
+        }
+        return { value: '', color: '' };
+    }
+
+    function isGenericOpportunityTitle(value) {
+        const text = cleanText(value).toLowerCase();
+        return !text ||
+            text === 'opportunity' ||
+            text === 'view opportunity' ||
+            text === 'edit opportunity';
+    }
+
+    function findOpportunityTitle() {
+        const copyButton = document.querySelector(
+            '.CopyTextButton[title*="opportunity ID"], .CopyTextButton[title*="opportunity URL"]'
+        );
+        const copyTitle = copyButton && copyButton.closest('.Title');
+        const copyTitleText = copyTitle && copyTitle.querySelector(':scope > .Text, .Text');
+        const copyCandidate = cleanText(copyTitleText && copyTitleText.textContent);
+        if (!isGenericOpportunityTitle(copyCandidate)) return copyCandidate;
+
+        const candidates = document.querySelectorAll(
+            '.EntityHeadingContainer .Title > .Text, ' +
+            '.PageHeadingContainer .Title > .Text, ' +
+            '.TitleBarItem.Title > .Text, ' +
+            '.Title > .Text'
+        );
+        for (const candidate of candidates) {
+            const text = cleanText(candidate.textContent);
+            if (!isGenericOpportunityTitle(text)) return text;
+        }
+        return '';
+    }
+
     // The ticket activity feed renders newest-first. The first
     // `.ConversationChunk .ConversationItem .Footer .Timestamp` is therefore
     // the most-recent activity timestamp (notes, time entries, attachments).
@@ -640,18 +692,43 @@
         }
 
         const organization = findFieldValue('Organization');
-        const priority = findReadOnlyValueByLabel(['Priority']);
-        const status = findReadOnlyValueByLabel(['Status']);
+        const contactName = findReadOnlyValueByLabel(['Contact', 'Contact Name']) ||
+            findFieldValue('Contact') ||
+            findFieldValue('Contact Name');
+        const priorityField = findReadOnlyColorFieldByLabel(['Priority']);
+        const statusField = findReadOnlyColorFieldByLabel(['Status']);
+        const priority = priorityField.value || findReadOnlyValueByLabel(['Priority']);
+        const status = statusField.value || findReadOnlyValueByLabel(['Status']);
         const lastActivity = extractTicketLastActivity();
+        const primaryResource = extractPrimaryResourceInfo();
+        const hoverFields = [
+            { label: 'Ticket number', value: number.slice(0, 40) },
+            { label: 'Status', value: status.slice(0, 40) },
+            { label: 'Priority', value: priority.slice(0, 40) },
+            { label: 'Last activity', value: lastActivity.slice(0, 40) },
+        ].filter(field => field.value);
 
         return {
             title: title || 'Ticket',
-            number: number.slice(0, 40),
+            number: 'Ticket',
             contact: organization.slice(0, 80),
-            primaryResource: extractPrimaryResourceInfo(),
+            primaryResource: primaryResource,
             priority: priority.slice(0, 40),
             status: status.slice(0, 40),
             lastActivity: lastActivity.slice(0, 40),
+            hoverFields: hoverFields,
+            metadataFields: {
+                type: 'Ticket',
+                number: number.slice(0, 40),
+                organization: organization.slice(0, 80),
+                contact: contactName.slice(0, 80),
+                status: status.slice(0, 40),
+                statusColor: statusField.color,
+                priority: priority.slice(0, 40),
+                priorityColor: priorityField.color,
+                lastActivity: lastActivity.slice(0, 40),
+                primaryResource: primaryResource && primaryResource.name || '',
+            },
         };
     }
 
@@ -674,9 +751,13 @@
 
         return {
             title: title || 'Recurring Ticket',
-            number: id ? ('Recurring ' + id).slice(0, 40) : '',
+            number: id ? ('ID ' + id).slice(0, 40) : 'Recurring Ticket',
             contact: '',
             primaryResource: null,
+            metadataFields: {
+                type: 'Ticket',
+                id: id ? ('ID ' + id).slice(0, 40) : '',
+            },
         };
     }
 
@@ -756,8 +837,13 @@
 
         return {
             title: name || 'Contract',
-            number: id,
+            number: id ? ('ID ' + id).slice(0, 40) : 'Contract',
             contact: org.slice(0, 80),
+            metadataFields: {
+                type: 'Contract',
+                id: id ? ('ID ' + id).slice(0, 40) : '',
+                organization: org.slice(0, 80),
+            },
         };
     }
 
@@ -773,8 +859,12 @@
         const classification = findFieldValue('Classification');
         return {
             title: title || 'Organization',
-            number: number.slice(0, 40),
+            number: number ? ('ID ' + number).slice(0, 40) : 'Organization',
             contact: classification.slice(0, 80),
+            metadataFields: {
+                type: 'Organization',
+                id: number ? ('ID ' + number).slice(0, 40) : '',
+            },
         };
     }
 
@@ -797,8 +887,13 @@
             findFieldValue('Client');
         return {
             title: title || cleanText(document.title) || 'Person',
-            number: number.slice(0, 40),
+            number: number ? ('ID ' + number).slice(0, 40) : 'Person',
             contact: organization.slice(0, 80),
+            metadataFields: {
+                type: 'Person',
+                id: number ? ('ID ' + number).slice(0, 40) : '',
+                organization: organization.slice(0, 80),
+            },
         };
     }
 
@@ -811,9 +906,6 @@
             const titleEl = heading.querySelector('.Title > .Text');
             if (titleEl) title = cleanText(titleEl.textContent);
         }
-        // Project pages typically have an Organization / Account field linking
-        // the project to its customer — surface it as the tab's secondary line
-        // so users can tell which client a project belongs to at a glance.
         const organization = findFieldValue('Organization') ||
             findFieldValue('Organization Name') ||
             findFieldValue('Account') ||
@@ -821,8 +913,288 @@
             findFieldValue('Customer');
         return {
             title: title || cleanText(document.title) || 'Project',
-            number: number.slice(0, 40),
+            number: number ? ('ID ' + number).slice(0, 40) : 'Project',
             contact: organization.slice(0, 80),
+            metadataFields: {
+                type: 'Project',
+                id: number ? ('ID ' + number).slice(0, 40) : '',
+                organization: organization.slice(0, 80),
+            },
+        };
+    }
+
+    function extractInstalledProductInfo() {
+        const hostname = findReadOnlyValueByLabel(['Hostname']) ||
+            findFieldValue('Hostname');
+        const deviceTitle = cleanText(document.querySelector('.Title > .Text')?.textContent);
+        const serialNumber = findReadOnlyValueByLabel(['Serial Number']) ||
+            findFieldValue('Serial Number');
+        const organization = findReadOnlyValueByLabel(['Organization']) ||
+            findFieldValue('Organization') ||
+            findFieldValue('Organization Name') ||
+            findFieldValue('Account') ||
+            findFieldValue('Account Name');
+        const deviceType = findReadOnlyValueByLabel(['Type']) || findFieldValue('Type');
+        const manufacturer = findReadOnlyValueByLabel(['Manufacturer']) || findFieldValue('Manufacturer');
+        const model = findReadOnlyValueByLabel(['Model']) || findFieldValue('Model');
+        const internalIp = findReadOnlyValueByLabel(['Internal IP Address']) || findFieldValue('Internal IP Address');
+        const antivirusStatus = findReadOnlyValueByLabel(['Antivirus Status']) || findFieldValue('Antivirus Status');
+        const patchStatus = findReadOnlyValueByLabel(['Patch Status']) || findFieldValue('Patch Status');
+        const hoverFields = [
+            { label: 'Serial Number', value: serialNumber },
+            { label: 'Device type', value: deviceType },
+            { label: 'Manufacturer', value: manufacturer },
+            { label: 'Model', value: model },
+            { label: 'Internal IP', value: internalIp },
+            { label: 'Antivirus', value: antivirusStatus },
+            { label: 'Patch status', value: patchStatus },
+        ].map(field => ({
+            label: field.label,
+            value: cleanText(field.value).slice(0, 120),
+        })).filter(field => field.value);
+        return {
+            title: hostname || deviceTitle || cleanText(document.title) || 'Device',
+            number: 'Device',
+            contact: organization.slice(0, 80),
+            hoverFields: hoverFields,
+            metadataFields: {
+                type: 'Device',
+                serialNumber: serialNumber.slice(0, 80),
+                organization: organization.slice(0, 80),
+                deviceType: cleanText(deviceType).slice(0, 80),
+                manufacturer: cleanText(manufacturer).slice(0, 80),
+                model: cleanText(model).slice(0, 120),
+                internalIp: cleanText(internalIp).slice(0, 80),
+                antivirusStatus: cleanText(antivirusStatus).slice(0, 80),
+                patchStatus: cleanText(patchStatus).slice(0, 80),
+            },
+        };
+    }
+
+    function extractNoteInfo() {
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText');
+        const secondary = cleanText(secondaryEl && secondaryEl.textContent);
+        let title = '';
+        let organization = '';
+
+        if (secondary) {
+            const titleMatch = secondary.match(/^-\s*(.+?)\s*\(/);
+            if (titleMatch) title = titleMatch[1].trim();
+            const orgMatch = secondary.match(/\(([^()]*)\)\s*$/);
+            if (orgMatch) organization = orgMatch[1].trim();
+        }
+
+        const opportunity = findReadOnlyValueByLabel(['Opportunity']) ||
+            findFieldValue('Opportunity');
+
+        return {
+            title: title || cleanText(document.title).replace(/^View Note\s*[-–]?\s*/i, '') || 'Note',
+            number: 'Note',
+            contact: organization.slice(0, 80),
+            hoverFields: opportunity ? [{ label: 'Opportunity', value: opportunity.slice(0, 120) }] : [],
+            metadataFields: {
+                type: 'Note',
+                opportunity: opportunity.slice(0, 120),
+                organization: organization.slice(0, 80),
+            },
+        };
+    }
+
+    function extractOpportunityInfo() {
+        const heading = document.querySelector('.EntityHeadingContainer, .PageHeadingContainer');
+        let title = findOpportunityTitle();
+        let id = '';
+
+        if (heading) {
+            const idEl = heading.querySelector('.IdentificationText');
+            if (idEl) id = cleanText(idEl.textContent);
+        }
+
+        if (!id) {
+            const params = new URLSearchParams(location.search);
+            const opportunityId = params.get('opportunityId') || params.get('opportunityid');
+            if (opportunityId) id = 'ID ' + opportunityId;
+        }
+
+        const organization = findReadOnlyValueByLabel(['Organization']) ||
+            findFieldValue('Organization') ||
+            findFieldValue('Organization Name') ||
+            findFieldValue('Account') ||
+            findFieldValue('Account Name');
+
+        return {
+            title: title || (!isGenericOpportunityTitle(document.title) ? cleanText(document.title) : '') || 'Opportunity',
+            number: id.slice(0, 40),
+            contact: organization.slice(0, 80),
+            primaryResource: extractPrimaryResourceInfo(),
+            metadataFields: {
+                type: 'Opportunity',
+                id: id.slice(0, 40),
+                organization: organization.slice(0, 80),
+            },
+        };
+    }
+
+    function extractSalesOrderInfo() {
+        const secondaryEl = document.querySelector('#PageHeaderSecondaryLabel, .SecondaryTitle');
+        const secondary = cleanText(secondaryEl && secondaryEl.textContent);
+        let title = '';
+        let id = '';
+        let organization = '';
+
+        if (secondary) {
+            const match = secondary.match(/^-\s*(.+?)\s*\(ID:\s*([^)]+)\)\s*\|\s*(.+)$/i);
+            if (match) {
+                title = match[1].trim();
+                id = 'ID ' + match[2].trim();
+                organization = match[3].trim();
+            }
+        }
+
+        if (!id) {
+            const params = new URLSearchParams(location.search);
+            const salesOrderId = params.get('salesorderid') || params.get('salesOrderId');
+            if (salesOrderId) id = 'ID ' + salesOrderId;
+        }
+
+        return {
+            title: title || cleanText(document.title) || 'Sales Order',
+            number: id.slice(0, 40),
+            contact: organization.slice(0, 80),
+            metadataFields: {
+                type: 'Sales Order',
+                id: id.slice(0, 40),
+                organization: organization.slice(0, 80),
+            },
+        };
+    }
+
+    function parsePurchaseOrderIdFromTitle(rawTitle) {
+        const match = cleanText(rawTitle || '').match(/\(ID:\s*([^)]+)\)/i);
+        if (!match || !match[1]) return '';
+        return cleanText(match[1]).replace(/^ID\s*[:#-]?\s*/i, '');
+    }
+
+    function findLegacyPurchaseOrderValueByLabel(labelText) {
+        const wanted = cleanText(labelText).toLowerCase();
+        for (const label of document.querySelectorAll('td span.lblNormalClass')) {
+            if (cleanText(label.textContent).toLowerCase() !== wanted) continue;
+            const valueCell = label.closest('td')?.nextElementSibling;
+            const input = valueCell && valueCell.querySelector('input');
+            if (input) return cleanText(input.value);
+            return cleanText(valueCell && valueCell.textContent);
+        }
+        return '';
+    }
+
+    function extractPurchaseOrderInfo() {
+        const params = new URLSearchParams(location.search);
+        const id = (
+            params.get('id') ||
+            params.get('ID') ||
+            params.get('purchaseOrderId') ||
+            params.get('purchaseorderid') ||
+            params.get('purchaseOrderID') ||
+            parsePurchaseOrderIdFromTitle(document.querySelector('.TitleContainer')?.textContent) ||
+            parsePurchaseOrderIdFromTitle(document.title)
+        ).trim();
+        const vendor = cleanText(
+            (document.getElementById('dataSelectorVendor_ATTextEdit') || {}).value
+        ).slice(0, 120);
+        const organization = cleanText(
+            (document.getElementById('dataSelectorAccount_ATTextEdit') || {}).value
+        ).slice(0, 120);
+        const externalPoNumber = findLegacyPurchaseOrderValueByLabel('External P.O. #').slice(0, 120);
+
+        const normalizedId = id ? ('ID ' + id) : '';
+        return {
+            title: 'Purchase Order',
+            number: normalizedId,
+            contact: organization.slice(0, 80),
+            hoverFields: externalPoNumber ? [{ label: 'External P.O. #', value: externalPoNumber }] : [],
+            metadataFields: {
+                type: 'Purchase Order',
+                id: normalizedId,
+                externalPoNumber: externalPoNumber,
+                organization: organization,
+                vendor: vendor,
+            },
+        };
+    }
+
+    function findLegacyFieldLabelValue(labelText) {
+        const wanted = labelText.toLowerCase();
+        for (const cell of document.querySelectorAll('td.FieldLabels')) {
+            const clone = cell.cloneNode(true);
+            const div = clone.querySelector('div');
+            if (div) div.remove();
+            if (cleanText(clone.textContent).toLowerCase() !== wanted) continue;
+
+            const valueDiv = cell.querySelector('div');
+            if (!valueDiv) return '';
+            const selected = valueDiv.querySelector('select option:checked');
+            if (selected && cleanText(selected.textContent) && selected.value) {
+                return cleanText(selected.textContent);
+            }
+            const input = valueDiv.querySelector('input');
+            if (input) return cleanText(input.value);
+            return cleanText(valueDiv.textContent);
+        }
+        return '';
+    }
+
+    function extractQuoteInfo() {
+        const params = new URLSearchParams(location.search);
+        const path = AES.normalizeHandledPath(AES.pathOf(location.href));
+        const quoteId = params.get('QuoteID') ||
+            params.get('quoteID') ||
+            params.get('quoteId') ||
+            params.get('objectID') ||
+            findLegacyFieldLabelValue('Quote Number');
+        let quoteName = '';
+        let organization = '';
+
+        if (path === '/opportunity/quotes/quote.asp') {
+            const secondary = cleanText(document.querySelector('.SecondaryTitle')?.textContent);
+            const match = secondary.match(/^-\s*(.+?)\s*\(\d+\)\s*$/);
+            if (match) quoteName = match[1].trim();
+        } else {
+            quoteName = findLegacyFieldLabelValue('Opportunity Name');
+            organization = findLegacyFieldLabelValue('Organization Name') ||
+                findLegacyFieldLabelValue('Organization') ||
+                findLegacyFieldLabelValue('Account Name') ||
+                findLegacyFieldLabelValue('Account');
+        }
+
+        return {
+            title: quoteId ? 'Quote ' + quoteId : 'Quote',
+            number: 'Quote',
+            contact: organization.slice(0, 80),
+            hoverFields: quoteName ? [{ label: 'Quote name', value: quoteName.slice(0, 120) }] : [],
+            metadataFields: {
+                type: 'Quote',
+                id: quoteId ? ('ID ' + quoteId).slice(0, 40) : '',
+                quoteName: quoteName.slice(0, 120),
+                organization: organization.slice(0, 80),
+            },
+        };
+    }
+
+    function extractContactGroupInfo() {
+        const params = new URLSearchParams(location.search);
+        const groupId = params.get('groupid') || params.get('groupId');
+        const secondary = cleanText(document.querySelector('.SecondaryTitle')?.textContent)
+            .replace(/^[-–]\s*/, '');
+        const heading = cleanText(document.querySelector('.EntityHeadingContainer .Title > .Text, .PageHeadingContainer .Title .Text, h1, .Title')?.textContent);
+
+        return {
+            title: secondary || heading || (groupId && groupId !== '0' ? 'Contact Group' : 'New Contact Group'),
+            number: groupId && groupId !== '0' ? ('ID ' + groupId).slice(0, 40) : 'Group',
+            contact: '',
+            metadataFields: {
+                type: 'Group',
+                id: groupId && groupId !== '0' ? ('ID ' + groupId).slice(0, 40) : '',
+            },
         };
     }
 
@@ -832,9 +1204,10 @@
             cleanText(document.title).replace(/^Autotask\s*[-–]\s*/i, '');
         return {
             title: title || fallbackTitle || 'Autotask page',
-            number: '',
+            number: fallbackTitle || '',
             contact: '',
             primaryResource: null,
+            metadataFields: { type: fallbackTitle || 'Tab' },
         };
     }
 
@@ -865,10 +1238,20 @@
     function extractTimesheetInfo() {
         const info = extractGenericInfo('Timesheet');
         const secondary = queryAcrossAccessibleDocuments('.SecondaryTitle', 3);
-        if (!secondary) return info;
+        if (!secondary) {
+            info.number = 'Timesheet';
+            return info;
+        }
 
-        info.number = extractSecondaryDate(secondary.textContent).slice(0, 40);
+        const date = extractSecondaryDate(secondary.textContent).slice(0, 40);
+        info.number = 'Timesheet';
         info.contact = extractSecondaryName(secondary.textContent);
+        info.hoverFields = date ? [{ label: 'Date', value: date }] : [];
+        info.metadataFields = {
+            type: 'Timesheet',
+            date: date,
+            contact: info.contact,
+        };
         return info;
     }
 
@@ -888,6 +1271,35 @@
         }
         if (p === '/mvc/crm/accountdetail.mvc') {
             return extractAccountInfo();
+        }
+        if (p === '/mvc/crm/installedproductdetail.mvc') {
+            return extractInstalledProductInfo();
+        }
+        if (p === '/mvc/crm/note.mvc/view') {
+            return extractNoteInfo();
+        }
+        if (p === '/mvc/crm/opportunitydetail.mvc') {
+            return extractOpportunityInfo();
+        }
+        if (p === '/autotask35/crm/salesorder/salesorderdetail.aspx') {
+            return extractSalesOrderInfo();
+        }
+        if (p === '/autotask/inventory/inventory_edit_order.aspx') {
+            return extractPurchaseOrderInfo();
+        }
+        if (p === '/opportunity/quotes/quote.asp' || p === '/opportunity/quotes/newquote.asp') {
+            return extractQuoteInfo();
+        }
+        if (p === '/mvc/crm/quotetemplate.mvc/editproperties') {
+            return {
+                title: 'Quote Template',
+                number: '',
+                contact: '',
+            };
+        }
+        if (p === '/autotask/views/crm/contact_group_management.aspx' ||
+            p === '/autotask35/crm/contactgroupmanager.aspx') {
+            return extractContactGroupInfo();
         }
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail') {
             return extractProjectInfo();
@@ -914,16 +1326,34 @@
                 number: '',
                 contact: '',
                 primaryResource: null,
+                hoverFields: [],
             };
         }
         const primaryResource = info.primaryResource || null;
         const priority = info.priority || '';
         const status = info.status || '';
         const lastActivity = info.lastActivity || '';
+        const hoverFields = Array.isArray(info.hoverFields)
+            ? info.hoverFields
+                .map(field => ({
+                    label: cleanText(field && field.label).slice(0, 40),
+                    value: cleanText(field && field.value).slice(0, 160),
+                }))
+                .filter(field => field.label && field.value)
+            : [];
+        const metadataFields = {};
+        if (info.metadataFields && typeof info.metadataFields === 'object') {
+            Object.keys(info.metadataFields).forEach(key => {
+                const value = cleanText(info.metadataFields[key]).slice(0, 160);
+                if (value) metadataFields[key] = value;
+            });
+        }
         const sig = [
             info.title, info.number, info.contact,
             JSON.stringify(primaryResource),
             priority, status, lastActivity,
+            JSON.stringify(hoverFields),
+            JSON.stringify(metadataFields),
         ].join('|');
         if (sig === lastSent) return;
         lastSent = sig;
@@ -937,12 +1367,17 @@
             priority: priority,
             status: status,
             lastActivity: lastActivity,
+            hoverFields: hoverFields,
+            metadataFields: metadataFields,
         });
     }
 
     function startWatching() {
         if (!AES.isHandledUrl(location.href)) return;
         reportSelf();
+        [250, 1000, 2500, 5000].forEach(delay => {
+            setTimeout(reportSelf, delay);
+        });
         const obs = new MutationObserver(() => reportSelf());
         obs.observe(document.body || document.documentElement, {
             childList: true,

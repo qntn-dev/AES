@@ -1,7 +1,7 @@
 # Autotask Enhancement Suite Handoff
 
 Last updated: 2026-04-29
-Current snapshot: `0.5.2`
+Current snapshot: `0.6.0`
 
 This document is the handoff point for continuing work on Autotask Enhancement Suite. It replaces the older extension-readiness notes, which were written before the project became a full browser extension.
 
@@ -15,7 +15,7 @@ The extension is intentionally limited at runtime to regional Autotask hosts mat
 
 - `chrome-extension/src/` and `firefox-extension/src/` contain the active runtime files.
 - Chrome and Firefox runtime files should remain identical. Browser-specific differences should live in `manifest.json`, packaging, or docs unless there is a strong reason.
-- `safari-extension/` exists as a conversion project, but Chrome/Firefox are the active builds.
+- `chrome-extension/` and `firefox-extension/` are the maintained browser builds.
 - `legacy-userscripts/` contains historical userscript-era reference files only.
 - `scripts/verify-extension-sources.sh` runs lightweight syntax, manifest, and Chrome/Firefox parity checks for both active builds.
 - `scripts/build-chrome-release.sh` and `scripts/build-firefox-release.sh` write the Chrome `.zip` and Firefox `.xpi` release artifacts to `dist/`.
@@ -36,13 +36,14 @@ These files live under both `chrome-extension/src/` and `firefox-extension/src/`
 ## Current Feature Set
 
 - AES tab shell for supported Autotask pages that would otherwise open in browser tabs, popups, or the Home iframe.
-- Support for tickets, organizations/accounts, contacts, resources, contracts, projects, project tasks, recurring tickets, LiveLinks, directory/admin pages, timesheets, shipping/print-related destinations, and other handled MVC/legacy routes.
+- Support for tickets, organizations/accounts, contacts, resources, contracts, projects, project tasks, recurring tickets, LiveLinks, directory/admin pages, timesheets, devices, notes, opportunities, sales orders, purchase orders, quotes, quote templates, contact groups, billing products, ticket charges, shipping/print-related destinations, and other handled MVC/legacy routes.
 - Middle-click on supported Autotask links opens a background AES tab and keeps focus on the current tab, browser-style.
 - Left-click opens/focuses an AES tab where supported.
 - Split-screen support through the tab right-click menu.
 - Tab organization: drag tabs, pin tabs, color tabs, duplicate tabs, peek tabs, and copy tab/ticket info from context menu actions.
 - The tab context menu includes `Refresh tab` as its first action, which reloads that tab's iframe without refreshing the full browser page.
 - Rich tab metadata for supported pages, including ticket title/number/account/resource avatar or initials, project metadata, timesheet date/resource, contact/account metadata, and LiveLinks icon handling.
+- Tab metadata customization lets users choose what appears on Line 2 and Line 3 per tab type, with a `Set to recommended` shortcut for the preferred layout.
 - Metadata is refreshed automatically on a lightweight timer for all loaded custom tabs, including background tabs. This does not reload pages; it asks each iframe bridge to re-report its current metadata.
 - Custom tab hover cards instead of native browser URL tooltips.
 - Optional tab restore after browser close via extension storage.
@@ -64,7 +65,8 @@ The settings modal is organized into pages:
 
 - General: enable/disable the extension and choose theme behavior.
 - UI Enhancement: Autotask UI Enhancement, hide Early Access labels, and Resource Planner replacement.
-- Tab bar: orientation, visibility, persistence, and Peek close confirmation.
+- Tab bar: orientation, new-tab placement, visibility, persistence, and Peek close confirmation.
+- Customization: per-tab-type Line 2 / Line 3 metadata choices and recommended defaults.
 - Experimental: beta layout features. Page-specific redesign experiments are hidden in public builds unless `SHOW_PAGE_REDESIGN_EXPERIMENTS` is enabled locally.
 - Miscellaneous: phone number linking.
 
@@ -109,11 +111,18 @@ Before a stable release, verify in Chrome at minimum:
 ## Release Notes For Current Snapshot
 
 New features:
-- Added `Refresh tab` to the top of the tab right-click menu. It reloads the selected Autotask iframe without refreshing the browser page.
+- Added AES Tab Bar support for Devices / Installed Products, Notes, Opportunities, Sales Orders, Purchase Orders, Quotes, Quote Templates, Contact Groups, Billing Products, and Ticket Charges.
+- Added Autotask-style Font Awesome icons for tabs and tab menu actions.
+- Added tab metadata customization with `Set to recommended`.
+- Added a setting to choose whether new tabs open at the start or end of the tab bar.
 
 Improvements:
-- All loaded custom tabs now request fresh metadata every 7 seconds, including background tabs.
-- The `Clear tab color` action now uses a clearer swatch-with-slash icon.
+- Device and ticket metadata can now be used on tab lines, including device details, ticket status/priority, and last activity.
+- The Customization page is larger and labels Line 2 / Line 3 clearly.
+- Tabs restore more smoothly after browser refresh, and closing a child tab returns to the previous tab when possible.
+- The tab right-click menu is cleaner, with colors moved into a side menu.
 
 Fixes:
-- Fixed a browser-refresh race where the Home tab could inherit the title of the restored active custom tab instead of the actual native Home iframe.
+- Fixed opportunity tabs sometimes showing the wrong title.
+- Fixed Shipping sometimes opening as a separate AES tab.
+- Fixed hover card copy buttons and several icon/menu layout issues.

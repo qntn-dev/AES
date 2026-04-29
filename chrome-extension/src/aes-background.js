@@ -1,4 +1,4 @@
-// Background script (service worker on Chrome/Safari, event page script on
+// Background script (service worker on Chrome, event page script on
 // Firefox). Sole job: when the user clicks the extension's toolbar icon, ask
 // the active tab's content script to open the AES Settings modal. The toolbar
 // `action` declares no `default_popup`, so `action.onClicked` fires here.

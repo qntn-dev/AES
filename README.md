@@ -19,7 +19,6 @@ It is built for people who spend a lot of time in Autotask and want a smoother, 
 
 - `chrome-extension/`: primary extension build
 - `firefox-extension/`: Firefox build
-- `safari-extension/`: Safari conversion project
 
 ## Installation
 
@@ -35,10 +34,6 @@ It is built for people who spend a lot of time in Autotask and want a smoother, 
 1. Open `about:debugging#/runtime/this-firefox`
 2. Click `Load Temporary Add-on...`
 3. Select `firefox-extension/manifest.json`
-
-### Safari
-
-The Safari project in `safari-extension/` is generated from the WebExtension source.
 
 ## Updating
 
@@ -58,7 +53,6 @@ See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the repository privacy policy use
 
 - `chrome-extension/`: loadable Chrome extension build
 - `firefox-extension/`: loadable Firefox extension build
-- `safari-extension/`: Safari conversion project
 - `docs/HANDOFF.md`: current project handoff, status, and release notes
 - `docs/ARCHITECTURE.md`: source layout and contributor/LLM orientation
 - `assets/`: source artwork and shared project assets

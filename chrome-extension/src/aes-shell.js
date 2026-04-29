@@ -6,10 +6,130 @@
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     AES.shellInitialized = true;
 
+    const CUSTOMIZABLE_TAB_TYPES = [
+        'ticket', 'account', 'person', 'device', 'note', 'opportunity',
+        'salesorder', 'quote', 'contract', 'project', 'timesheet',
+        'inventory', 'purchaseorder', 'charge', 'group',
+    ];
+    const CUSTOM_FIELD_OPTIONS = [
+        { value: 'type', label: 'Type' },
+        { value: 'id', label: 'ID' },
+        { value: 'number', label: 'Number' },
+        { value: 'organization', label: 'Organization' },
+        { value: 'vendor', label: 'Vendor' },
+        { value: 'externalPoNumber', label: 'External P.O. #' },
+        { value: 'contact', label: 'Contact' },
+        { value: 'status', label: 'Status' },
+        { value: 'priority', label: 'Priority' },
+        { value: 'lastActivity', label: 'Last activity' },
+        { value: 'serialNumber', label: 'Serial number' },
+        { value: 'opportunity', label: 'Opportunity' },
+        { value: 'quoteName', label: 'Quote name' },
+        { value: 'date', label: 'Date' },
+        { value: 'primaryResource', label: 'Primary resource' },
+        { value: 'deviceType', label: 'Device type' },
+        { value: 'manufacturer', label: 'Manufacturer' },
+        { value: 'model', label: 'Model' },
+        { value: 'internalIp', label: 'Internal IP' },
+        { value: 'antivirusStatus', label: 'Antivirus status' },
+        { value: 'patchStatus', label: 'Patch status' },
+        { value: 'none', label: 'Nothing' },
+    ];
+    const TAB_LINE_OPTIONS_BY_TYPE = {
+        ticket: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
+        account: ['type', 'id', 'organization', 'none'],
+        person: ['type', 'id', 'organization', 'none'],
+        device: ['type', 'organization', 'serialNumber', 'deviceType', 'manufacturer', 'model', 'internalIp', 'antivirusStatus', 'patchStatus', 'none'],
+        note: ['type', 'opportunity', 'organization', 'none'],
+        opportunity: ['type', 'id', 'organization', 'primaryResource', 'none'],
+        salesorder: ['type', 'id', 'organization', 'none'],
+        purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
+        quote: ['type', 'id', 'quoteName', 'organization', 'none'],
+        contract: ['type', 'id', 'organization', 'none'],
+        project: ['type', 'id', 'organization', 'none'],
+        timesheet: ['type', 'date', 'contact', 'none'],
+        inventory: ['type', 'number', 'id', 'organization', 'none'],
+        charge: ['type', 'id', 'number', 'organization', 'contact', 'primaryResource', 'none'],
+        group: ['type', 'id', 'none'],
+    };
+    const TAB_LINE_DEFAULT_BY_TYPE = {
+        ticket: { line2: 'organization', line3: 'contact' },
+        account: { line2: 'organization', line3: 'none' },
+        person: { line2: 'organization', line3: 'none' },
+        device: { line2: 'organization', line3: 'serialNumber' },
+        note: { line2: 'opportunity', line3: 'organization' },
+        opportunity: { line2: 'id', line3: 'organization' },
+        salesorder: { line2: 'id', line3: 'organization' },
+        purchaseorder: { line2: 'id', line3: 'vendor' },
+        quote: { line2: 'id', line3: 'quoteName' },
+        contract: { line2: 'id', line3: 'organization' },
+        project: { line2: 'id', line3: 'organization' },
+        timesheet: { line2: 'date', line3: 'contact' },
+        inventory: { line2: 'number', line3: 'organization' },
+        charge: { line2: 'id', line3: 'organization' },
+        group: { line2: 'id', line3: 'none' },
+    };
+    const TAB_LINE_RECOMMENDED_BY_TYPE = {
+        ticket: { line2: 'organization', line3: 'contact' },
+        account: { line2: 'none', line3: 'none' },
+        person: { line2: 'id', line3: 'organization' },
+        device: { line2: 'model', line3: 'organization' },
+        note: { line2: 'organization', line3: 'none' },
+        opportunity: { line2: 'id', line3: 'organization' },
+        salesorder: { line2: 'id', line3: 'organization' },
+        purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
+        quote: { line2: 'id', line3: 'quoteName' },
+        contract: { line2: 'id', line3: 'organization' },
+        project: { line2: 'id', line3: 'organization' },
+        timesheet: { line2: 'date', line3: 'contact' },
+        inventory: { line2: 'id', line3: 'organization' },
+        charge: { line2: 'id', line3: 'organization' },
+        group: { line2: 'none', line3: 'none' },
+    };
+    const TAB_TYPE_LABELS = {
+        ticket: 'Ticket',
+        account: 'Organization',
+        person: 'Person',
+        device: 'Device',
+        note: 'Note',
+        opportunity: 'Opportunity',
+        salesorder: 'Sales Order',
+        purchaseorder: 'Purchase Order',
+        quote: 'Quote',
+        contract: 'Contract',
+        project: 'Project',
+        timesheet: 'Timesheet',
+        inventory: 'Inventory',
+        charge: 'Charge',
+        group: 'Group',
+    };
+    const CUSTOMIZATION_TAB_TYPE_ICONS = {
+        ticket: '<span class="fa-ticket fa-regular" aria-hidden="true"></span>',
+        account: '<span class="fa-user-group fa-regular" aria-hidden="true"></span>',
+        person: '<span class="fa-address-book fa-regular" aria-hidden="true"></span>',
+        device: '<span class="fa-laptop-mobile fa-regular" aria-hidden="true"></span>',
+        note: '<span class="fa-laptop-mobile fa-regular" aria-hidden="true"></span>',
+        opportunity: '<span class="fa-lightbulb fa-regular" aria-hidden="true"></span>',
+        salesorder: '<span class="fa-cash-register fa-regular" aria-hidden="true"></span>',
+        purchaseorder: '<span class="fa-receipt fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>',
+        quote: '<span class="fa-file-invoice-dollar fa-regular" aria-hidden="true"></span>',
+        contract: '<span class="fa-file-contract fa-regular" aria-hidden="true"></span>',
+        project: '<span class="fa-folder fa-regular" aria-hidden="true"></span>',
+        timesheet: '<span class="fa-clock-five fa-regular" aria-hidden="true"></span>',
+        inventory: '<span class="fa-boxes-stacked fa-regular" aria-hidden="true"></span>',
+        charge: '<span class="fa-file-plus-minus fa-regular" aria-hidden="true"></span>',
+        group: '<span class="fa-users fa-regular" aria-hidden="true"></span>',
+    };
+    function normalizeTabType(type) {
+        return typeof type === 'string' ? type.toLowerCase() : '';
+    }
+
     const state = AES.state = Object.assign(AES.state || {}, {
         tabs: [],
         activeId: null,
         splitId: null,
+        activationHistory: [],
+        restoreLoadTimers: [],
         nextId: 1,
         bar: null,
         viewport: null,
@@ -52,6 +172,9 @@
         peekResizeObserver: null,
         hoverCard: null,
         hoverTabId: null,
+        hoverCardHovered: false,
+        hoverAnchorHovered: false,
+        hoverAnchorEl: null,
         hoverShowTimer: 0,
         hoverHideTimer: 0,
         homeTabEl: null,
@@ -60,6 +183,8 @@
         lastObservedTopHref: '',
         lastObservedTopHandledUrl: '',
         homeLoadingAwaitingNativeLoad: false,
+        homeLoadingClearTimer: 0,
+        homeLoadingUrl: '',
         nativeFrameSrcObserver: null,
         nativeFrameObservedSrc: '',
         nonIframeTitleObserver: null,
@@ -77,6 +202,7 @@
         mountTime: 0,
         homeLoading: false,
         rememberTabsAfterClose: !!(AES.state && AES.state.rememberTabsAfterClose),
+        openNewTabsAtStart: !!(AES.state && AES.state.openNewTabsAtStart),
         phoneLinksEnabled: AES.state && typeof AES.state.phoneLinksEnabled === 'boolean'
             ? AES.state.phoneLinksEnabled
             : true,
@@ -97,6 +223,8 @@
         preferencesUiEnhancementEnabled: !!(AES.state && AES.state.preferencesUiEnhancementEnabled),
         workspaceQueuesUiEnhancementEnabled: !!(AES.state && AES.state.workspaceQueuesUiEnhancementEnabled),
         skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
+        tabLine2Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine2Fields, 2),
+        tabLine3Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine3Fields, 3),
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
         tabBarHoverExpanded: false,
         tabBarExpandTimer: 0,
@@ -106,19 +234,42 @@
     });
     const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
     const METADATA_REFRESH_INTERVAL_MS = 7000;
+    const IS_SAFARI_WEBKIT = navigator.vendor === 'Apple Computer, Inc.' &&
+        /Safari/i.test(navigator.userAgent || '') &&
+        !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
+
+    function faIcon(className) {
+        return '<span class="' + className + ' flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>';
+    }
 
     const ICONS = {
-        home: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5L12 4l9 7.5"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>',
-        ticket: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4V8z"/><path d="M13 6v12" stroke-dasharray="2 2"/></svg>',
-        contract: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M8 13h8"/><path d="M8 17h8"/></svg>',
-        account: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="1"/><path d="M9 6h1M14 6h1M9 10h1M14 10h1M9 14h1M14 14h1"/><path d="M10 22v-4h4v4"/></svg>',
-        inventory: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8a2 2 0 0 0-1-1.73L13 2.27a2 2 0 0 0-2 0L4 6.27A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></svg>',
-        timesheet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/></svg>',
-        livelink: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.07 0l2.83-2.83a5 5 0 0 0-7.07-7.07L10.59 5.3"/><path d="M14 11a5 5 0 0 0-7.07 0L4.1 13.83a5 5 0 0 0 7.07 7.07l2.24-2.2"/></svg>',
-        person: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>',
-        project: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h6l2 2h10v11a1 1 0 0 1-1 1H3z"/><path d="M6 13h4"/><path d="M6 16h7"/><path d="M14 13h4"/></svg>',
-        pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 17v4"/><path d="M8 4h8l-1 4 3 3H6l3-3-1-4z"/></svg>',
-        settings: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+        home: faIcon('fa-house fa-regular'),
+        ticket: faIcon('fa-ticket fa-regular'),
+        contract: faIcon('fa-file-contract fa-regular'),
+        account: faIcon('fa-user-group fa-regular'),
+        device: faIcon('fa-laptop-mobile fa-regular'),
+        note: faIcon('fa-laptop-mobile fa-regular'),
+        opportunity: faIcon('fa-lightbulb fa-regular'),
+        salesorder: faIcon('fa-cash-register fa-regular'),
+        purchaseorder: faIcon('fa-receipt fa-regular'),
+        quote: faIcon('fa-file-invoice-dollar fa-regular'),
+        inventory: faIcon('fa-boxes-stacked fa-regular'),
+        charge: faIcon('fa-file-plus-minus fa-regular'),
+        timesheet: faIcon('fa-clock-five fa-regular'),
+        livelink: faIcon('fa-link fa-regular'),
+        person: faIcon('fa-address-book fa-regular'),
+        group: faIcon('fa-users fa-regular'),
+        project: faIcon('fa-folder fa-regular'),
+        projectTask: faIcon('fa-folder-tree fa-regular'),
+        pin: faIcon('fa-thumbtack fa-regular'),
+        settings: faIcon('fa-puzzle-piece fa-regular'),
+        refresh: faIcon('fa-arrows-rotate fa-regular'),
+        split: faIcon('fa-table-columns fa-regular'),
+        clearColor: '<i class="fa-solid fa-border-none" aria-hidden="true"></i>',
+        colorTab: '<i class="fa-regular fa-paintbrush" aria-hidden="true"></i>',
+        duplicate: faIcon('fa-clone fa-regular'),
+        peek: faIcon('fa-eye fa-regular'),
+        copy: faIcon('fa-clipboard fa-regular'),
     };
 
     const TAB_COLOR_PRESETS = [
@@ -128,12 +279,23 @@
         '#A855F7', '#EC4899', '#F43F5E', '#64748B',
     ];
 
-    function createTabIframe(url) {
+    const RESTORE_ACTIVE_TAB_DELAY_MS = 900;
+    const RESTORE_BACKGROUND_TAB_DELAY_MS = 2200;
+    const RESTORE_BACKGROUND_TAB_STAGGER_MS = 450;
+
+    function createTabIframe(url, options) {
+        const opts = options || {};
         const iframeEl = document.createElement('iframe');
-        iframeEl.src = url;
+        iframeEl.dataset.aesLoadStarted = opts.deferLoad ? 'false' : 'true';
+        if (opts.deferLoad) {
+            iframeEl.dataset.aesDeferredSrc = url;
+        } else {
+            iframeEl.src = url;
+        }
         iframeEl.addEventListener('load', function () {
             const tab = state.tabs.find(t => t.iframeEl === iframeEl);
             if (!tab) return;
+            if (tab.loadStarted === false || iframeEl.dataset.aesLoadStarted === 'false') return;
             tab.loading = false;
             const fallback = fallbackTabMetadataForUrl(tab.url);
             if (!tab.title && fallback.title) tab.title = fallback.title;
@@ -351,7 +513,7 @@
                 background: #ffffff;
                 border-bottom: 1px solid #e2e8f0;
                 z-index: 218;
-                pointer-events: none;
+                pointer-events: auto;
             }
             .at-tabs-viewport.empty { display: none; }
             .at-tabs-shell-hidden .at-tabs-bar,
@@ -366,9 +528,13 @@
                 height: 100%;
                 border: 0;
             }
+            html.aes-safari-webkit .at-tabs-viewport,
+            html.aes-safari-webkit .at-tabs-viewport > iframe {
+                transform: none !important;
+            }
             .at-tabs-viewport > iframe.hidden {
                 visibility: hidden;
-                pointer-events: none;
+                pointer-events: auto;
             }
             .at-tabs-viewport.split {
                 --at-tabs-split-gap: 10px;
@@ -610,10 +776,12 @@
             .at-tab[data-aes-colored="false"].active .icon {
                 color: #0f172a;
             }
-            .at-tab .icon svg {
+            .at-tab .icon :is(svg, span, i) {
                 width: 18px;
                 height: 18px;
-                display: block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
             .at-tab .meta {
                 display: flex;
@@ -675,10 +843,12 @@
                 pointer-events: none;
                 z-index: 1;
             }
-            .at-tab .pin-badge svg {
+            .at-tab .pin-badge :is(svg, span, i) {
                 width: 11px;
                 height: 11px;
-                display: block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
             .at-tab.pinned .pin-badge {
                 display: block;
@@ -793,10 +963,12 @@
                 background: #f8fafc;
                 color: #0f172a;
             }
-            .at-tabs-settings-button svg {
+            .at-tabs-settings-button :is(svg, span, i) {
                 width: 18px;
                 height: 18px;
-                display: block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
                 margin: 0;
             }
             .at-tabs-context-menu {
@@ -817,14 +989,6 @@
                 margin: 6px 4px;
                 background: #e2e8f0;
             }
-            .at-tabs-context-section-title {
-                padding: 6px 10px 2px;
-                color: #64748b;
-                font-size: 11px;
-                font-weight: 700;
-                letter-spacing: 0.04em;
-                text-transform: uppercase;
-            }
             .at-tabs-context-item {
                 width: 100%;
                 display: flex;
@@ -841,10 +1005,47 @@
                 font-size: 12px;
                 font-weight: 600;
                 line-height: 1.25;
+                position: relative;
             }
             .at-tabs-context-item:hover {
                 background: #edf4fb;
                 color: #12344f;
+            }
+            .at-tabs-context-label {
+                flex: 1 1 auto;
+                min-width: 0;
+            }
+            .at-tabs-context-submenu-arrow {
+                color: #94a3b8;
+                flex: 0 0 auto;
+                font-size: 15px;
+                line-height: 1;
+                margin-left: 12px;
+            }
+            .at-tabs-context-submenu-trigger {
+                position: relative;
+            }
+            .at-tabs-context-submenu {
+                position: absolute;
+                top: -6px;
+                left: calc(100% + 6px);
+                display: none;
+                width: 188px;
+                padding: 8px;
+                border: 1px solid #dbe3ec;
+                border-radius: 12px;
+                background: #ffffff;
+                box-shadow: 0 16px 40px rgba(15, 23, 42, 0.18);
+                color: #0f172a;
+                box-sizing: border-box;
+            }
+            .at-tabs-context-submenu.open-left {
+                left: auto;
+                right: calc(100% + 6px);
+            }
+            .at-tabs-context-submenu-trigger:hover > .at-tabs-context-submenu,
+            .at-tabs-context-submenu-trigger:focus-within > .at-tabs-context-submenu {
+                display: block;
             }
             .at-tabs-context-item:disabled {
                 cursor: not-allowed;
@@ -860,16 +1061,18 @@
             .at-tabs-context-item:disabled .at-tabs-context-icon {
                 color: #94a3b8;
             }
-            .at-tabs-context-icon svg {
+            .at-tabs-context-icon :is(svg, span, i) {
                 width: 16px;
                 height: 16px;
-                display: block;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
             }
             .at-tabs-context-colors {
                 display: grid;
                 grid-template-columns: repeat(4, minmax(0, 1fr));
                 gap: 8px;
-                padding: 8px 8px 10px;
+                padding: 0;
             }
             .at-tabs-color-swatch {
                 width: 100%;
@@ -1000,6 +1203,11 @@
             .at-tabs-peek-wrapper.closing {
                 animation: aes-peek-wrapper-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
             }
+            html.aes-safari-webkit .at-tabs-peek-wrapper,
+            html.aes-safari-webkit .at-tabs-peek-wrapper.closing {
+                animation: none !important;
+                transform: translate(-50%, -50%) !important;
+            }
             .at-tabs-peek-modal {
                 width: min(1430px, calc(100vw - 96px));
                 height: min(1014px, calc(100vh - 48px));
@@ -1037,6 +1245,11 @@
             }
             .at-tabs-viewport.peek-closing {
                 animation: aes-peek-live-out 240ms cubic-bezier(0.4, 0, 1, 1) both !important;
+            }
+            html.aes-safari-webkit .at-tabs-viewport.peek-active,
+            html.aes-safari-webkit .at-tabs-viewport.peek-closing {
+                animation: none !important;
+                transform: none !important;
             }
             .at-tabs-viewport.peek-active > iframe {
                 position: absolute !important;
@@ -1243,6 +1456,7 @@
                 transition: opacity 90ms ease, transform 90ms ease;
             }
             .at-tabs-hover-card.visible {
+                pointer-events: auto;
                 opacity: 1;
                 transform: translateY(0);
             }
@@ -1263,6 +1477,7 @@
             .at-tabs-hover-card .hc-row {
                 margin-top: 6px;
                 display: flex;
+                align-items: center;
                 gap: 6px;
                 color: #334155;
             }
@@ -1276,19 +1491,43 @@
                 flex: 1 1 auto;
                 overflow-wrap: anywhere;
             }
+            .at-tabs-hover-card .hc-copy {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 20px;
+                height: 20px;
+                border: 0;
+                border-radius: 5px;
+                background: transparent;
+                color: #64748b;
+                cursor: pointer;
+                flex: 0 0 auto;
+                padding: 0;
+            }
+            .at-tabs-hover-card .hc-copy:hover {
+                background: #edf4fb;
+                color: #12344f;
+            }
+            .at-tabs-hover-card .hc-copy i {
+                font-size: 11px;
+                line-height: 1;
+            }
             .at-tabs-settings-modal {
                 position: fixed;
                 top: 50%;
                 left: 50%;
                 transform: translate(-50%, -50%);
-                width: 760px;
-                max-width: calc(100vw - 32px);
+                width: min(1120px, calc(100vw - 40px));
+                height: min(820px, calc(100vh - 40px));
                 background: #ffffff;
                 border: 1px solid #dbe2ea;
                 border-radius: 14px;
                 box-shadow: 0 18px 48px rgba(15, 23, 42, 0.18);
                 z-index: 1301;
                 overflow: hidden;
+                display: flex;
+                flex-direction: column;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
                 animation: aes-settings-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
             }
@@ -1339,8 +1578,10 @@
             .at-tabs-settings-body {
                 padding: 0;
                 display: grid;
-                grid-template-columns: 220px minmax(0, 1fr);
-                min-height: 420px;
+                grid-template-columns: 240px minmax(0, 1fr);
+                min-height: 0;
+                flex: 1 1 auto;
+                overflow: hidden;
             }
             .at-tabs-settings-nav {
                 padding: 14px;
@@ -1439,6 +1680,18 @@
                 gap: 3px;
                 margin-bottom: 4px;
             }
+            .at-tabs-settings-page-title.with-action {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: start;
+                column-gap: 14px;
+            }
+            .at-tabs-settings-page-title-copy {
+                display: flex;
+                min-width: 0;
+                flex-direction: column;
+                gap: 3px;
+            }
             .at-tabs-settings-page-title strong {
                 font-size: 16px;
                 color: #0f172a;
@@ -1447,6 +1700,22 @@
                 font-size: 12px;
                 line-height: 1.4;
                 color: #64748b;
+            }
+            .at-tabs-settings-page-action {
+                appearance: none;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                padding: 9px 11px;
+                white-space: nowrap;
+            }
+            .at-tabs-settings-page-action:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+                color: #0f172a;
             }
             .at-tabs-settings-section-title {
                 font-size: 11px;
@@ -1475,8 +1744,46 @@
                 line-height: 1.4;
                 color: #64748b;
             }
+            .at-tabs-setting-reload-note {
+                display: none;
+                align-items: center;
+                justify-content: space-between;
+                gap: 10px;
+                margin: -4px 4px 4px;
+                padding: 10px 12px;
+                border: 1px solid #bfdbfe;
+                border-radius: 10px;
+                background: #eff6ff;
+                color: #1e3a5f;
+                font-size: 12px;
+                font-weight: 600;
+                line-height: 1.4;
+            }
+            .at-tabs-setting-reload-note.visible {
+                display: flex;
+            }
+            .at-tabs-setting-reload-button {
+                appearance: none;
+                border: 1px solid #376A94;
+                border-radius: 8px;
+                background: #376A94;
+                color: #ffffff;
+                cursor: pointer;
+                flex: 0 0 auto;
+                font: 700 11px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                padding: 8px 10px;
+            }
+            .at-tabs-setting-reload-button:hover {
+                background: #2c567a;
+                border-color: #2c567a;
+            }
             html.aes-dark .at-tabs-setting-note {
                 color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-setting-reload-note {
+                background: #142333;
+                border-color: #31506A;
+                color: #dbeafe;
             }
             .at-tabs-setting-label {
                 display: flex;
@@ -1486,7 +1793,7 @@
                 min-width: 0;
             }
             .at-tabs-setting-info {
-                display: inline-flex;
+                display: none !important;
                 align-items: center;
                 justify-content: center;
                 width: 16px;
@@ -1583,6 +1890,56 @@
             .at-tabs-setting-select:focus-visible {
                 outline: 2px solid #93c5fd;
                 outline-offset: 2px;
+            }
+            .at-tabs-setting-line-controls {
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                flex: 0 0 auto;
+            }
+            .at-tabs-customization-row {
+                display: grid;
+                grid-template-columns: minmax(180px, 1fr) minmax(0, 460px);
+                align-items: center;
+                gap: 16px;
+            }
+            .at-tabs-customization-row .at-tabs-setting-line-controls {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                justify-content: stretch;
+                min-width: 0;
+                width: 100%;
+            }
+            .at-tabs-setting-line-controls .at-tabs-setting-select {
+                min-width: 0;
+                width: 100%;
+                max-width: none;
+            }
+            .at-tabs-customization-header {
+                display: grid;
+                grid-template-columns: minmax(180px, 1fr) minmax(0, 460px);
+                gap: 16px;
+                padding: 0 14px 2px;
+                color: #64748b;
+                font-size: 11px;
+                font-weight: 700;
+                letter-spacing: 0.03em;
+                text-transform: uppercase;
+            }
+            .at-tabs-customization-header-lines {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+            .at-tabs-setting-icon {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                color: #64748b;
+                font-size: 14px;
+                width: 16px;
+                text-align: center;
+                flex: 0 0 auto;
             }
             button.absolute.border-border-primary:has(> span.fa-chevron-left) {
                 display: none !important;
@@ -1745,12 +2102,15 @@
             html.aes-dark .at-tabs-context-divider {
                 background: #2a2e34;
             }
-            html.aes-dark .at-tabs-context-section-title {
-                color: #94a3b8;
-            }
             html.aes-dark .at-tabs-context-item:hover {
                 background: #262A30;
                 color: #ffffff;
+            }
+            html.aes-dark .at-tabs-context-submenu {
+                background: #1F2227;
+                border-color: #2a2e34;
+                color: #f1f5f9;
+                box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
             }
             html.aes-dark .at-tabs-context-item:disabled {
                 color: #64748b;
@@ -1823,6 +2183,16 @@
             }
             html.aes-dark .at-tabs-settings-page-title span {
                 color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-settings-page-action {
+                background: #1f2937;
+                border-color: #334155;
+                color: #e2e8f0;
+            }
+            html.aes-dark .at-tabs-settings-page-action:hover {
+                background: #263244;
+                border-color: #475569;
+                color: #ffffff;
             }
             html.aes-dark .at-tabs-settings-close:hover {
                 background: #262A30;
@@ -1963,6 +2333,13 @@
             html.aes-dark .at-tabs-hover-card .hc-row .hc-value {
                 color: #f1f5f9;
             }
+            html.aes-dark .at-tabs-hover-card .hc-copy {
+                color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover {
+                background: #262A30;
+                color: #f1f5f9;
+            }
             html.aes-dark .at-tabs-setting-select {
                 background-color: #1F2227;
                 border-color: #2a2e34;
@@ -2038,7 +2415,7 @@
                 width: 20px;
                 height: 20px;
             }
-            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .icon svg {
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab .icon :is(svg, span, i) {
                 width: 20px;
                 height: 20px;
             }
@@ -2147,7 +2524,122 @@
         if (!tab) return tab;
         tab.pinned = !!tab.pinned;
         tab.color = TAB_COLOR_PRESETS.includes(tab.color) ? tab.color : '';
+        tab.hoverFields = normalizeHoverFields(tab.hoverFields);
+        tab.metadataFields = normalizeMetadataFields(tab.metadataFields);
         return tab;
+    }
+
+    function getLineOptionsForType(type) {
+        const normalizedType = normalizeTabType(type);
+        const options = TAB_LINE_OPTIONS_BY_TYPE[normalizedType];
+        if (Array.isArray(options) && options.length > 0) return options.slice();
+        return CUSTOM_FIELD_OPTIONS.map(function (option) { return option.value; });
+    }
+
+    function getDefaultLineField(type, line) {
+        const normalizedType = normalizeTabType(type);
+        const defaultsByType = TAB_LINE_DEFAULT_BY_TYPE[normalizedType] || {};
+        const fallback = defaultsByType[line === 2 ? 'line2' : 'line3'];
+        const options = getLineOptionsForType(type);
+        const optionSet = new Set(options);
+        if (optionSet.has(fallback)) return fallback;
+        if (optionSet.has('none')) return 'none';
+        return options[0] || 'none';
+    }
+
+    function defaultTabLineSettings(line) {
+        const settings = {};
+        const target = line === 2 ? 'line2' : 'line3';
+        CUSTOMIZABLE_TAB_TYPES.forEach(function (type) {
+            settings[type] = getDefaultLineField(type, target);
+        });
+        return settings;
+    }
+
+    function normalizeTabLineSettings(settings, line) {
+        const defaults = defaultTabLineSettings(line);
+        CUSTOMIZABLE_TAB_TYPES.forEach(function (type) {
+            const value = settings && settings[type];
+            const options = getLineOptionsForType(type);
+            if (options.includes(value)) defaults[type] = value;
+        });
+        return defaults;
+    }
+
+    function normalizeMetadataFields(fields) {
+        if (!fields || typeof fields !== 'object') return {};
+        const normalized = {};
+        Object.keys(fields).forEach(function (key) {
+            const value = String(fields[key] || '').trim();
+            if (value) normalized[key] = value.slice(0, 160);
+        });
+        return normalized;
+    }
+
+    function normalizeHoverFields(fields) {
+        if (!Array.isArray(fields)) return [];
+        return fields
+            .map(function (field) {
+                return {
+                    label: String(field && field.label || '').trim().slice(0, 40),
+                    value: String(field && field.value || '').trim().slice(0, 160),
+                };
+            })
+            .filter(function (field) { return field.label && field.value; });
+    }
+
+    function clearRestoreLoadTimers() {
+        for (const timerId of state.restoreLoadTimers || []) {
+            window.clearTimeout(timerId);
+        }
+        state.restoreLoadTimers = [];
+    }
+
+    function ensureTabIframeLoaded(tab) {
+        if (!tab || !tab.iframeEl || tab.loadStarted !== false) return;
+        tab.loadStarted = true;
+        tab.loading = true;
+        tab.iframeEl.dataset.aesLoadStarted = 'true';
+        tab.iframeEl.removeAttribute('data-aes-deferred-src');
+        tab.iframeEl.src = tab.url;
+        updateTabEl(tab);
+        updateLoaderVisibility();
+    }
+
+    function scheduleRestoredTabLoads() {
+        clearRestoreLoadTimers();
+        const active = tabById(state.activeId);
+        let backgroundScheduled = false;
+
+        function scheduleBackgroundTabs(delay) {
+            if (backgroundScheduled) return;
+            backgroundScheduled = true;
+            const backgroundTabs = state.tabs.filter(function (tab) {
+                return !active || tab.id !== active.id;
+            });
+            backgroundTabs.forEach(function (tab, index) {
+                state.restoreLoadTimers.push(window.setTimeout(function () {
+                    ensureTabIframeLoaded(tab);
+                }, delay + (index * RESTORE_BACKGROUND_TAB_STAGGER_MS)));
+            });
+        }
+
+        if (active) {
+            state.restoreLoadTimers.push(window.setTimeout(function () {
+                ensureTabIframeLoaded(active);
+                const fallbackTimer = window.setTimeout(function () {
+                    scheduleBackgroundTabs(0);
+                }, RESTORE_BACKGROUND_TAB_DELAY_MS);
+                state.restoreLoadTimers.push(fallbackTimer);
+                active.iframeEl.addEventListener('load', function () {
+                    window.clearTimeout(fallbackTimer);
+                    scheduleBackgroundTabs(RESTORE_BACKGROUND_TAB_STAGGER_MS);
+                }, { once: true });
+            }, RESTORE_ACTIVE_TAB_DELAY_MS));
+            return;
+        }
+
+        scheduleBackgroundTabs(RESTORE_BACKGROUND_TAB_DELAY_MS);
     }
 
     function hexToRgb(hex) {
@@ -2179,6 +2671,8 @@
                 priority: t.priority || '',
                 status: t.status || '',
                 lastActivity: t.lastActivity || '',
+                hoverFields: normalizeHoverFields(t.hoverFields),
+                metadataFields: normalizeMetadataFields(t.metadataFields),
             })),
             activeIndex: state.activeId === null
                 ? null
@@ -2192,8 +2686,7 @@
     function handleNativeFrameLoad(event) {
         const frame = event.currentTarget;
         // New native page finished loading — clear the Home-tab spinner.
-        state.homeLoadingAwaitingNativeLoad = false;
-        setHomeLoading(false);
+        clearHomeLoading();
         // The iframe may have lost our dark-enhancer style on navigation.
         broadcastDarkModeEnhancerState();
         let url = '';
@@ -2231,9 +2724,45 @@
         state.nativeLastUrl = url;
     }
 
+    function currentNativeFrameUrl() {
+        const frame = state.nativeFrame || findContentIframe();
+        if (!frame) return '';
+        try { return frame.contentWindow.location.href || frame.getAttribute('src') || ''; }
+        catch (e) { return frame.getAttribute('src') || ''; }
+    }
+
+    function hasResolvedHomeTitle() {
+        const title = (state.homeTitle || '').trim();
+        return !!title && title !== 'Home' && !/dialogiframeoverlaypage/i.test(title);
+    }
+
+    function clearHomeLoading() {
+        state.homeLoadingAwaitingNativeLoad = false;
+        state.homeLoadingUrl = '';
+        if (state.homeLoadingClearTimer) {
+            window.clearTimeout(state.homeLoadingClearTimer);
+            state.homeLoadingClearTimer = 0;
+        }
+        setHomeLoading(false);
+    }
+
+    function scheduleHomeLoadingFailsafe() {
+        if (state.homeLoadingClearTimer) window.clearTimeout(state.homeLoadingClearTimer);
+        state.homeLoadingClearTimer = window.setTimeout(function () {
+            state.homeLoadingClearTimer = 0;
+            if (!state.homeLoadingAwaitingNativeLoad) return;
+            if (hasResolvedHomeTitle()) clearHomeLoading();
+        }, 8000);
+    }
+
     function startNativeHomeLoading() {
+        if (state.activeId !== null) return;
+        const currentUrl = currentNativeFrameUrl();
+        if (hasResolvedHomeTitle() && currentUrl && currentUrl === state.nativeLastUrl) return;
         state.homeLoadingAwaitingNativeLoad = true;
+        state.homeLoadingUrl = currentUrl || '';
         setHomeLoading(true);
+        scheduleHomeLoadingFailsafe();
     }
 
     function isShellOwnedMutationTarget(target) {
@@ -2278,6 +2807,21 @@
         void AES.writeTabsPayload(payload);
     }
 
+    function addTabToList(tab) {
+        const normalized = normalizeTabState(tab);
+        if (!state.openNewTabsAtStart || normalized.pinned) {
+            state.tabs.push(normalized);
+            return normalized;
+        }
+
+        const firstUnpinnedIndex = state.tabs.findIndex(function (candidate) {
+            return !candidate.pinned;
+        });
+        const insertIndex = firstUnpinnedIndex === -1 ? state.tabs.length : firstUnpinnedIndex;
+        state.tabs.splice(insertIndex, 0, normalized);
+        return normalized;
+    }
+
     async function restoreTabs() {
         let payload;
         try {
@@ -2287,7 +2831,7 @@
 
         for (const saved of payload.tabs) {
             if (!saved.url) continue;
-            const iframeEl = createTabIframe(saved.url);
+            const iframeEl = createTabIframe(saved.url, { deferLoad: true });
             state.viewport.appendChild(iframeEl);
             state.tabs.push(normalizeTabState({
                 id: state.nextId++,
@@ -2301,9 +2845,12 @@
                 priority: saved.priority || '',
                 status: saved.status || '',
                 lastActivity: saved.lastActivity || '',
+                hoverFields: normalizeHoverFields(saved.hoverFields),
+                metadataFields: normalizeMetadataFields(saved.metadataFields),
                 iframeEl,
                 tabEl: null,
                 loading: true,
+                loadStarted: false,
             }));
         }
         renderTabs();
@@ -2315,10 +2862,11 @@
             state.splitId = null;
         }
         if (typeof idx === 'number' && idx >= 0 && state.tabs[idx]) {
-            activateTab(state.tabs[idx].id);
+            activateTab(state.tabs[idx].id, { load: false, recordPrevious: false });
         } else {
             activateHome();
         }
+        scheduleRestoredTabLoads();
     }
 
     // The native Home iframe is shifted by syncGeometry itself. Keep this as a
@@ -2507,6 +3055,22 @@
         };
     }
 
+    function snapCssPixel(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return 0;
+        const dpr = window.devicePixelRatio || 1;
+        return Math.round(n * dpr) / dpr;
+    }
+
+    function cssPx(value) {
+        return snapCssPixel(value) + 'px';
+    }
+
+    function setCssPx(el, property, value) {
+        if (!el) return;
+        el.style[property] = cssPx(value);
+    }
+
     function clearNativeChromeReservation(frame) {
         const container = state.nativeReservedContainer ||
             (frame && frame.parentElement && reservationAxis(frame.parentElement)
@@ -2689,24 +3253,24 @@
 
             if (isVerticalBar()) {
                 const barWidth = currentVerticalBarWidth();
-                state.bar.style.left = base.left + 'px';
-                state.bar.style.top = base.top + 'px';
-                state.bar.style.width = barWidth + 'px';
-                state.bar.style.height = base.height + 'px';
-                state.viewport.style.left = (base.left + barWidth) + 'px';
-                state.viewport.style.top = base.top + 'px';
-                state.viewport.style.width = Math.max(0, base.width - barWidth) + 'px';
-                state.viewport.style.height = base.height + 'px';
+                setCssPx(state.bar, 'left', base.left);
+                setCssPx(state.bar, 'top', base.top);
+                setCssPx(state.bar, 'width', barWidth);
+                setCssPx(state.bar, 'height', base.height);
+                setCssPx(state.viewport, 'left', base.left + barWidth);
+                setCssPx(state.viewport, 'top', base.top);
+                setCssPx(state.viewport, 'width', Math.max(0, base.width - barWidth));
+                setCssPx(state.viewport, 'height', base.height);
                 state.viewport.style.bottom = 'auto';
             } else {
-                state.bar.style.left = base.left + 'px';
-                state.bar.style.top = base.top + 'px';
-                state.bar.style.width = base.width + 'px';
-                state.bar.style.height = AES.BAR_H + 'px';
-                state.viewport.style.left = base.left + 'px';
-                state.viewport.style.top = (base.top + AES.BAR_H) + 'px';
-                state.viewport.style.width = base.width + 'px';
-                state.viewport.style.height = Math.max(0, base.height - AES.BAR_H) + 'px';
+                setCssPx(state.bar, 'left', base.left);
+                setCssPx(state.bar, 'top', base.top);
+                setCssPx(state.bar, 'width', base.width);
+                setCssPx(state.bar, 'height', AES.BAR_H);
+                setCssPx(state.viewport, 'left', base.left);
+                setCssPx(state.viewport, 'top', base.top + AES.BAR_H);
+                setCssPx(state.viewport, 'width', base.width);
+                setCssPx(state.viewport, 'height', Math.max(0, base.height - AES.BAR_H));
                 state.viewport.style.bottom = 'auto';
             }
             updateTabScrollButtons();
@@ -2735,36 +3299,36 @@
             const barWidth = currentVerticalBarWidth();
             if (state.homeCover) {
                 state.homeCover.style.display = state.activeId === null ? '' : 'none';
-                state.homeCover.style.left = base.left + 'px';
-                state.homeCover.style.top = base.top + 'px';
-                state.homeCover.style.width = barWidth + 'px';
-                state.homeCover.style.height = base.height + 'px';
+                setCssPx(state.homeCover, 'left', base.left);
+                setCssPx(state.homeCover, 'top', base.top);
+                setCssPx(state.homeCover, 'width', barWidth);
+                setCssPx(state.homeCover, 'height', base.height);
             }
-            state.bar.style.left = base.left + 'px';
-            state.bar.style.top = base.top + 'px';
-            state.bar.style.width = barWidth + 'px';
-            state.bar.style.height = base.height + 'px';
-            state.viewport.style.left = (base.left + barWidth) + 'px';
-            state.viewport.style.top = base.top + 'px';
-            state.viewport.style.width = Math.max(0, base.width - barWidth) + 'px';
-            state.viewport.style.height = base.height + 'px';
+            setCssPx(state.bar, 'left', base.left);
+            setCssPx(state.bar, 'top', base.top);
+            setCssPx(state.bar, 'width', barWidth);
+            setCssPx(state.bar, 'height', base.height);
+            setCssPx(state.viewport, 'left', base.left + barWidth);
+            setCssPx(state.viewport, 'top', base.top);
+            setCssPx(state.viewport, 'width', Math.max(0, base.width - barWidth));
+            setCssPx(state.viewport, 'height', base.height);
             state.viewport.style.bottom = 'auto';
         } else {
             if (state.homeCover) {
                 state.homeCover.style.display = state.activeId === null ? '' : 'none';
-                state.homeCover.style.left = base.left + 'px';
-                state.homeCover.style.top = base.top + 'px';
-                state.homeCover.style.width = base.width + 'px';
-                state.homeCover.style.height = AES.BAR_H + 'px';
+                setCssPx(state.homeCover, 'left', base.left);
+                setCssPx(state.homeCover, 'top', base.top);
+                setCssPx(state.homeCover, 'width', base.width);
+                setCssPx(state.homeCover, 'height', AES.BAR_H);
             }
-            state.bar.style.left = base.left + 'px';
-            state.bar.style.top = base.top + 'px';
-            state.bar.style.width = base.width + 'px';
-            state.bar.style.height = AES.BAR_H + 'px';
-            state.viewport.style.left = base.left + 'px';
-            state.viewport.style.top = (base.top + AES.BAR_H) + 'px';
-            state.viewport.style.width = base.width + 'px';
-            state.viewport.style.height = Math.max(0, base.height - AES.BAR_H) + 'px';
+            setCssPx(state.bar, 'left', base.left);
+            setCssPx(state.bar, 'top', base.top);
+            setCssPx(state.bar, 'width', base.width);
+            setCssPx(state.bar, 'height', AES.BAR_H);
+            setCssPx(state.viewport, 'left', base.left);
+            setCssPx(state.viewport, 'top', base.top + AES.BAR_H);
+            setCssPx(state.viewport, 'width', base.width);
+            setCssPx(state.viewport, 'height', Math.max(0, base.height - AES.BAR_H));
             state.viewport.style.bottom = 'auto';
         }
         updateTabScrollButtons();
@@ -2869,9 +3433,12 @@
             clearNonIframeReservation();
             stopNonIframeTitleWatcher();
             if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(false);
+            applyEarlyAccessLabelVisibility(document);
+            applyResourcePlannerCalendarShortcut(document);
             broadcastDarkModeEnhancerState();
             broadcastTimesheetUiEnhancementState();
             broadcastPreferencesUiEnhancementState();
+            broadcastWorkspaceQueuesUiEnhancementState();
         } else {
             if (AES.initPhoneLinks) AES.initPhoneLinks();
             injectTopLevelPageBridgeFromShell();
@@ -2883,9 +3450,12 @@
                     requestSyncGeometry();
                 });
             }
+            applyEarlyAccessLabelVisibility(document);
+            applyResourcePlannerCalendarShortcut(document);
             broadcastDarkModeEnhancerState();
             broadcastTimesheetUiEnhancementState();
             broadcastPreferencesUiEnhancementState();
+            broadcastWorkspaceQueuesUiEnhancementState();
         }
         broadcastFeatureEnabledState();
         updateShellVisibility();
@@ -2954,6 +3524,12 @@
     }
 
     function activateHome() {
+        if (state.activeId !== null && tabById(state.activeId)) {
+            state.activationHistory = state.activationHistory.filter(id => id !== state.activeId);
+            state.activationHistory.push(state.activeId);
+        } else {
+            state.activationHistory.push(null);
+        }
         state.activeId = null;
         state.splitId = null;
         if (!state.homeLoadingAwaitingNativeLoad) setHomeLoading(false);
@@ -2966,9 +3542,20 @@
         saveTabs();
     }
 
-    function activateTab(id) {
+    function activateTab(id, options) {
+        const opts = options || {};
+        const previousId = state.activeId;
         if (state.splitId === id) state.splitId = null;
         state.activeId = id;
+        if (previousId === null) {
+            state.activationHistory = state.activationHistory.filter(historyId => historyId !== null);
+            state.activationHistory.push(null);
+        }
+        if (opts.recordPrevious !== false && previousId !== null && previousId !== id && tabById(previousId)) {
+            state.activationHistory = state.activationHistory.filter(candidateId => candidateId !== previousId);
+            state.activationHistory.push(previousId);
+        }
+        if (opts.load !== false) ensureTabIframeLoaded(tabById(id));
         syncTabPaneState();
         state.viewport.style.display = '';
         updateHomeTabActive();
@@ -2985,10 +3572,17 @@
         const removed = state.tabs.splice(idx, 1)[0];
         try { removed.iframeEl.remove(); } catch (e) {}
         if (state.splitId === id) state.splitId = null;
+        state.activationHistory = state.activationHistory.filter(candidateId => candidateId !== id);
         if (state.activeId === id) {
-            const next = state.tabs[Math.min(idx, state.tabs.length - 1)];
-            if (next) activateTab(next.id);
-            else activateHome();
+            const previousId = state.activationHistory.pop();
+            if (previousId === null) {
+                activateHome();
+            } else {
+                const previous = previousId ? tabById(previousId) : null;
+                const next = previous || state.tabs[Math.min(idx, state.tabs.length - 1)];
+                if (next) activateTab(next.id, { recordPrevious: false });
+                else activateHome();
+            }
         } else {
             syncTabPaneState();
         }
@@ -3036,14 +3630,95 @@
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
         if (p === '/mvc/crm/accountdetail.mvc') return 'account';
+        if (p === '/mvc/crm/installedproductdetail.mvc') return 'device';
+        if (p === '/mvc/crm/note.mvc/view') return 'note';
+        if (p === '/mvc/crm/opportunitydetail.mvc') return 'opportunity';
+        if (p === '/autotask35/crm/salesorder/salesorderdetail.aspx') return 'salesorder';
+        if (/\/inventory\/inventory_edit_order\.aspx$/i.test(p || '')) return 'purchaseorder';
+        if (p === '/opportunity/quotes/quote.asp' ||
+            p === '/opportunity/quotes/newquote.asp' ||
+            p === '/mvc/crm/quotetemplate.mvc/editproperties') return 'quote';
         if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') return 'person';
+        if (p === '/autotask/views/crm/contact_group_management.aspx' ||
+            p === '/autotask35/crm/contactgroupmanager.aspx') return 'group';
         if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') return 'timesheet';
         if (p === '/mvc/inventory/costitem.mvc/shipping' ||
             p.includes('/picklistdetailforshippinggrid') ||
             p.includes('/packinglistdetailforshippinggrid')) return 'inventory';
+        if (p === '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx') return 'charge';
+        if (p === '/mvc/crm/contractbillingruleassociation.mvc/editcontact') return 'charge';
+        if (p.includes('/billingproduct') ||
+            p.includes('/billing_product') ||
+            p.includes('/billingrule') ||
+            p.includes('/billing_rule') ||
+            p.includes('/billingassociation') ||
+            p.includes('/billingproductassociation') ||
+            p.includes('/billingruleassociation')) return 'charge';
         if (p.startsWith('/contracts/views/contract')) return 'contract';
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail' || p === '/mvc/projects/taskdetail.mvc') return 'project';
         return 'ticket';
+    }
+
+    function tabTypeLabel(tabOrType) {
+        const type = normalizeTabType(typeof tabOrType === 'string' ? tabOrType : tabTypeForUrl(tabOrType && tabOrType.url || ''));
+        return TAB_TYPE_LABELS[type] || 'Tab';
+    }
+
+    function tabMetadataFields(tab) {
+        const type = tabTypeForUrl(tab && tab.url || '');
+        const fields = Object.assign({}, normalizeMetadataFields(tab && tab.metadataFields));
+        fields.type = fields.type || tabTypeLabel(type);
+        fields.number = fields.number || String(tab && tab.number || '').trim();
+        fields.id = fields.id || (/^ID\b/i.test(fields.number) ? fields.number : '');
+        fields.organization = fields.organization || String(tab && tab.contact || '').trim();
+        fields.primaryResource = fields.primaryResource || String(tab && tab.primaryResource && tab.primaryResource.name || '').trim();
+        return fields;
+    }
+
+    function tabLineValue(tab, line) {
+        if (!tab) return '';
+        const type = tabTypeForUrl(tab.url || '');
+        const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
+        const options = getLineOptionsForType(type);
+        let key = settings && settings[type] || (line === 2 ? 'organization' : 'contact');
+        if (!options.includes(key)) key = getDefaultLineField(type, line);
+        if (key === 'none') return '';
+        const fields = tabMetadataFields(tab);
+        const value = String(fields[key] || '').trim();
+        if (value) return value;
+        return line === 2 ? fields.type : '';
+    }
+
+    function tabLineFieldKey(tab, line) {
+        if (!tab) return '';
+        const type = tabTypeForUrl(tab.url || '');
+        const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
+        const options = getLineOptionsForType(type);
+        let key = settings && settings[type] || (line === 2 ? 'organization' : 'contact');
+        if (!options.includes(key)) key = getDefaultLineField(type, line);
+        return key;
+    }
+
+    function applyTabLineStyle(el, tab, line) {
+        if (!el) return;
+        el.style.removeProperty('color');
+        if (!tab) return;
+        const key = tabLineFieldKey(tab, line);
+        if (key !== 'status' && key !== 'priority') return;
+        const fields = tabMetadataFields(tab);
+        const color = String(fields[key + 'Color'] || '').trim();
+        if (/^rgba?\(\s*0\s*,\s*0\s*,\s*0\s*(?:,\s*0\s*)?\)$/i.test(color)) return;
+        if (/^transparent$/i.test(color)) return;
+        if (color) el.style.setProperty('color', color);
+    }
+
+    function fallbackMetadataFields(type, fallback) {
+        return {
+            type: tabTypeLabel(type),
+            id: /^ID\b/i.test(fallback.number || '') ? fallback.number : '',
+            number: fallback.number || '',
+            organization: fallback.contact || '',
+        };
     }
 
     function fallbackTabMetadataForUrl(url) {
@@ -3062,7 +3737,7 @@
         if (path.includes('/picklistdetailforshippinggrid')) {
             return {
                 title: 'Pick List',
-                number: params.get('costProductIds') ? 'Cost items ' + params.get('costProductIds') : '',
+                number: 'Inventory',
                 contact: params.get('accountId') ? 'Account ID ' + params.get('accountId') : '',
             };
         }
@@ -3070,14 +3745,108 @@
             const account = params.get('accountIdWithIndex') || '';
             return {
                 title: 'Packing List',
-                number: params.get('costProductIds') ? 'Cost items ' + params.get('costProductIds') : '',
+                number: 'Inventory',
                 contact: account ? 'Account ' + account.split(':')[0] : '',
+            };
+        }
+        if (path === '/mvc/crm/installedproductdetail.mvc') {
+            const installedProductId = params.get('installedProductId') || params.get('installedproductid');
+            return {
+                title: 'Device',
+                number: installedProductId ? 'ID ' + installedProductId : '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/crm/note.mvc/view') {
+            const id = params.get('id') || params.get('ID');
+            return {
+                title: 'Note',
+                number: id ? 'ID ' + id : '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/crm/opportunitydetail.mvc') {
+            const opportunityId = params.get('opportunityId') || params.get('opportunityid');
+            return {
+                title: 'Opportunity',
+                number: opportunityId ? 'ID ' + opportunityId : '',
+                contact: '',
+            };
+        }
+        if (path === '/autotask35/crm/salesorder/salesorderdetail.aspx') {
+            const salesOrderId = params.get('salesorderid') || params.get('salesOrderId');
+            return {
+                title: 'Sales Order',
+                number: salesOrderId ? 'ID ' + salesOrderId : '',
+                contact: '',
+            };
+        }
+        if (/\/inventory\/inventory_edit_order\.aspx/i.test(path || '')) {
+            const purchaseOrderId = params.get('id') || params.get('ID') ||
+                params.get('purchaseOrderId') || params.get('purchaseorderid') || params.get('purchaseOrderID');
+            return {
+                title: 'Purchase Order',
+                number: purchaseOrderId ? 'ID ' + purchaseOrderId : 'Purchase Order',
+                contact: '',
+            };
+        }
+        if (path === '/opportunity/quotes/quote.asp' || path === '/opportunity/quotes/newquote.asp') {
+            const quoteId = params.get('QuoteID') || params.get('quoteID') || params.get('quoteId') || params.get('objectID');
+            return {
+                title: quoteId ? 'Quote ' + quoteId : 'Quote',
+                number: 'Quote',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/crm/quotetemplate.mvc/editproperties') {
+            return {
+                title: 'Quote Template',
+                number: 'Quote',
+                contact: '',
+            };
+        }
+        if (path === '/autotask/views/crm/contact_group_management.aspx' ||
+            path === '/autotask35/crm/contactgroupmanager.aspx') {
+            const groupId = params.get('groupid') || params.get('groupId');
+            return {
+                title: groupId && groupId !== '0' ? 'Contact Group' : 'New Contact Group',
+                number: groupId && groupId !== '0' ? 'ID ' + groupId : 'Group',
+                contact: '',
             };
         }
         if (path === '/mvc/inventory/costitem.mvc/shipping') {
             return {
                 title: 'Shipping',
-                number: '',
+                number: 'Inventory',
+                contact: '',
+            };
+        }
+        if (path === '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx') {
+            const ticketId = params.get('ticketID') || params.get('ticketId') || params.get('ticketid');
+            const genericId = params.get('genericId') || params.get('genericid');
+            return {
+                title: 'Ticket Charge',
+                number: ticketId ? 'Ticket ID ' + ticketId : (genericId ? 'Charge ID ' + genericId : ''),
+                contact: '',
+            };
+        }
+        if (path === '/mvc/crm/contractbillingruleassociation.mvc/editcontact') {
+            return {
+                title: 'Billing Products',
+                number: 'Charge',
+                contact: '',
+            };
+        }
+        if (path.includes('/billingproduct') ||
+            path.includes('/billing_product') ||
+            path.includes('/billingrule') ||
+            path.includes('/billing_rule') ||
+            path.includes('/billingassociation') ||
+            path.includes('/billingproductassociation') ||
+            path.includes('/billingruleassociation')) {
+            return {
+                title: 'Billing Products',
+                number: 'Charge',
                 contact: '',
             };
         }
@@ -3107,6 +3876,7 @@
     function tabIconKey(tab) {
         const title = typeof tab?.title === 'string' ? tab.title.toLowerCase() : '';
         if (title.includes('livelink')) return 'livelink';
+        if (AES.normalizeHandledPath(AES.pathOf(tab?.url || '')) === '/mvc/projects/taskdetail.mvc') return 'projectTask';
         return tabTypeForUrl(tab?.url || '');
     }
 
@@ -3138,8 +3908,8 @@
 
     function tabRowCount(tab) {
         let rows = 1;
-        if (tab && tab.number) rows += 1;
-        if (tab && tab.contact) rows += 1;
+        if (tab && tabLineValue(tab, 2)) rows += 1;
+        if (tab && tabLineValue(tab, 3)) rows += 1;
         return Math.max(1, Math.min(2, rows));
     }
 
@@ -3156,6 +3926,7 @@
                 current !== 'Home' &&
                 !/dialogiframeoverlaypage/i.test(current);
             if (hasResolvedRealTitle) {
+                clearHomeLoading();
                 return;
             }
             if (state.homeLoadingAwaitingNativeLoad) {
@@ -3169,10 +3940,10 @@
             state.homeTabEl.title = next;
         }
         state.homeTitle = next;
-        // During a real native iframe navigation, the previous page can still
-        // report its old title around `beforeunload`. Keep the spinner up
-        // until the iframe load event confirms that navigation finished.
-        if (!state.homeLoadingAwaitingNativeLoad) setHomeLoading(false);
+        // A real native title means the Home tab has meaningful metadata again.
+        // Let that win over late/stale nav-start messages so the tab cannot
+        // get stuck showing only the spinner.
+        clearHomeLoading();
     }
 
     function setHomeLoading(loading) {
@@ -3202,7 +3973,7 @@
         if (!skipFrameCheck && findContentIframe()) return;
         const title = extractTopLevelPageTitle();
         if (!title) return;
-        state.homeLoadingAwaitingNativeLoad = false;
+        clearHomeLoading();
         setHomeTitle(title);
     }
 
@@ -3284,6 +4055,7 @@
         button.setAttribute('role', 'menuitem');
         button.appendChild(createContextMenuIcon(svg));
         const label = document.createElement('span');
+        label.className = 'at-tabs-context-label';
         label.textContent = labelText;
         button.appendChild(label);
         if (typeof onClick === 'function') {
@@ -3300,11 +4072,71 @@
         return divider;
     }
 
-    function createContextMenuSectionTitle(text) {
-        const title = document.createElement('div');
-        title.className = 'at-tabs-context-section-title';
-        title.textContent = text;
-        return title;
+    function createTabColorSubmenu(tab) {
+        const trigger = document.createElement('div');
+        trigger.className = 'at-tabs-context-item at-tabs-context-submenu-trigger';
+        trigger.setAttribute('role', 'menuitem');
+        trigger.setAttribute('aria-haspopup', 'menu');
+        trigger.tabIndex = 0;
+        trigger.appendChild(createContextMenuIcon(ICONS.colorTab));
+
+        const label = document.createElement('span');
+        label.className = 'at-tabs-context-label';
+        label.textContent = 'Color tab';
+        trigger.appendChild(label);
+
+        const arrow = document.createElement('span');
+        arrow.className = 'at-tabs-context-submenu-arrow';
+        arrow.textContent = '›';
+        trigger.appendChild(arrow);
+
+        const submenu = document.createElement('div');
+        submenu.className = 'at-tabs-context-submenu';
+        submenu.setAttribute('role', 'menu');
+
+        const palette = document.createElement('div');
+        palette.className = 'at-tabs-context-colors';
+        for (const color of TAB_COLOR_PRESETS) {
+            const swatch = document.createElement('button');
+            swatch.type = 'button';
+            swatch.className = 'at-tabs-color-swatch' + (tab.color === color ? ' selected' : '');
+            swatch.title = color;
+            swatch.style.setProperty('--aes-swatch', color);
+            swatch.setAttribute('aria-label', 'Set tab color ' + color);
+            swatch.addEventListener('click', function (event) {
+                event.stopPropagation();
+                closeTabContextMenu();
+                setTabColor(tab.id, color);
+            });
+            palette.appendChild(swatch);
+        }
+        submenu.appendChild(palette);
+        submenu.appendChild(createContextMenuDivider());
+        submenu.appendChild(createContextMenuItem(
+            'Clear tab color',
+            ICONS.clearColor,
+            function () {
+                closeTabContextMenu();
+                setTabColor(tab.id, '');
+            }
+        ));
+
+        trigger.appendChild(submenu);
+        return trigger;
+    }
+
+    function positionContextSubmenus(menu) {
+        const submenus = menu.querySelectorAll('.at-tabs-context-submenu');
+        submenus.forEach(function (submenu) {
+            submenu.classList.remove('open-left');
+            const parent = submenu.parentElement;
+            if (!parent) return;
+            const parentRect = parent.getBoundingClientRect();
+            const submenuWidth = submenu.offsetWidth || 188;
+            if (parentRect.right + submenuWidth + 14 > window.innerWidth) {
+                submenu.classList.add('open-left');
+            }
+        });
     }
 
     function pinTab(tabId, pinned) {
@@ -3400,7 +4232,7 @@
 
         const refreshButton = createContextMenuItem(
             'Refresh tab',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 5v6h-6"/></svg>',
+            ICONS.refresh,
             function () {
                 closeTabContextMenu();
                 refreshTabIframe(tab);
@@ -3409,9 +4241,9 @@
 
         const splitButton = createContextMenuItem(
             '',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v14H4z"/><path d="M12 5v14"/></svg>'
+            ICONS.split
         );
-        const label = splitButton.querySelector('span:last-child');
+        const label = splitButton.querySelector('.at-tabs-context-label');
 
         if (tab.id === state.splitId) {
             label.textContent = 'Remove from split screen';
@@ -3439,54 +4271,25 @@
 
         const pinButton = createContextMenuItem(
             tab.pinned ? 'Unpin tab' : 'Pin tab',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M8 3h8l-1 5 3 3H6l3-3-1-5z"/></svg>',
+            ICONS.pin,
             function () {
                 closeTabContextMenu();
                 pinTab(tab.id, !tab.pinned);
             }
         );
 
-        const clearColorButton = createContextMenuItem(
-            'Clear tab color',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M4 20 20 4"/></svg>',
-            function () {
-                closeTabContextMenu();
-                setTabColor(tab.id, '');
-            }
-        );
-        clearColorButton.disabled = !tab.color;
-
         menu.appendChild(refreshButton);
         menu.appendChild(splitButton);
         menu.appendChild(pinButton);
         menu.appendChild(createContextMenuDivider());
-        menu.appendChild(createContextMenuSectionTitle('Color tab'));
-
-        const palette = document.createElement('div');
-        palette.className = 'at-tabs-context-colors';
-        for (const color of TAB_COLOR_PRESETS) {
-            const swatch = document.createElement('button');
-            swatch.type = 'button';
-            swatch.className = 'at-tabs-color-swatch' + (tab.color === color ? ' selected' : '');
-            swatch.title = color;
-            swatch.style.setProperty('--aes-swatch', color);
-            swatch.setAttribute('aria-label', 'Set tab color ' + color);
-            swatch.addEventListener('click', function (event) {
-                event.stopPropagation();
-                closeTabContextMenu();
-                setTabColor(tab.id, color);
-            });
-            palette.appendChild(swatch);
-        }
-        menu.appendChild(palette);
-        menu.appendChild(clearColorButton);
+        menu.appendChild(createTabColorSubmenu(tab));
 
         // --- Tab actions: duplicate (any tab) + copy helpers (ticket tabs) ---
         menu.appendChild(createContextMenuDivider());
 
         const duplicateButton = createContextMenuItem(
             'Duplicate tab',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>',
+            ICONS.duplicate,
             function () {
                 closeTabContextMenu();
                 duplicateTab(tab);
@@ -3496,7 +4299,7 @@
 
         const peekButton = createContextMenuItem(
             'Peek',
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>',
+            ICONS.peek,
             function () {
                 closeTabContextMenu();
                 openPeekModal(tab);
@@ -3504,46 +4307,10 @@
         );
         menu.appendChild(peekButton);
 
-        if (tabTypeForUrl(tab.url) === 'ticket') {
-            const markdownButton = createContextMenuItem(
-                'Copy as markdown link',
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg>',
-                function () {
-                    closeTabContextMenu();
-                    const num = (tab.number || '').trim();
-                    const ttl = (tab.title || '').trim();
-                    const label = num && ttl ? (num + ' - ' + ttl) : (num || ttl || tab.url);
-                    void copyTextToClipboard('[' + label + '](' + tab.url + ')');
-                }
-            );
-            menu.appendChild(markdownButton);
-
-            const copyNumberButton = createContextMenuItem(
-                'Copy ticket number',
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9h14"/><path d="M5 15h14"/><path d="M11 4 9 20"/><path d="M15 4l-2 16"/></svg>',
-                function () {
-                    closeTabContextMenu();
-                    void copyTextToClipboard((tab.number || '').trim());
-                }
-            );
-            copyNumberButton.disabled = !(tab.number && tab.number.trim());
-            menu.appendChild(copyNumberButton);
-
-            const copyTitleButton = createContextMenuItem(
-                'Copy ticket title',
-                '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16"/><path d="M4 12h16"/><path d="M4 18h10"/></svg>',
-                function () {
-                    closeTabContextMenu();
-                    void copyTextToClipboard((tab.title || '').trim());
-                }
-            );
-            copyTitleButton.disabled = !(tab.title && tab.title.trim());
-            menu.appendChild(copyTitleButton);
-        }
-
         document.body.appendChild(menu);
         state.tabContextMenu = menu;
         positionContextMenu(menu, x, y);
+        positionContextSubmenus(menu);
     }
 
     function installTabContextMenuDismissal() {
@@ -3595,11 +4362,13 @@
 
         const number = document.createElement('div');
         number.className = 'line number';
-        number.textContent = tab.number || '';
+        number.textContent = tabLineValue(tab, 2);
+        applyTabLineStyle(number, tab, 2);
 
         const contact = document.createElement('div');
         contact.className = 'line contact';
-        contact.textContent = tab.contact || '';
+        contact.textContent = tabLineValue(tab, 3);
+        applyTabLineStyle(contact, tab, 3);
 
         meta.appendChild(title);
         meta.appendChild(number);
@@ -3633,10 +4402,12 @@
             openTabContextMenu(tab, ev.clientX, ev.clientY);
         });
         el.addEventListener('mouseenter', function () {
+            state.hoverAnchorHovered = true;
             scheduleHoverCard(tab, el);
             prewarmPeek(tab);
         });
         el.addEventListener('mouseleave', function () {
+            state.hoverAnchorHovered = false;
             hideHoverCard(false);
         });
         el.addEventListener('dragstart', function (ev) {
@@ -3961,8 +4732,14 @@
         const c = tab.tabEl.querySelector('.line.contact');
         const r = tab.tabEl.querySelector('.resource-badge');
         if (t) updateTabTitleEl(t, tab);
-        if (n) n.textContent = tab.number || '';
-        if (c) c.textContent = tab.contact || '';
+        if (n) {
+            n.textContent = tabLineValue(tab, 2);
+            applyTabLineStyle(n, tab, 2);
+        }
+        if (c) {
+            c.textContent = tabLineValue(tab, 3);
+            applyTabLineStyle(c, tab, 3);
+        }
         if (r) updateTabResourceEl(r, tab);
         updateTabRowCount(tab);
         applyTabColorStyle(tab);
@@ -4028,6 +4805,7 @@
         return {
             extensionEnabled: true,
             rememberTabsAfterClose: false,
+            openNewTabsAtStart: false,
             phoneLinksEnabled: true,
             themePreference: 'auto',
             barOrientation: 'horizontal',
@@ -4040,6 +4818,8 @@
             preferencesUiEnhancementEnabled: false,
             workspaceQueuesUiEnhancementEnabled: false,
             skipPeekBackdropCloseWarning: false,
+            tabLine2Fields: defaultTabLineSettings(2),
+            tabLine3Fields: defaultTabLineSettings(3),
             tabBarWidth: AES.BAR_W || 240,
         };
     }
@@ -4086,7 +4866,7 @@
         const enabledName = document.createElement('span');
         enabledName.className = 'at-tabs-setting-name';
         enabledName.textContent = 'Enable Autotask Enhancement Suite';
-        enabledLabel.appendChild(createSettingInfo('Turns all AES enhancements on or off. Settings remain available from the native Autotask menu and browser toolbar.'));
+        enabledLabel.appendChild(createSettingInfo('Turns all AES enhancements on or off. Refresh the browser tab after changing this so all injected page features fully start or stop.'));
         enabledLabel.appendChild(enabledName);
 
         const enabledToggle = document.createElement('span');
@@ -4095,9 +4875,27 @@
         const enabledInput = document.createElement('input');
         enabledInput.type = 'checkbox';
         enabledInput.checked = featuresEnabled();
+        const enabledReloadNote = document.createElement('div');
+        enabledReloadNote.className = 'at-tabs-setting-reload-note';
+        const enabledReloadText = document.createElement('span');
+        enabledReloadText.textContent = 'Refresh this browser tab to fully apply the extension enable/disable change.';
+        const enabledReloadButton = document.createElement('button');
+        enabledReloadButton.type = 'button';
+        enabledReloadButton.className = 'at-tabs-setting-reload-button';
+        enabledReloadButton.textContent = 'Refresh now';
+        enabledReloadButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            void AES.saveSettings().then(function () {
+                window.location.reload();
+            });
+        });
+        enabledReloadNote.appendChild(enabledReloadText);
+        enabledReloadNote.appendChild(enabledReloadButton);
         enabledInput.addEventListener('change', function () {
             state.extensionEnabled = enabledInput.checked;
             applyExtensionEnabledState();
+            enabledReloadNote.classList.add('visible');
             void AES.saveSettings();
         });
 
@@ -4380,6 +5178,37 @@
         persistNote.className = 'at-tabs-setting-note';
         persistNote.textContent = 'Note that this will severely increase initial load times since all tabs will be loaded in one go';
 
+        const openAtStartRow = document.createElement('label');
+        openAtStartRow.className = 'at-tabs-setting-row';
+
+        const openAtStartLabel = document.createElement('span');
+        openAtStartLabel.className = 'at-tabs-setting-label';
+
+        const openAtStartName = document.createElement('span');
+        openAtStartName.className = 'at-tabs-setting-name';
+        openAtStartName.textContent = 'Open new tabs at the start';
+        openAtStartLabel.appendChild(createSettingInfo('Adds new tabs near the start of the tab bar: left in horizontal mode, top in vertical mode. Pinned tabs stay first.'));
+        openAtStartLabel.appendChild(openAtStartName);
+
+        const openAtStartToggle = document.createElement('span');
+        openAtStartToggle.className = 'at-tabs-setting-toggle';
+
+        const openAtStartInput = document.createElement('input');
+        openAtStartInput.type = 'checkbox';
+        openAtStartInput.checked = !!state.openNewTabsAtStart;
+        openAtStartInput.addEventListener('change', function () {
+            state.openNewTabsAtStart = openAtStartInput.checked;
+            AES.state.openNewTabsAtStart = openAtStartInput.checked;
+            void AES.saveSettings();
+        });
+
+        const openAtStartToggleUi = document.createElement('span');
+        openAtStartToggleUi.className = 'at-tabs-setting-toggle-ui';
+        openAtStartToggle.appendChild(openAtStartInput);
+        openAtStartToggle.appendChild(openAtStartToggleUi);
+        openAtStartRow.appendChild(openAtStartLabel);
+        openAtStartRow.appendChild(openAtStartToggle);
+
         const everywhereRow = document.createElement('label');
         everywhereRow.className = 'at-tabs-setting-row';
 
@@ -4585,11 +5414,120 @@
         phoneRow.appendChild(phoneLabel);
         phoneRow.appendChild(phoneToggle);
 
+        const customizationSection = document.createElement('div');
+        customizationSection.className = 'at-tabs-settings-section';
+
+        const customizationHeader = document.createElement('div');
+        customizationHeader.className = 'at-tabs-customization-header';
+        customizationHeader.appendChild(document.createElement('span'));
+        const customizationHeaderLines = document.createElement('span');
+        customizationHeaderLines.className = 'at-tabs-customization-header-lines';
+        ['Line 2', 'Line 3'].forEach(function (labelText) {
+            const label = document.createElement('span');
+            label.textContent = labelText;
+            customizationHeaderLines.appendChild(label);
+        });
+        customizationHeader.appendChild(customizationHeaderLines);
+        customizationSection.appendChild(customizationHeader);
+
+        function createLineSelect(type, line) {
+            const select = document.createElement('select');
+            select.className = 'at-tabs-setting-select';
+            select.dataset.tabType = type;
+            select.dataset.tabLine = String(line);
+            const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
+            const lineOptions = getLineOptionsForType(type);
+            const optionMap = new Map(CUSTOM_FIELD_OPTIONS.map(function (option) { return [option.value, option.label]; }));
+            const fallback = line === 2 ? getDefaultLineField(type, 'line2') : getDefaultLineField(type, 'line3');
+            const currentValue = lineOptions.includes(settings[type]) ? settings[type] : fallback;
+            lineOptions.forEach(function (value) {
+                const optionEl = document.createElement('option');
+                optionEl.value = value;
+                optionEl.textContent = optionMap.get(value) || value;
+                if (currentValue === value) optionEl.selected = true;
+                select.appendChild(optionEl);
+            });
+            select.addEventListener('change', function () {
+                if (line === 2) {
+                    state.tabLine2Fields[type] = select.value;
+                    AES.state.tabLine2Fields = state.tabLine2Fields;
+                } else {
+                    state.tabLine3Fields[type] = select.value;
+                    AES.state.tabLine3Fields = state.tabLine3Fields;
+                }
+                state.tabs.forEach(updateTabEl);
+                saveTabs();
+                void AES.saveSettings();
+            });
+            return select;
+        }
+
+        function setCustomizationSelectValues(line2Fields, line3Fields) {
+            customizationSection.querySelectorAll('select[data-tab-type][data-tab-line]').forEach(function (select) {
+                const type = select.dataset.tabType;
+                const line = select.dataset.tabLine === '2' ? 2 : 3;
+                const fields = line === 2 ? line2Fields : line3Fields;
+                const value = fields && fields[type];
+                const fallback = getDefaultLineField(type, line);
+                select.value = getLineOptionsForType(type).includes(value) ? value : fallback;
+            });
+        }
+
+        function applyRecommendedCustomization() {
+            const line2Fields = defaultTabLineSettings(2);
+            const line3Fields = defaultTabLineSettings(3);
+            CUSTOMIZABLE_TAB_TYPES.forEach(function (type) {
+                const recommendation = TAB_LINE_RECOMMENDED_BY_TYPE[type] || {};
+                if (getLineOptionsForType(type).includes(recommendation.line2)) {
+                    line2Fields[type] = recommendation.line2;
+                }
+                if (getLineOptionsForType(type).includes(recommendation.line3)) {
+                    line3Fields[type] = recommendation.line3;
+                }
+            });
+            state.tabLine2Fields = line2Fields;
+            state.tabLine3Fields = line3Fields;
+            AES.state.tabLine2Fields = line2Fields;
+            AES.state.tabLine3Fields = line3Fields;
+            setCustomizationSelectValues(line2Fields, line3Fields);
+            state.tabs.forEach(updateTabEl);
+            saveTabs();
+            void AES.saveSettings();
+        }
+
+        CUSTOMIZABLE_TAB_TYPES.forEach(function (type) {
+            const row = document.createElement('div');
+            row.className = 'at-tabs-setting-row at-tabs-customization-row';
+            const label = document.createElement('span');
+            label.className = 'at-tabs-setting-label';
+            const tabIcon = document.createElement('span');
+            tabIcon.className = 'at-tabs-setting-icon';
+            tabIcon.innerHTML = CUSTOMIZATION_TAB_TYPE_ICONS[type] || '';
+            label.appendChild(tabIcon);
+            const name = document.createElement('span');
+            name.className = 'at-tabs-setting-name';
+            name.textContent = TAB_TYPE_LABELS[type] || type;
+            label.appendChild(name);
+
+            const controls = document.createElement('span');
+            controls.className = 'at-tabs-setting-line-controls';
+            const line2 = createLineSelect(type, 2);
+            const line3 = createLineSelect(type, 3);
+            line2.title = 'Line 2';
+            line3.title = 'Line 3';
+            controls.appendChild(line2);
+            controls.appendChild(line3);
+            row.appendChild(label);
+            row.appendChild(controls);
+            customizationSection.appendChild(row);
+        });
+
         const uiSection = document.createElement('div');
         uiSection.className = 'at-tabs-settings-section';
 
         section.appendChild(orientationRow);
         section.appendChild(hideRow);
+        section.appendChild(openAtStartRow);
         section.appendChild(persistRow);
         section.appendChild(persistNote);
         section.appendChild(peekConfirmRow);
@@ -4602,6 +5540,7 @@
         }
         phoneSection.appendChild(phoneRow);
         generalSection.appendChild(enabledRow);
+        generalSection.appendChild(enabledReloadNote);
         generalSection.appendChild(themeRow);
         uiSection.appendChild(enhancerRow);
         uiSection.appendChild(earlyAccessRow);
@@ -4615,6 +5554,7 @@
             { id: 'general', label: 'General', description: 'Core extension controls and theme behavior.', section: generalSection },
             { id: 'ui', label: 'UI Enhancement', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
             { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, Peek behavior, and visibility.', section: section },
+            { id: 'customization', label: 'Customization', description: 'Choose what metadata appears on each tab line.', section: customizationSection },
             { id: 'experimental', label: 'Experimental', description: 'Beta features and page-specific experiments that may need extra testing.', section: experimentalSection },
             { id: 'misc', label: 'Miscellaneous', description: 'Extra productivity helpers that do not belong to the tab shell.', section: phoneSection },
         ];
@@ -4644,12 +5584,24 @@
             page.dataset.pageId = def.id;
             const pageTitle = document.createElement('div');
             pageTitle.className = 'at-tabs-settings-page-title';
+            if (def.id === 'customization') pageTitle.classList.add('with-action');
+            const pageTitleCopy = document.createElement('div');
+            pageTitleCopy.className = 'at-tabs-settings-page-title-copy';
             const titleText = document.createElement('strong');
             titleText.textContent = def.label;
             const subtitle = document.createElement('span');
             subtitle.textContent = def.description;
-            pageTitle.appendChild(titleText);
-            pageTitle.appendChild(subtitle);
+            pageTitleCopy.appendChild(titleText);
+            pageTitleCopy.appendChild(subtitle);
+            pageTitle.appendChild(pageTitleCopy);
+            if (def.id === 'customization') {
+                const recommendedButton = document.createElement('button');
+                recommendedButton.type = 'button';
+                recommendedButton.className = 'at-tabs-settings-page-action';
+                recommendedButton.textContent = 'Set to recommended';
+                recommendedButton.addEventListener('click', applyRecommendedCustomization);
+                pageTitle.appendChild(recommendedButton);
+            }
             page.appendChild(pageTitle);
             page.appendChild(def.section);
             pageEls.push(page);
@@ -4667,6 +5619,7 @@
             state.shellHidden = false;
 
             enabledInput.checked = defaults.extensionEnabled;
+            enabledReloadNote.classList.remove('visible');
             themeSelect.value = defaults.themePreference;
             enhancerInput.checked = defaults.darkModeEnhancerEnabled;
             earlyAccessInput.checked = defaults.hideEarlyAccessLabels;
@@ -4674,6 +5627,7 @@
             orientationSelect.value = defaults.barOrientation;
             resizeInput.checked = defaults.resizableTabBarEnabled;
             hideInput.checked = state.shellHidden;
+            openAtStartInput.checked = defaults.openNewTabsAtStart;
             persistInput.checked = defaults.rememberTabsAfterClose;
             everywhereInput.checked = defaults.showTabBarOnNonIframePages;
             peekConfirmInput.checked = !defaults.skipPeekBackdropCloseWarning;
@@ -4681,6 +5635,7 @@
             preferencesUiInput.checked = defaults.preferencesUiEnhancementEnabled;
             workspaceQueuesUiInput.checked = defaults.workspaceQueuesUiEnhancementEnabled;
             phoneInput.checked = defaults.phoneLinksEnabled;
+            setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
 
             applyAutotaskTheme();
             applyBarOrientationClass();
@@ -4696,6 +5651,7 @@
             broadcastTimesheetUiEnhancementState();
             broadcastPreferencesUiEnhancementState();
             broadcastWorkspaceQueuesUiEnhancementState();
+            state.tabs.forEach(updateTabEl);
             requestSyncGeometry();
 
             void AES.saveSettings().then(function () {
@@ -4887,6 +5843,9 @@
     }
 
     function startPeekLiveReuse(tab, modal) {
+        // Safari/WebKit can rasterize transformed iframe layers during live
+        // reuse, leaving the tab content blurry after resize/Peek animations.
+        if (IS_SAFARI_WEBKIT) return false;
         const iframe = tab && tab.iframeEl;
         if (!iframe || !iframe.isConnected || !state.viewport) return false;
 
@@ -4899,10 +5858,10 @@
             if (!state.viewport || !modal || !modal.isConnected) return;
             const rect = modal.getBoundingClientRect();
             state.viewport.classList.add('peek-active');
-            state.viewport.style.left = rect.left + 'px';
-            state.viewport.style.top = rect.top + 'px';
-            state.viewport.style.width = rect.width + 'px';
-            state.viewport.style.height = rect.height + 'px';
+            setCssPx(state.viewport, 'left', rect.left);
+            setCssPx(state.viewport, 'top', rect.top);
+            setCssPx(state.viewport, 'width', rect.width);
+            setCssPx(state.viewport, 'height', rect.height);
             state.viewport.style.right = 'auto';
             state.viewport.style.bottom = 'auto';
         };
@@ -5141,8 +6100,8 @@
     }
 
     // --- Tab hover preview card ---------------------------------------------
-    const HOVER_SHOW_DELAY_MS = 350;
-    const HOVER_HIDE_DELAY_MS = 80;
+    const HOVER_SHOW_DELAY_MS = 550;
+    const HOVER_HIDE_DELAY_MS = 180;
 
     function ensureHoverCard() {
         if (state.hoverCard) return state.hoverCard;
@@ -5150,6 +6109,20 @@
         card.className = 'at-tabs-hover-card';
         card.setAttribute('role', 'tooltip');
         document.body.appendChild(card);
+        function markHovered() {
+            state.hoverCardHovered = true;
+            state.hoverAnchorHovered = false;
+            if (state.hoverHideTimer) {
+                clearTimeout(state.hoverHideTimer);
+                state.hoverHideTimer = 0;
+            }
+        }
+        function markLeft() {
+            state.hoverCardHovered = false;
+            hideHoverCard(false);
+        }
+        card.addEventListener('pointerenter', markHovered);
+        card.addEventListener('pointerleave', markLeft);
         state.hoverCard = card;
         return card;
     }
@@ -5176,7 +6149,7 @@
             card.appendChild(numEl);
         }
 
-        function addRow(label, value) {
+        function addRow(label, value, copyable) {
             if (!value) return;
             const row = document.createElement('div');
             row.className = 'hc-row';
@@ -5188,6 +6161,24 @@
             val.textContent = value;
             row.appendChild(lbl);
             row.appendChild(val);
+            if (copyable !== false) {
+                const copy = document.createElement('button');
+                copy.type = 'button';
+                copy.className = 'hc-copy';
+                copy.title = 'Copy ' + label;
+                copy.setAttribute('aria-label', 'Copy ' + label);
+                copy.innerHTML = '<i class="fa-regular fa-copy" aria-hidden="true"></i>';
+                copy.addEventListener('pointerdown', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                });
+                copy.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    void copyTextToClipboard(String(value || ''));
+                });
+                row.appendChild(copy);
+            }
             card.appendChild(row);
         }
 
@@ -5195,11 +6186,14 @@
         if (tab.primaryResource && tab.primaryResource.name) {
             addRow('Primary', tab.primaryResource.name);
         }
-        addRow('Status', tab.status);
-        addRow('Priority', tab.priority);
-        addRow('Last activity', tab.lastActivity);
-        const typeLabel = tabTypeForUrl(tab.url || '');
-        if (typeLabel) addRow('Type', typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1));
+        const hoverFields = normalizeHoverFields(tab.hoverFields);
+        if (hoverFields.length) {
+            for (const field of hoverFields) addRow(field.label, field.value);
+        } else {
+            addRow('Status', tab.status);
+            addRow('Priority', tab.priority);
+            addRow('Last activity', tab.lastActivity);
+        }
     }
 
     function positionHoverCard(card, anchorEl) {
@@ -5237,6 +6231,7 @@
     function showHoverCardNow(tab, anchorEl) {
         if (hoverCardSuppressed()) return;
         if (!tab || !tab.url) return;
+        state.hoverAnchorEl = anchorEl;
         const card = ensureHoverCard();
         fillHoverCard(card, tab);
         card.style.left = '-9999px';
@@ -5251,6 +6246,7 @@
 
     function scheduleHoverCard(tab, anchorEl) {
         if (hoverCardSuppressed()) return;
+        state.hoverAnchorEl = anchorEl;
         if (state.hoverHideTimer) {
             clearTimeout(state.hoverHideTimer);
             state.hoverHideTimer = 0;
@@ -5271,7 +6267,26 @@
             state.hoverShowTimer = 0;
         }
         function doHide() {
+            const anchorHovered = !!(state.hoverAnchorEl &&
+                state.hoverAnchorEl.isConnected &&
+                state.hoverAnchorEl.matches(':hover'));
+            const cardHovered = !!(state.hoverCard &&
+                state.hoverCard.isConnected &&
+                state.hoverCard.matches(':hover'));
+            state.hoverAnchorHovered = anchorHovered;
+            state.hoverCardHovered = cardHovered;
+            if (!immediate && anchorHovered) {
+                state.hoverHideTimer = setTimeout(doHide, HOVER_HIDE_DELAY_MS);
+                return;
+            }
+            if (!immediate && cardHovered) {
+                state.hoverHideTimer = setTimeout(doHide, HOVER_HIDE_DELAY_MS);
+                return;
+            }
             state.hoverHideTimer = 0;
+            state.hoverCardHovered = false;
+            state.hoverAnchorHovered = false;
+            state.hoverAnchorEl = null;
             state.hoverTabId = null;
             if (state.hoverCard) state.hoverCard.classList.remove('visible');
         }
@@ -5309,6 +6324,7 @@
         const iframeEl = createTabIframe(url);
         state.viewport.appendChild(iframeEl);
         const fallback = fallbackTabMetadataForUrl(url);
+        const type = tabTypeForUrl(url);
 
         const tab = {
             id: state.nextId++,
@@ -5322,11 +6338,14 @@
             priority: (seedFromTab && seedFromTab.priority) || '',
             status: (seedFromTab && seedFromTab.status) || '',
             lastActivity: (seedFromTab && seedFromTab.lastActivity) || '',
+            hoverFields: normalizeHoverFields(seedFromTab && seedFromTab.hoverFields),
+            metadataFields: normalizeMetadataFields((seedFromTab && seedFromTab.metadataFields) || fallbackMetadataFields(type, fallback)),
             iframeEl: iframeEl,
             tabEl: null,
             loading: true,
+            loadStarted: true,
         };
-        state.tabs.push(normalizeTabState(tab));
+        addTabToList(tab);
         renderTabs();
         if (opts.activate === false) {
             syncTabPaneState();
@@ -5380,6 +6399,25 @@
 
     function shouldPreserveSparseNavMetadata(url) {
         return tabTypeForUrl(url) === 'project';
+    }
+
+    function parsePurchaseOrderNumberFromTitle(rawTitle) {
+        const match = String(rawTitle || '').match(/\(ID:\s*([^)]+)\)/i);
+        if (!match || !match[1]) return '';
+        return ('ID ' + match[1]).trim().slice(0, 40);
+    }
+
+    function normalizePurchaseOrderNavData(tab, data) {
+        if (!tab) return null;
+        if (tabTypeForUrl(tab.url || '') !== 'purchaseorder') return null;
+
+        const incomingTitle = typeof data.title === 'string' ? data.title.trim() : '';
+        const incomingNumber = typeof data.number === 'string' ? data.number.trim() : data.number;
+
+        return {
+            title: /purchase order/i.test(incomingTitle) ? 'Purchase Order' : (incomingTitle || null),
+            number: incomingNumber || parsePurchaseOrderNumberFromTitle(incomingTitle) || null,
+        };
     }
 
     function handleMessage(event) {
@@ -5461,10 +6499,17 @@
             if (!tab) return;
             if (data.url) tab.url = data.url;
             const preserveSparse = shouldPreserveSparseNavMetadata(tab.url);
-            if (data.title && (!preserveSparse || data.title.trim())) tab.title = data.title;
-            if (data.number !== undefined) {
-                if (!preserveSparse || (typeof data.number === 'string' ? data.number.trim() : data.number)) {
-                    tab.number = data.number;
+            const normalizedPurchaseOrderNav = normalizePurchaseOrderNavData(tab, data);
+            const navTitle = normalizedPurchaseOrderNav && normalizedPurchaseOrderNav.title !== null
+                ? normalizedPurchaseOrderNav.title
+                : data.title;
+            const navNumber = normalizedPurchaseOrderNav && normalizedPurchaseOrderNav.number !== null
+                ? normalizedPurchaseOrderNav.number
+                : data.number;
+            if (navTitle && (!preserveSparse || navTitle.trim())) tab.title = navTitle;
+            if (navNumber !== undefined && navNumber !== null) {
+                if (!preserveSparse || (typeof navNumber === 'string' ? navNumber.trim() : navNumber)) {
+                    tab.number = navNumber;
                 }
             }
             if (data.contact !== undefined) {
@@ -5476,6 +6521,8 @@
             if (data.priority !== undefined) tab.priority = data.priority || '';
             if (data.status !== undefined) tab.status = data.status || '';
             if (data.lastActivity !== undefined) tab.lastActivity = data.lastActivity || '';
+            if (data.hoverFields !== undefined) tab.hoverFields = normalizeHoverFields(data.hoverFields);
+            if (data.metadataFields !== undefined) tab.metadataFields = normalizeMetadataFields(data.metadataFields);
             updateTabEl(tab);
             saveTabs();
             return;
@@ -5625,6 +6672,10 @@
         updateResizableBarClasses();
     }
 
+    function applyBrowserCompatibilityClasses() {
+        document.documentElement.classList.toggle('aes-safari-webkit', IS_SAFARI_WEBKIT);
+    }
+
     // Broadcast the current dark mode enhancer state to every same-origin
     // iframe (native and tab). The iframe bridge applies/removes its color
     // overrides based on this signal. Recursively descends into nested
@@ -5738,7 +6789,7 @@
     }
 
     function applyEarlyAccessLabelVisibility(root) {
-        const enabled = !!state.hideEarlyAccessLabels;
+        const enabled = featuresEnabled() && !!state.hideEarlyAccessLabels;
         const scope = root && root.querySelectorAll ? root : document;
 
         if (!enabled) {
@@ -5764,7 +6815,7 @@
         applyEarlyAccessLabelVisibility(document);
         if (state.earlyAccessObserver || !document.body) return;
         state.earlyAccessObserver = new MutationObserver(function (mutations) {
-            if (!state.hideEarlyAccessLabels) return;
+            if (!(featuresEnabled() && state.hideEarlyAccessLabels)) return;
             for (const mutation of mutations) {
                 for (const node of mutation.addedNodes) {
                     if (node && node.nodeType === 1) applyEarlyAccessLabelVisibility(node);
@@ -6254,6 +7305,7 @@
     AES.mount = async function mount() {
         if (state.bar) return;
         state.mountTime = Date.now();
+        applyBrowserCompatibilityClasses();
         injectStyles();
 
         const bar = document.createElement('div');
@@ -6316,6 +7368,9 @@
         if (typeof AES.state.extensionEnabled === 'boolean') {
             state.extensionEnabled = AES.state.extensionEnabled;
         }
+        if (typeof AES.state.openNewTabsAtStart === 'boolean') {
+            state.openNewTabsAtStart = AES.state.openNewTabsAtStart;
+        }
         if (typeof AES.state.darkModeEnhancerEnabled === 'boolean') {
             state.darkModeEnhancerEnabled = AES.state.darkModeEnhancerEnabled;
         }
@@ -6340,6 +7395,8 @@
         if (typeof AES.state.workspaceQueuesUiEnhancementEnabled === 'boolean') {
             state.workspaceQueuesUiEnhancementEnabled = AES.state.workspaceQueuesUiEnhancementEnabled;
         }
+        state.tabLine2Fields = normalizeTabLineSettings(AES.state.tabLine2Fields, 2);
+        state.tabLine3Fields = normalizeTabLineSettings(AES.state.tabLine3Fields, 3);
         state.tabBarWidth = normalizedTabBarWidth(AES.state.tabBarWidth);
         AES.state.tabBarWidth = state.tabBarWidth;
         applyBarOrientationClass();
