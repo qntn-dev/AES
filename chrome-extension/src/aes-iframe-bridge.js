@@ -18,6 +18,7 @@
     }
 
     if (isAutotaskTransientOverlayContext()) return;
+    if (isWorkspaceQueuesFrame()) return;
 
     function decodeUrl(url) {
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+### Experimental:
+
+- Made My Workspace & Queues run as a passive iframe test to isolate Arc/Dia hover-preview crashes without disabling native Autotask hover menus.
+
 ## 0.6.0
 
 ### New features:

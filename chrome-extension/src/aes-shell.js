@@ -248,8 +248,14 @@
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
     const RELEASE_NOTES = {
-        version: '0.6.0',
+        version: '0.6.1',
         sections: [
+            {
+                title: 'Experimental',
+                items: [
+                    'Made My Workspace & Queues run as a passive iframe test to isolate Arc/Dia hover-preview crashes without disabling native Autotask hover menus.',
+                ],
+            },
             {
                 title: 'New features',
                 items: [
