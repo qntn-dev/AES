@@ -4,7 +4,7 @@
     const AES = window.__AES__;
     if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
-    const AES_RUNTIME_BUILD_ID = '0.6.0-runtime-guard-1';
+    const AES_RUNTIME_BUILD_ID = '0.6.2-external-open-1';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
 
@@ -288,8 +288,14 @@
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
     const RELEASE_NOTES = {
-        version: '0.6.0',
+        version: '0.6.2',
         sections: [
+            {
+                title: 'Experimental',
+                items: [
+                    'Added support for opening ApplicationLink Autotask contract links directly in the AES Tab Bar.',
+                ],
+            },
             {
                 title: 'New features',
                 items: [
@@ -7952,8 +7958,12 @@
             : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
         if (!runtime || !runtime.onMessage) return;
         runtime.onMessage.addListener(function (msg) {
-            if (!msg || !msg.__aesToolbar) return;
-            if (msg.type === 'open-settings') {
+            if (!msg) return;
+            if (msg.__aesExternalOpen && msg.type === 'open-autotask-url' && msg.url && AES.isHandledUrl(msg.url)) {
+                if (featuresEnabled()) openTab(msg.url);
+                return;
+            }
+            if (msg.__aesToolbar && msg.type === 'open-settings') {
                 try { toggleSettingsModal(); } catch (e) {}
             }
         });

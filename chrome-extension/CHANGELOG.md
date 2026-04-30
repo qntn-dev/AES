@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+### Experimental:
+
+- Added support for opening ApplicationLink Autotask contract links directly in the AES Tab Bar.
+
 ## 0.6.0
 
 ### New features:
