@@ -21,9 +21,7 @@ firefox-extension/
   src/
 
 docs/
-legacy-userscripts/
 scripts/
-assets/
 ```
 
 ## Runtime Source
@@ -47,11 +45,10 @@ scripts/verify-extension-sources.sh
 
 Browser-specific differences should normally be limited to `manifest.json`, packaging notes, or store metadata.
 
-## Development Rules
+## Development Notes
 
 - Load `chrome-extension/` in Chrome for day-to-day testing.
 - Keep `firefox-extension/src/` mirrored with `chrome-extension/src/`.
-- Do not edit files in `legacy-userscripts/` for active features; they are reference-only.
 - Keep release artifacts in `dist/` or local ignored files, not tracked source folders.
 - Keep local-only helpers out of Git unless they are useful to other contributors.
 
@@ -60,7 +57,6 @@ Browser-specific differences should normally be limited to `manifest.json`, pack
 - The manifests must use broad Autotask match patterns because browser match patterns cannot express only `ww##.autotask.net`.
 - Runtime host gating in `aes-shared.js` must continue to block `www.autotask.net`, bare `autotask.net`, authentication pages, and print views.
 - The AES Settings entry belongs in the native Autotask sidebar, not in the AES tab bar.
-- Beta layout features should remain separately toggleable.
 - Middle-click behavior should open a background AES tab without stealing focus.
 
 ## Validation
@@ -72,3 +68,14 @@ scripts/verify-extension-sources.sh
 ```
 
 The verifier checks JavaScript syntax, manifest versions, and Chrome/Firefox runtime parity.
+
+## Packaging
+
+Release packages are generated from the loadable extension folders:
+
+```bash
+scripts/build-chrome-release.sh
+scripts/build-firefox-release.sh
+```
+
+The scripts read the current manifest version and write release assets to `dist/`.

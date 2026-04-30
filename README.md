@@ -53,11 +53,10 @@ See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the repository privacy policy use
 
 - `chrome-extension/`: loadable Chrome extension build
 - `firefox-extension/`: loadable Firefox extension build
-- `docs/HANDOFF.md`: current project handoff, status, and release notes
-- `docs/ARCHITECTURE.md`: source layout and contributor/LLM orientation
-- `assets/`: source artwork and shared project assets
-- `legacy-userscripts/`: historical userscript-era reference files
+- `docs/ARCHITECTURE.md`: public source layout and contributor orientation
 - `scripts/verify-extension-sources.sh`: lightweight validation helper
+- `scripts/build-chrome-release.sh`: creates the Chrome release package in `dist/`
+- `scripts/build-firefox-release.sh`: creates the Firefox release package in `dist/`
 
 ## Main Source Files
 
@@ -79,3 +78,14 @@ Run the lightweight source checks before packaging or releasing:
 ```bash
 scripts/verify-extension-sources.sh
 ```
+
+## Packaging
+
+Build release packages from the current manifest versions:
+
+```bash
+scripts/build-chrome-release.sh
+scripts/build-firefox-release.sh
+```
+
+Generated release packages are written to `dist/`.
