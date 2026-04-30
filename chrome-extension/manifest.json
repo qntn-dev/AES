@@ -12,15 +12,6 @@
   "content_scripts": [
     {
       "matches": [
-        "https://applicationlink-test.azurewebsites.net/*"
-      ],
-      "js": [
-        "src/aes-external-open-bridge.js"
-      ],
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
         "https://*.autotask.net/*"
       ],
       "exclude_matches": [
@@ -49,14 +40,6 @@
     "https://*.autotask.net/*"
   ],
   "web_accessible_resources": [
-    {
-      "resources": [
-        "src/aes-external-open-page-bridge.js"
-      ],
-      "matches": [
-        "https://applicationlink-test.azurewebsites.net/*"
-      ]
-    },
     {
       "resources": [
         "src/aes-page-bridge.js"

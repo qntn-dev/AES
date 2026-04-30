@@ -68,8 +68,18 @@
         return Promise.all(tasks).then(function () {});
     }
 
-    function chooseAutotaskTab(tabs, sender) {
+    function isExternalOpenerUrl(url) {
+        try {
+            const parsed = new URL(url || '');
+            return /^https?:$/i.test(parsed.protocol) && !isRegionalAutotaskHost(parsed.hostname);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function chooseAutotaskTab(tabs, sender, excludedTabId) {
         const candidates = (tabs || []).filter(function (tab) {
+            if (typeof excludedTabId === 'number' && tab.id === excludedTabId) return false;
             try { return isRegionalAutotaskHost(new URL(tab.url || '').hostname); }
             catch (e) { return false; }
         });
@@ -83,7 +93,7 @@
             || null;
     }
 
-    function openExternalAutotaskUrl(message, sender, sendResponse) {
+    function openExternalAutotaskUrl(message, sender, sendResponse, options) {
         const rawUrl = normalizeExternalAutotaskUrl(message && message.url);
         if (!rawUrl) {
             sendResponse({ ok: false, reason: 'unsupported-url' });
@@ -92,8 +102,12 @@
 
         callApi(api.tabs.query.bind(api.tabs), [{ url: ['https://*.autotask.net/*'] }])
             .then(function (tabs) {
-                const targetTab = chooseAutotaskTab(tabs, sender);
+                const targetTab = chooseAutotaskTab(tabs, sender, options && options.excludeTabId);
                 if (!targetTab) {
+                    if (options && options.noNativeFallback) {
+                        sendResponse({ ok: false, reason: 'no-autotask-tab' });
+                        return null;
+                    }
                     return callApi(api.tabs.create.bind(api.tabs), [{ url: rawUrl }])
                         .then(function () {
                             sendResponse({ ok: true, mode: 'native-tab' });
@@ -110,6 +124,9 @@
                         });
                     })
                     .then(function () {
+                        if (options && typeof options.closeTabId === 'number') {
+                            callApi(api.tabs.remove.bind(api.tabs), [options.closeTabId]).catch(function () {});
+                        }
                         sendResponse({ ok: true, mode: 'aes-tab', url: targetUrl });
                     })
                     .catch(function () {
@@ -144,6 +161,44 @@
             if (!message || !message.__aesExternalOpen || message.type !== 'open-autotask-url') return false;
             openExternalAutotaskUrl(message, sender, sendResponse);
             return true;
+        });
+    }
+
+    if (api.tabs.onCreated) {
+        api.tabs.onCreated.addListener(function (tab) {
+            const openedUrl = normalizeExternalAutotaskUrl(tab && (tab.pendingUrl || tab.url));
+            if (!openedUrl || !tab || typeof tab.id !== 'number' || typeof tab.openerTabId !== 'number') return;
+
+            callApi(api.tabs.get.bind(api.tabs), [tab.openerTabId])
+                .then(function (openerTab) {
+                    if (!isExternalOpenerUrl(openerTab && openerTab.url)) return;
+                    openExternalAutotaskUrl(
+                        { url: openedUrl },
+                        { tab: openerTab },
+                        function () {},
+                        { excludeTabId: tab.id, closeTabId: tab.id, noNativeFallback: true }
+                    );
+                })
+                .catch(function () {});
+        });
+    }
+
+    if (api.tabs.onUpdated) {
+        api.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
+            const openedUrl = normalizeExternalAutotaskUrl(changeInfo && changeInfo.url);
+            if (!openedUrl || !tab || typeof tab.openerTabId !== 'number') return;
+
+            callApi(api.tabs.get.bind(api.tabs), [tab.openerTabId])
+                .then(function (openerTab) {
+                    if (!isExternalOpenerUrl(openerTab && openerTab.url)) return;
+                    openExternalAutotaskUrl(
+                        { url: openedUrl },
+                        { tab: openerTab },
+                        function () {},
+                        { excludeTabId: tabId, closeTabId: tabId, noNativeFallback: true }
+                    );
+                })
+                .catch(function () {});
         });
     }
 })();
