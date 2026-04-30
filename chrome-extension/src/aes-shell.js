@@ -304,7 +304,7 @@
         version: '0.6.5',
         sections: [
             {
-                title: 'New',
+                title: 'New features',
                 items: [
                     'Added support for opening external Autotask links directly in AES tabs.',
                     'AES can now let you know when a newer stable version is available on GitHub.',
@@ -313,7 +313,7 @@
                 ],
             },
             {
-                title: 'Improved',
+                title: 'Improvements',
                 items: [
                     'Tab Bar resize and show on all Autotask pages are now normal Tab Bar settings instead of beta options.',
                     'Tab customization now starts with the recommended layout by default.',
@@ -321,7 +321,7 @@
                 ],
             },
             {
-                title: 'Fixed',
+                title: 'Fixes',
                 items: [
                     'Fixed settings sometimes falling back to defaults after reloading the extension.',
                     'Fixed the Home tab spinner getting stuck after refreshing Autotask from another AES tab.',
