@@ -36,10 +36,10 @@
         AES.state.replaceCalendarWithResourcePlanner = false;
     }
     if (typeof AES.state.showTabBarOnNonIframePages !== 'boolean') {
-        AES.state.showTabBarOnNonIframePages = false;
+        AES.state.showTabBarOnNonIframePages = true;
     }
     if (typeof AES.state.resizableTabBarEnabled !== 'boolean') {
-        AES.state.resizableTabBarEnabled = false;
+        AES.state.resizableTabBarEnabled = true;
     }
     if (typeof AES.state.timesheetUiEnhancementEnabled !== 'boolean') {
         AES.state.timesheetUiEnhancementEnabled = false;
@@ -68,14 +68,22 @@
     if (!AES.state.tabLine3Fields || typeof AES.state.tabLine3Fields !== 'object') {
         AES.state.tabLine3Fields = {};
     }
+    AES.settingsLoaded = false;
+    AES.settingsLoadFailed = false;
+    AES.lastChromeStorageError = null;
 
     AES.hasChromeStorage = function hasChromeStorage() {
-        return !!(
-            typeof chrome !== 'undefined' &&
-            chrome &&
-            chrome.storage &&
-            chrome.storage.local
-        );
+        try {
+            return !!(
+                typeof chrome !== 'undefined' &&
+                chrome &&
+                chrome.storage &&
+                chrome.storage.local
+            );
+        } catch (e) {
+            AES.lastChromeStorageError = e;
+            return false;
+        }
     };
 
     AES.readSessionTabsPayload = function readSessionTabsPayload() {
@@ -102,8 +110,22 @@
     AES.getChromeLocal = function getChromeLocal(keys) {
         return new Promise(function (resolve) {
             try {
-                chrome.storage.local.get(keys, resolve);
+                chrome.storage.local.get(keys, function (result) {
+                    try {
+                        if (chrome.runtime && chrome.runtime.lastError) {
+                            AES.lastChromeStorageError = chrome.runtime.lastError;
+                            resolve({});
+                            return;
+                        }
+                    } catch (e) {
+                        AES.lastChromeStorageError = e;
+                        resolve({});
+                        return;
+                    }
+                    resolve(result);
+                });
             } catch (e) {
+                AES.lastChromeStorageError = e;
                 resolve({});
             }
         });
@@ -149,8 +171,15 @@
     }
 
     AES.loadSettings = async function loadSettings() {
+        AES.settingsLoaded = false;
+        AES.settingsLoadFailed = false;
         if (AES.hasChromeStorage()) {
+            AES.lastChromeStorageError = null;
             const stored = await AES.getChromeLocal(AES.SETTINGS_STORAGE_KEY);
+            if (AES.lastChromeStorageError) {
+                AES.settingsLoadFailed = true;
+                return;
+            }
             const settings = stored && stored[AES.SETTINGS_STORAGE_KEY];
             AES.state.extensionEnabled = settings && typeof settings.extensionEnabled === 'boolean'
                 ? settings.extensionEnabled
@@ -165,8 +194,12 @@
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
-            AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
-            AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
+                ? settings.showTabBarOnNonIframePages
+                : true;
+            AES.state.resizableTabBarEnabled = settings && typeof settings.resizableTabBarEnabled === 'boolean'
+                ? settings.resizableTabBarEnabled
+                : true;
             AES.state.timesheetUiEnhancementEnabled = false;
             AES.state.preferencesUiEnhancementEnabled = false;
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
@@ -180,6 +213,7 @@
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
+            AES.settingsLoaded = true;
             return;
         }
 
@@ -199,8 +233,12 @@
             AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
-            AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
-            AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
+            AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
+                ? settings.showTabBarOnNonIframePages
+                : true;
+            AES.state.resizableTabBarEnabled = settings && typeof settings.resizableTabBarEnabled === 'boolean'
+                ? settings.resizableTabBarEnabled
+                : true;
             AES.state.timesheetUiEnhancementEnabled = false;
             AES.state.preferencesUiEnhancementEnabled = false;
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
@@ -214,31 +252,14 @@
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
+            AES.settingsLoaded = true;
         } catch (e) {
-            AES.state.extensionEnabled = true;
-            AES.state.rememberTabsAfterClose = false;
-            AES.state.openNewTabsAtStart = false;
-            AES.state.phoneLinksEnabled = true;
-            AES.state.themePreference = 'auto';
-            AES.state.barOrientation = 'horizontal';
-            AES.state.darkModeEnhancerEnabled = false;
-            AES.state.hideEarlyAccessLabels = false;
-            AES.state.replaceCalendarWithResourcePlanner = false;
-            AES.state.showTabBarOnNonIframePages = false;
-            AES.state.resizableTabBarEnabled = false;
-            AES.state.timesheetUiEnhancementEnabled = false;
-            AES.state.preferencesUiEnhancementEnabled = false;
-            AES.state.workspaceQueuesUiEnhancementEnabled = false;
-            AES.state.skipPeekBackdropCloseWarning = false;
-            AES.state.releaseNotesLastSeenVersion = '';
-            AES.state.releaseNotesSnoozeVersion = '';
-            AES.state.tabBarWidth = AES.BAR_W || 240;
-            AES.state.tabLine2Fields = {};
-            AES.state.tabLine3Fields = {};
+            AES.settingsLoadFailed = true;
         }
     };
 
     AES.saveSettings = async function saveSettings() {
+        if (AES.settingsLoadFailed || !AES.settingsLoaded) return;
         const payload = {
             extensionEnabled: AES.state.extensionEnabled !== false,
             rememberTabsAfterClose: !!AES.state.rememberTabsAfterClose,

@@ -7,6 +7,7 @@
 ### Experimental:
 
 - Added support for opening supported external Autotask entity links directly in the AES Tab Bar.
+- Added a stable GitHub release check that can notify users when a newer AES version is available before store approval finishes.
 
 ## 0.6.0
 

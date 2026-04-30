@@ -12,6 +12,47 @@
 
     const api = (typeof browser !== 'undefined' && browser && browser.action) ? browser : chrome;
     if (!api || !api.action || !api.action.onClicked || !api.tabs) return;
+    const GITHUB_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/qntn-dev/AES/releases/latest';
+
+    function fetchLatestGithubRelease(sendResponse) {
+        if (typeof fetch !== 'function') {
+            sendResponse({ ok: false, reason: 'fetch-unavailable' });
+            return;
+        }
+        fetch(GITHUB_LATEST_RELEASE_API_URL, {
+            headers: {
+                Accept: 'application/vnd.github+json',
+            },
+            cache: 'no-store',
+        })
+            .then(function (response) {
+                if (!response.ok) throw new Error('github-release-http-' + response.status);
+                return response.json();
+            })
+            .then(function (release) {
+                if (!release || release.draft || release.prerelease) {
+                    sendResponse({ ok: false, reason: 'no-stable-release' });
+                    return;
+                }
+                const tagName = String(release.tag_name || '').trim();
+                const version = tagName.replace(/^v/i, '').trim();
+                if (!version || version.includes('-')) {
+                    sendResponse({ ok: false, reason: 'no-stable-release' });
+                    return;
+                }
+                sendResponse({
+                    ok: true,
+                    version: version,
+                    tagName: tagName,
+                    name: String(release.name || tagName || version).trim(),
+                    htmlUrl: String(release.html_url || 'https://github.com/qntn-dev/AES/releases/latest').trim(),
+                    publishedAt: String(release.published_at || '').trim(),
+                });
+            })
+            .catch(function (error) {
+                sendResponse({ ok: false, reason: String(error && error.message || error || 'unknown-error') });
+            });
+    }
 
     function isRegionalAutotaskHost(hostname) {
         return /^ww\d+\.autotask\.net$/i.test(String(hostname || ''));
@@ -228,6 +269,10 @@
 
     if (api.runtime && api.runtime.onMessage) {
         api.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+            if (message && message.__aesReleaseCheck && message.type === 'latest-release') {
+                fetchLatestGithubRelease(sendResponse);
+                return true;
+            }
             if (!message || !message.__aesExternalOpen || message.type !== 'open-autotask-url') return false;
             openExternalAutotaskUrl(message, sender, sendResponse);
             return true;

@@ -38,7 +38,8 @@
     "service_worker": "src/aes-background.js"
   },
   "host_permissions": [
-    "https://*.autotask.net/*"
+    "https://*.autotask.net/*",
+    "https://api.github.com/*"
   ],
   "web_accessible_resources": [
     {

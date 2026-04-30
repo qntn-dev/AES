@@ -75,6 +75,11 @@
         { value: 'patchStatus', label: 'Patch status' },
         { value: 'none', label: 'Nothing' },
     ];
+    function getCustomizationFieldOptionLabel(type, value) {
+        if (type === 'account' && value === 'organization') return 'Classification';
+        const option = CUSTOM_FIELD_OPTIONS.find(function (fieldOption) { return fieldOption.value === value; });
+        return option ? option.label : value;
+    }
     const TAB_LINE_OPTIONS_BY_TYPE = {
         ticket: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
         account: ['type', 'id', 'organization', 'none'],
@@ -95,23 +100,23 @@
     const TAB_LINE_DEFAULT_BY_TYPE = {
         ticket: { line2: 'organization', line3: 'contact' },
         account: { line2: 'organization', line3: 'none' },
-        person: { line2: 'organization', line3: 'none' },
-        device: { line2: 'organization', line3: 'serialNumber' },
-        note: { line2: 'opportunity', line3: 'organization' },
+        person: { line2: 'id', line3: 'organization' },
+        device: { line2: 'model', line3: 'organization' },
+        note: { line2: 'organization', line3: 'none' },
         opportunity: { line2: 'id', line3: 'organization' },
         salesorder: { line2: 'id', line3: 'organization' },
-        purchaseorder: { line2: 'id', line3: 'vendor' },
+        purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
         quote: { line2: 'id', line3: 'quoteName' },
         contract: { line2: 'id', line3: 'organization' },
         project: { line2: 'id', line3: 'organization' },
         timesheet: { line2: 'date', line3: 'contact' },
-        inventory: { line2: 'number', line3: 'organization' },
+        inventory: { line2: 'id', line3: 'organization' },
         charge: { line2: 'id', line3: 'organization' },
-        group: { line2: 'id', line3: 'none' },
+        group: { line2: 'none', line3: 'none' },
     };
     const TAB_LINE_RECOMMENDED_BY_TYPE = {
         ticket: { line2: 'organization', line3: 'contact' },
-        account: { line2: 'none', line3: 'none' },
+        account: { line2: 'organization', line3: 'none' },
         person: { line2: 'id', line3: 'organization' },
         device: { line2: 'model', line3: 'organization' },
         note: { line2: 'organization', line3: 'none' },
@@ -204,6 +209,7 @@
         releaseNotesSnoozeVersion: typeof (AES.state && typeof AES.state.releaseNotesSnoozeVersion === 'string')
             ? AES.state.releaseNotesSnoozeVersion
             : '',
+        githubReleaseCheckInFlight: false,
         mapModal: null,
         mapBackdrop: null,
         peekBackdrop: null,
@@ -287,6 +293,10 @@
         /Safari/i.test(navigator.userAgent || '') &&
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
+    const GITHUB_LATEST_RELEASE_URL = 'https://github.com/qntn-dev/AES/releases/latest';
+    const GITHUB_RELEASE_CHECK_STORAGE_KEY = 'aes-github-release-check-at';
+    const GITHUB_RELEASE_DISMISS_STORAGE_KEY = 'aes-github-release-dismissed-version';
+    const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const RELEASE_NOTES = {
         version: '0.6.2',
         sections: [
@@ -294,6 +304,7 @@
                 title: 'Experimental',
                 items: [
                     'Added support for opening supported external Autotask entity links directly in the AES Tab Bar.',
+                    'Added a stable GitHub release check that can notify you when a newer AES version is available before store approval finishes.',
                 ],
             },
             {
@@ -347,16 +358,77 @@
         ],
     };
 
+    function getRuntimeApi() {
+        try {
+            if (typeof browser !== 'undefined' && browser && browser.runtime) return browser.runtime;
+        } catch (e) {}
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime) return chrome.runtime;
+        } catch (e) {}
+        return null;
+    }
+
     function getExtensionVersion() {
-        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
-            ? browser.runtime
-            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
-        if (!runtime || typeof runtime.getManifest !== 'function') return '';
+        const runtime = getRuntimeApi();
+        try {
+            if (!runtime || typeof runtime.getManifest !== 'function') return '';
+        } catch (e) {
+            return '';
+        }
         try {
             return String(runtime.getManifest().version || '');
         } catch (e) {
             return '';
         }
+    }
+
+    function sendRuntimeMessage(message) {
+        const runtime = getRuntimeApi();
+        try {
+            if (!runtime || typeof runtime.sendMessage !== 'function') return Promise.resolve(null);
+        } catch (e) {
+            return Promise.resolve(null);
+        }
+        try {
+            const sending = runtime.sendMessage(message);
+            if (sending && typeof sending.then === 'function') {
+                return sending.catch(function () { return null; });
+            }
+        } catch (e) {}
+        return Promise.resolve(null);
+    }
+
+    function versionParts(version) {
+        return String(version || '')
+            .replace(/^v/i, '')
+            .split('-')[0]
+            .split('.')
+            .map(function (part) {
+                const parsed = parseInt(part, 10);
+                return Number.isFinite(parsed) ? parsed : 0;
+            });
+    }
+
+    function compareVersions(left, right) {
+        const a = versionParts(left);
+        const b = versionParts(right);
+        const length = Math.max(a.length, b.length, 3);
+        for (let i = 0; i < length; i += 1) {
+            const av = a[i] || 0;
+            const bv = b[i] || 0;
+            if (av > bv) return 1;
+            if (av < bv) return -1;
+        }
+        return 0;
+    }
+
+    function readLocalStorageNumber(key) {
+        const value = parseInt(readRuntimeBuildStorage(window.localStorage, key), 10);
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    function writeLocalStorageValue(key, value) {
+        writeRuntimeBuildStorage(window.localStorage, key, String(value || ''));
     }
 
     function faIcon(className) {
@@ -3089,6 +3161,11 @@
     function startNativeHomeLoading() {
         if (state.activeId !== null) return;
         const currentUrl = currentNativeFrameUrl();
+        if (!currentUrl && !findContentIframe() && state.showTabBarOnNonIframePages) {
+            clearHomeLoading();
+            scheduleNonIframeTitleUpdate();
+            return;
+        }
         if (hasResolvedHomeTitle() && currentUrl && currentUrl === state.nativeLastUrl) return;
         state.homeLoadingAwaitingNativeLoad = true;
         state.homeLoadingUrl = currentUrl || '';
@@ -3194,6 +3271,7 @@
         }
         if (typeof idx === 'number' && idx >= 0 && state.tabs[idx]) {
             activateTab(state.tabs[idx].id, { load: false, recordPrevious: false });
+            clearHomeLoading();
         } else {
             activateHome();
         }
@@ -3863,6 +3941,10 @@
         }
         state.activeId = null;
         state.splitId = null;
+        if (state.homeLoadingAwaitingNativeLoad && !findContentIframe() && state.showTabBarOnNonIframePages) {
+            clearHomeLoading();
+            scheduleNonIframeTitleUpdate();
+        }
         if (!state.homeLoadingAwaitingNativeLoad) setHomeLoading(false);
         syncTabPaneState();
         updateHomeTabActive();
@@ -4306,7 +4388,7 @@
         const el = document.createElement('div');
         el.className = 'at-tab home active';
         el.style.setProperty('--aes-tab-rows', '1');
-        if (state.homeLoading) el.classList.add('loading');
+        if (state.homeLoading && state.activeId === null) el.classList.add('loading');
 
         const icon = document.createElement('span');
         icon.className = 'icon';
@@ -4371,7 +4453,12 @@
     function setHomeLoading(loading) {
         const next = !!loading;
         state.homeLoading = next;
-        if (state.homeTabEl) state.homeTabEl.classList.toggle('loading', next);
+        updateHomeLoadingIndicator();
+    }
+
+    function updateHomeLoadingIndicator() {
+        if (!state.homeTabEl) return;
+        state.homeTabEl.classList.toggle('loading', !!(state.homeLoading && state.activeId === null));
     }
 
     function extractTopLevelPageTitle() {
@@ -5175,6 +5262,7 @@
     function updateHomeTabActive() {
         if (!state.homeTabEl) return;
         state.homeTabEl.classList.toggle('active', state.activeId === null);
+        updateHomeLoadingIndicator();
         ensureActiveTabVisible();
         updateTabScrollButtons();
     }
@@ -5385,6 +5473,125 @@
         openReleaseNotesModal();
     }
 
+    function markGithubReleaseReminderChecked() {
+        writeLocalStorageValue(GITHUB_RELEASE_CHECK_STORAGE_KEY, Date.now());
+    }
+
+    function dismissGithubReleaseVersion(version) {
+        if (!version) return;
+        writeLocalStorageValue(GITHUB_RELEASE_DISMISS_STORAGE_KEY, version);
+    }
+
+    function openGithubReleaseAvailableModal(release) {
+        if (!release || !release.version || state.releaseNotesModal || state.releaseNotesClosing) return;
+
+        const installedVersion = getExtensionVersion();
+        const releaseUrl = release.htmlUrl || GITHUB_LATEST_RELEASE_URL;
+        const backdrop = document.createElement('div');
+        backdrop.className = 'at-tabs-release-notes-backdrop';
+        backdrop.addEventListener('click', function () {
+            markGithubReleaseReminderChecked();
+            closeReleaseNotesModal();
+        });
+
+        const modal = document.createElement('div');
+        modal.className = 'at-tabs-release-notes-modal';
+
+        const header = document.createElement('div');
+        header.className = 'at-tabs-release-notes-header';
+
+        const title = document.createElement('div');
+        title.className = 'at-tabs-release-notes-title';
+        title.textContent = 'New AES version available';
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'at-tabs-release-notes-close';
+        close.textContent = '×';
+        close.title = 'Close update notification';
+        close.addEventListener('click', function () {
+            markGithubReleaseReminderChecked();
+            closeReleaseNotesModal();
+        });
+
+        const body = document.createElement('div');
+        body.className = 'at-tabs-release-notes-body';
+        const intro = document.createElement('p');
+        intro.className = 'at-tabs-release-notes-intro';
+        intro.textContent = 'Version ' + release.version + ' is available on GitHub. You are running ' + (installedVersion || 'an older version') + '.';
+        body.appendChild(intro);
+
+        const actions = document.createElement('div');
+        actions.className = 'at-tabs-release-notes-actions';
+
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
+        openButton.textContent = 'View release on GitHub';
+        openButton.addEventListener('click', function () {
+            dismissGithubReleaseVersion(release.version);
+            closeReleaseNotesModal(true);
+            try {
+                window.open(releaseUrl, '_blank', 'noopener,noreferrer');
+            } catch (e) {}
+        });
+
+        const remindButton = document.createElement('button');
+        remindButton.type = 'button';
+        remindButton.className = 'at-tabs-release-notes-action';
+        remindButton.textContent = 'Remind me tomorrow';
+        remindButton.addEventListener('click', function () {
+            markGithubReleaseReminderChecked();
+            closeReleaseNotesModal(true);
+        });
+
+        const dontShowButton = document.createElement('button');
+        dontShowButton.type = 'button';
+        dontShowButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-snooze';
+        dontShowButton.textContent = "Don\'t show this version";
+        dontShowButton.addEventListener('click', function () {
+            dismissGithubReleaseVersion(release.version);
+            closeReleaseNotesModal(true);
+        });
+
+        actions.appendChild(openButton);
+        actions.appendChild(remindButton);
+        actions.appendChild(dontShowButton);
+        header.appendChild(title);
+        header.appendChild(close);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(actions);
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        state.releaseNotesBackdrop = backdrop;
+        state.releaseNotesModal = modal;
+    }
+
+    function maybeCheckGithubReleaseUpdate() {
+        if (state.githubReleaseCheckInFlight || state.releaseNotesModal || state.releaseNotesClosing) return;
+        const lastCheckAt = readLocalStorageNumber(GITHUB_RELEASE_CHECK_STORAGE_KEY);
+        if (lastCheckAt && Date.now() - lastCheckAt < GITHUB_RELEASE_CHECK_INTERVAL_MS) return;
+
+        state.githubReleaseCheckInFlight = true;
+        markGithubReleaseReminderChecked();
+        sendRuntimeMessage({
+            __aesReleaseCheck: true,
+            type: 'latest-release',
+        }).then(function (release) {
+            state.githubReleaseCheckInFlight = false;
+            if (!release || !release.ok || !release.version || String(release.version).includes('-')) return;
+            const installedVersion = getExtensionVersion();
+            if (!installedVersion || compareVersions(release.version, installedVersion) <= 0) return;
+            if (readRuntimeBuildStorage(window.localStorage, GITHUB_RELEASE_DISMISS_STORAGE_KEY) === release.version) return;
+            openGithubReleaseAvailableModal(release);
+        }).catch(function () {
+            state.githubReleaseCheckInFlight = false;
+        });
+    }
+
     const SETTING_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
 
     function createSettingInfo(text) {
@@ -5408,8 +5615,8 @@
             darkModeEnhancerEnabled: false,
             hideEarlyAccessLabels: false,
             replaceCalendarWithResourcePlanner: false,
-            showTabBarOnNonIframePages: false,
-            resizableTabBarEnabled: false,
+            showTabBarOnNonIframePages: true,
+            resizableTabBarEnabled: true,
             timesheetUiEnhancementEnabled: false,
             preferencesUiEnhancementEnabled: false,
             workspaceQueuesUiEnhancementEnabled: false,
@@ -5683,7 +5890,7 @@
 
         const resizeName = document.createElement('span');
         resizeName.className = 'at-tabs-setting-name';
-        resizeName.textContent = '[BETA] Allow resizing of the vertical tab bar';
+        resizeName.textContent = 'Allow resizing of the vertical tab bar';
         resizeLabel.appendChild(createSettingInfo('Allows the resizing of the vertical AES Tab Bar by dragging the line on the right side. May cause visual issues on the content'));
         resizeLabel.appendChild(resizeName);
 
@@ -5813,7 +6020,7 @@
 
         const everywhereName = document.createElement('span');
         everywhereName.className = 'at-tabs-setting-name';
-        everywhereName.textContent = '[BETA] Show tab bar on all Autotask pages';
+        everywhereName.textContent = 'Show tab bar on all Autotask pages';
         everywhereLabel.appendChild(createSettingInfo('Show the AES Tab Bar on all Autotask pages independent of the usage of iFrames, for example: Umbrella Contracts or Resource Planner. Note that new Autotask Onyx pages will always show on the Home tab because the tabs depend on iFrames.'));
         everywhereLabel.appendChild(everywhereName);
 
@@ -6055,13 +6262,12 @@
             select.dataset.tabLine = String(line);
             const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
             const lineOptions = getLineOptionsForType(type);
-            const optionMap = new Map(CUSTOM_FIELD_OPTIONS.map(function (option) { return [option.value, option.label]; }));
             const fallback = line === 2 ? getDefaultLineField(type, 'line2') : getDefaultLineField(type, 'line3');
             const currentValue = lineOptions.includes(settings[type]) ? settings[type] : fallback;
             lineOptions.forEach(function (value) {
                 const optionEl = document.createElement('option');
                 optionEl.value = value;
-                optionEl.textContent = optionMap.get(value) || value;
+                optionEl.textContent = getCustomizationFieldOptionLabel(type, value);
                 if (currentValue === value) optionEl.selected = true;
                 select.appendChild(optionEl);
             });
@@ -6144,13 +6350,13 @@
         uiSection.className = 'at-tabs-settings-section';
 
         section.appendChild(orientationRow);
+        section.appendChild(resizeRow);
+        section.appendChild(everywhereRow);
         section.appendChild(hideRow);
         section.appendChild(openAtStartRow);
         section.appendChild(persistRow);
         section.appendChild(persistNote);
         section.appendChild(peekConfirmRow);
-        experimentalSection.appendChild(resizeRow);
-        experimentalSection.appendChild(everywhereRow);
         if (SHOW_PAGE_REDESIGN_EXPERIMENTS) {
             experimentalSection.appendChild(timesheetUiRow);
             experimentalSection.appendChild(preferencesUiRow);
@@ -7249,13 +7455,20 @@
             broadcastFeatureEnabledState();
             return;
         }
-        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
-            ? browser.runtime
-            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
-        if (!runtime || typeof runtime.getURL !== 'function') return;
+        const runtime = getRuntimeApi();
+        try {
+            if (!runtime || typeof runtime.getURL !== 'function') return;
+        } catch (e) {
+            return;
+        }
         document.documentElement.dataset.aesPageBridgeInjected = 'true';
         const script = document.createElement('script');
-        script.src = runtime.getURL('src/aes-page-bridge.js');
+        try {
+            script.src = runtime.getURL('src/aes-page-bridge.js');
+        } catch (e) {
+            document.documentElement.dataset.aesPageBridgeInjected = 'false';
+            return;
+        }
         script.onload = function () {
             script.remove();
             broadcastFeatureEnabledState();
@@ -7953,11 +8166,13 @@
     // a message from `aes-background.js` to ask us to open the Settings modal.
     // Only installed at the top frame (this IIFE bails out otherwise).
     function installToolbarMessageListener() {
-        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
-            ? browser.runtime
-            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
-        if (!runtime || !runtime.onMessage) return;
-        runtime.onMessage.addListener(function (msg) {
+        const runtime = getRuntimeApi();
+        try {
+            if (!runtime || !runtime.onMessage) return;
+        } catch (e) {
+            return;
+        }
+        const listener = function (msg) {
             if (!msg) return;
             if (msg.__aesExternalOpen && msg.type === 'open-autotask-url' && msg.url && AES.isHandledUrl(msg.url)) {
                 if (featuresEnabled()) openTab(msg.url);
@@ -7966,7 +8181,10 @@
             if (msg.__aesToolbar && msg.type === 'open-settings') {
                 try { toggleSettingsModal(); } catch (e) {}
             }
-        });
+        };
+        try {
+            runtime.onMessage.addListener(listener);
+        } catch (e) {}
     }
     installToolbarMessageListener();
 
@@ -8077,8 +8295,10 @@
         applyBarOrientationClass();
         applyExtensionEnabledState(false);
         maybeShowReleaseNotesModalOnUpdate();
+        window.setTimeout(maybeCheckGithubReleaseUpdate, 3000);
         if (featuresEnabled()) {
             await restoreTabs();
+            if (state.tabs.length) clearHomeLoading();
             if (!state.tabs.length) activateHome();
         }
         syncGeometry();
