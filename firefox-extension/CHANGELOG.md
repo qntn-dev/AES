@@ -1,11 +1,5 @@
 # Changelog
 
-## 0.6.1
-
-### Experimental:
-
-- Made My Workspace & Queues run as a passive iframe test to isolate Arc/Dia hover-preview crashes without disabling native Autotask hover menus.
-
 ## 0.6.0
 
 ### New features:
@@ -37,6 +31,7 @@
 - Hover cards now stay open while your mouse is on them.
 - Status and priority can inherit Autotask's color when shown on a tab line.
 - Hid and disabled the experimental page-redesign settings by default while they are being stabilized.
+- Added a runtime build guard that reloads Autotask once when AES code changes, preventing stale or duplicate content scripts after extension updates.
 
 ### Fixes:
 
@@ -44,7 +39,6 @@
 - Fixed Shipping sometimes opening as a separate AES tab.
 - Fixed hover card copy buttons.
 - Fixed several icon and context-menu layout issues.
-- Fixed a Workspace & Queues crash caused by AES styling Autotask's large hover overlay previews.
 
 ## 0.5.2
 

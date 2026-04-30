@@ -38,4 +38,4 @@
 - Fixed Shipping sometimes opening as a separate AES tab.
 - Fixed hover card copy buttons.
 - Fixed a few icon and menu layout issues.
-- Fixed a Workspace & Queues crash caused by AES styling Autotask's large hover overlay previews.
+- Added a runtime build guard that reloads Autotask once when AES code changes, preventing stale or duplicate content scripts after extension updates.

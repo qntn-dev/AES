@@ -128,4 +128,4 @@ Fixes:
 - Fixed opportunity tabs sometimes showing the wrong title.
 - Fixed Shipping sometimes opening as a separate AES tab.
 - Fixed hover card copy buttons and several icon/menu layout issues.
-- Fixed a Workspace & Queues crash caused by AES styling Autotask's large hover overlay previews.
+- Added a runtime build guard that reloads Autotask once when AES code changes, preventing stale or duplicate content scripts after extension updates.

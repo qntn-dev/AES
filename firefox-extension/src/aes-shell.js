@@ -2,8 +2,48 @@
     'use strict';
 
     const AES = window.__AES__;
-    if (!AES || !AES.isTop || AES.shellInitialized) return;
+    if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
+    const AES_RUNTIME_BUILD_ID = '0.6.0-runtime-guard-1';
+    const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
+    const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
+
+    function readRuntimeBuildStorage(storage, key) {
+        try { return storage.getItem(key) || ''; }
+        catch (e) { return ''; }
+    }
+
+    function writeRuntimeBuildStorage(storage, key, value) {
+        try { storage.setItem(key, value); }
+        catch (e) {}
+    }
+
+    function requestRuntimeBuildReload(reason) {
+        const alreadyReloaded = readRuntimeBuildStorage(sessionStorage, AES_RUNTIME_BUILD_RELOAD_KEY) === AES_RUNTIME_BUILD_ID;
+        writeRuntimeBuildStorage(localStorage, AES_RUNTIME_BUILD_STORAGE_KEY, AES_RUNTIME_BUILD_ID);
+        if (alreadyReloaded) return true;
+
+        writeRuntimeBuildStorage(sessionStorage, AES_RUNTIME_BUILD_RELOAD_KEY, AES_RUNTIME_BUILD_ID);
+        writeRuntimeBuildStorage(sessionStorage, AES_RUNTIME_BUILD_RELOAD_KEY + '-reason', reason || 'runtime-build-change');
+        try { location.reload(); }
+        catch (e) {}
+        return false;
+    }
+
+    if (AES.shellInitialized) {
+        if (AES.runtimeBuildId !== AES_RUNTIME_BUILD_ID) {
+            requestRuntimeBuildReload('stale-shell-runtime');
+        }
+        return;
+    }
+
+    const previousRuntimeBuildId = readRuntimeBuildStorage(localStorage, AES_RUNTIME_BUILD_STORAGE_KEY);
+    if (previousRuntimeBuildId && previousRuntimeBuildId !== AES_RUNTIME_BUILD_ID) {
+        if (!requestRuntimeBuildReload('updated-runtime-build')) return;
+    }
+
+    writeRuntimeBuildStorage(localStorage, AES_RUNTIME_BUILD_STORAGE_KEY, AES_RUNTIME_BUILD_ID);
+    AES.runtimeBuildId = AES_RUNTIME_BUILD_ID;
     AES.shellInitialized = true;
 
     const CUSTOMIZABLE_TAB_TYPES = [
@@ -248,14 +288,8 @@
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
     const RELEASE_NOTES = {
-        version: '0.6.1',
+        version: '0.6.0',
         sections: [
-            {
-                title: 'Experimental',
-                items: [
-                    'Made My Workspace & Queues run as a passive iframe test to isolate Arc/Dia hover-preview crashes without disabling native Autotask hover menus.',
-                ],
-            },
             {
                 title: 'New features',
                 items: [
@@ -301,7 +335,7 @@
                     'Fixed Shipping sometimes opening as a separate AES tab.',
                     'Fixed hover card copy buttons.',
                     'Fixed several icon and menu layout issues.',
-                    'Fixed a Workspace & Queues crash caused by AES styling Autotask\'s large hover overlay previews.',
+                    'Added a runtime build guard that reloads Autotask once when AES code changes, preventing stale or duplicate content scripts after extension updates.',
                 ],
             },
         ],

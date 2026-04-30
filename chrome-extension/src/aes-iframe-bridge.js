@@ -6,19 +6,6 @@
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     AES.iframeBridgeInitialized = true;
     let featureEnabled = !(AES.featuresEnabled && !AES.featuresEnabled());
-    const AUTOTASK_TRANSIENT_OVERLAY_SELECTOR = '.ContextOverlay, .DialogIframeOverlayPage, .PopupOverlay';
-
-    function isAutotaskTransientOverlayContext() {
-        try {
-            const frame = window.frameElement;
-            return !!(frame && frame.closest && frame.closest(AUTOTASK_TRANSIENT_OVERLAY_SELECTOR));
-        } catch (e) {
-            return false;
-        }
-    }
-
-    if (isAutotaskTransientOverlayContext()) return;
-    if (isWorkspaceQueuesFrame()) return;
 
     function decodeUrl(url) {
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
@@ -118,53 +105,54 @@
         const BUTTON_BG_ACTIVE = '#24475f';
         const BUTTON_FG = '#ffffff';
         style.textContent = [
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground) {',
+            '.Button2.ButtonIcon2.NormalBackground {',
             '    background-color: ' + BUTTON_BG + ' !important;',
             '    background-image: none !important;',
             '    color: ' + BUTTON_FG + ' !important;',
             '    border-radius: 6px !important;',
             '}',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground):hover,',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground).HoverBackground {',
+            '.Button2.ButtonIcon2.NormalBackground:hover,',
+            '.Button2.ButtonIcon2.NormalBackground.HoverBackground {',
             '    background-color: ' + BUTTON_BG_HOVER + ' !important;',
             '    color: ' + BUTTON_FG + ' !important;',
             '}',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground):active,',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground).PressedBackground {',
+            '.Button2.ButtonIcon2.NormalBackground:active,',
+            '.Button2.ButtonIcon2.NormalBackground.PressedBackground {',
             '    background-color: ' + BUTTON_BG_ACTIVE + ' !important;',
             '    color: ' + BUTTON_FG + ' !important;',
             '}',
             // Inner text + label always white.
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground) .Text2,',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground) .Spacer,',
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground) .Icon2 {',
+            '.Button2.ButtonIcon2.NormalBackground .Text2,',
+            '.Button2.ButtonIcon2.NormalBackground .Spacer,',
+            '.Button2.ButtonIcon2.NormalBackground .Icon2 {',
             '    color: ' + BUTTON_FG + ' !important;',
             '}',
             // The icon glyph inside Onyx buttons is rendered via
             // `.StandardButtonIcon` (sprite/background-image). Push it to white
             // so it stays visible on the brand-blue button face.
-            '.Button2.ButtonIcon2.NormalBackground:not(.ContextOverlay .Button2.ButtonIcon2.NormalBackground) .StandardButtonIcon {',
+            '.Button2.ButtonIcon2.NormalBackground .StandardButtonIcon {',
             '    filter: brightness(0) invert(1) !important;',
             '}',
-            // Exemption for tabs (`.TabBar`) where the same button class is
-            // reused as a tab. Autotask transient overlays are excluded above
-            // instead of reverted here so AES does not restyle hover previews.
-            '.TabBar .Button2.ButtonIcon2.NormalBackground,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground:hover,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground.HoverBackground,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground:active,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground.PressedBackground {',
+            // Exemption for tabs (`.TabBar`) and dropdown menus
+            // (`.ContextOverlay`) — when the same button class is reused as
+            // a tab or a menu item, revert our overrides so Autotask's own
+            // styling shows through.
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground:hover,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground.HoverBackground,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground:active,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground.PressedBackground {',
             '    background-color: revert !important;',
             '    background-image: revert !important;',
             '    color: revert !important;',
             '    border-radius: revert !important;',
             '}',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground .Text2,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground .Spacer,',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground .Icon2 {',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground .Text2,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground .Spacer,',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground .Icon2 {',
             '    color: revert !important;',
             '}',
-            '.TabBar .Button2.ButtonIcon2.NormalBackground .StandardButtonIcon {',
+            ':is(.TabBar, .ContextOverlay) .Button2.ButtonIcon2.NormalBackground .StandardButtonIcon {',
             '    filter: revert !important;',
             '}',
         ].join('\n');
@@ -1405,7 +1393,6 @@
     }
 
     function startWatching() {
-        if (isWorkspaceQueuesFrame() || isAutotaskTransientOverlayContext()) return;
         if (!AES.isHandledUrl(location.href)) return;
         reportSelf();
         [250, 1000, 2500, 5000].forEach(delay => {
@@ -2746,7 +2733,6 @@
 
     function paintWorkspaceQueuesUi(selector, styles) {
         document.querySelectorAll(selector).forEach(function (el) {
-            if (isWorkspaceQueuesVolatileOverlayNode(el)) return;
             Object.keys(styles).forEach(function (prop) {
                 setWorkspaceQueuesUiStyle(el, prop, styles[prop]);
             });
@@ -2757,8 +2743,8 @@
         if (!node || node.nodeType !== 1) return false;
         const el = node;
         if (!el.matches || !el.closest) return false;
-        return el.matches(AUTOTASK_TRANSIENT_OVERLAY_SELECTOR) ||
-            !!el.closest(AUTOTASK_TRANSIENT_OVERLAY_SELECTOR);
+        return el.matches('.ContextOverlay, .DialogIframeOverlayPage, .PopupOverlay') ||
+            !!el.closest('.ContextOverlay, .DialogIframeOverlayPage, .PopupOverlay');
     }
 
     function isWorkspaceQueuesOverlayOnlyMutation(mutation) {
@@ -3344,10 +3330,7 @@
     //      - Surgical/threshold dark color swap (applyDarkEnhancerStyle)
     // When the toggle flips off, every override is removed cleanly.
     function syncDarkEnhancer() {
-        const currentHref = (location.href || '').toLowerCase();
-        const skipGlobalUiEnhancement = isWorkspaceQueuesFrame()
-            || (currentHref.indexOf('/autotaskonyx/landingpage') !== -1 && currentHref.indexOf('my-workspace-and-queues') !== -1)
-            || currentHref.indexOf('myworkspaceandqueuestickets.mvc') !== -1;
+        const skipGlobalUiEnhancement = isWorkspaceQueuesFrame();
         if (darkEnhancerEnabled && !skipGlobalUiEnhancement) {
             injectModernButtonStyles();
             injectLegacyChromeOverrides();
@@ -3454,7 +3437,7 @@
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 250);
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 1000);
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 2500);
-        if (!isWorkspaceQueuesFrame()) startMapButtonEnhancement();
+        startMapButtonEnhancement();
 
         function armMapOpenFromEvent(event) {
             if (!featureEnabled) return;
