@@ -22,6 +22,8 @@ It is built for people who spend a lot of time in Autotask and want a smoother, 
 
 ## Installation
 
+Autotask Enhancement Suite is currently awaiting approval from Google and Mozilla for release in the Chrome Web Store and Firefox Add-ons store. Until then, install it manually with the steps below.
+
 ### Chrome
 
 1. Open `chrome://extensions`
