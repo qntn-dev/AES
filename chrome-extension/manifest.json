@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Autotask Enhancement Suite",
   "description": "Enhancements for Autotask, including the custom tab shell for tickets, accounts, and contracts.",
-  "version": "0.6.2",
+  "version": "0.6.5",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",

@@ -1,5 +1,26 @@
 # Release Notes Concept
 
+## 0.6.5
+
+### New:
+
+- Added support for opening external Autotask links directly in AES tabs.
+- AES can now let you know when a newer stable version is available on GitHub.
+- The Tab Bar now works on more Autotask pages by default, including pages that are not loaded inside an iframe.
+- The vertical Tab Bar can now be resized by default.
+
+### Improved:
+
+- Tab Bar resize and "show on all Autotask pages" are now normal Tab Bar settings instead of beta options.
+- Tab customization now starts with the recommended layout by default.
+- The Organization tab now correctly shows Classification where Autotask uses that field.
+
+### Fixed:
+
+- Fixed settings sometimes falling back to defaults after reloading the extension.
+- Fixed the Home tab spinner getting stuck after refreshing Autotask from another AES tab.
+- Improved Home tab behavior on newer non-iframe Autotask pages.
+
 ## 0.6.0
 
 ## 0.6.2
