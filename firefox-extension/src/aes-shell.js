@@ -293,7 +293,7 @@
             {
                 title: 'Experimental',
                 items: [
-                    'Added support for opening ApplicationLink Autotask contract links directly in the AES Tab Bar.',
+                    'Added support for opening external Autotask contract links directly in the AES Tab Bar.',
                 ],
             },
             {
