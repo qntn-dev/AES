@@ -30,6 +30,7 @@
 - The right-click menu is cleaner, with tab colors moved into a side menu.
 - Hover cards now stay open while your mouse is on them.
 - Status and priority can inherit Autotask's color when shown on a tab line.
+- Hid and disabled the experimental page-redesign settings by default while they are being stabilized.
 
 ### Fixes:
 

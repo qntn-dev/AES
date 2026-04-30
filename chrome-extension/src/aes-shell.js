@@ -228,9 +228,9 @@
         replaceCalendarWithResourcePlanner: !!(AES.state && AES.state.replaceCalendarWithResourcePlanner),
         showTabBarOnNonIframePages: !!(AES.state && AES.state.showTabBarOnNonIframePages),
         resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
-        timesheetUiEnhancementEnabled: !!(AES.state && AES.state.timesheetUiEnhancementEnabled),
-        preferencesUiEnhancementEnabled: !!(AES.state && AES.state.preferencesUiEnhancementEnabled),
-        workspaceQueuesUiEnhancementEnabled: !!(AES.state && AES.state.workspaceQueuesUiEnhancementEnabled),
+        timesheetUiEnhancementEnabled: false,
+        preferencesUiEnhancementEnabled: false,
+        workspaceQueuesUiEnhancementEnabled: false,
         skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
         tabLine2Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine2Fields, 2),
         tabLine3Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine3Fields, 3),
@@ -241,7 +241,7 @@
         tabBarResizing: false,
         metadataRefreshTimerId: 0,
     });
-    const SHOW_PAGE_REDESIGN_EXPERIMENTS = true;
+    const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
     const METADATA_REFRESH_INTERVAL_MS = 7000;
     const IS_SAFARI_WEBKIT = navigator.vendor === 'Apple Computer, Inc.' &&
         /Safari/i.test(navigator.userAgent || '') &&
@@ -285,6 +285,7 @@
                     'The right-click menu is cleaner, with tab colors moved into a side menu.',
                     'Hover cards now stay open while your mouse is on them.',
                     'Status and priority can inherit Autotask color when shown on a tab line.',
+                    'Hid and disabled the experimental page-redesign settings by default while they are being stabilized.',
                 ],
             },
             {
@@ -294,7 +295,7 @@
                     'Fixed Shipping sometimes opening as a separate AES tab.',
                     'Fixed hover card copy buttons.',
                     'Fixed several icon and menu layout issues.',
-                    'Fixed a Workspace & Queues crash caused by AES styling Autotask large hover overlay previews.',
+                    'Fixed a Workspace & Queues crash caused by AES styling Autotask\'s large hover overlay previews.',
                 ],
             },
         ],
@@ -7317,7 +7318,7 @@
         const payload = {
             __ns: AES.MSG_NS,
             type: 'timesheet-ui-enhancement',
-            enabled: featuresEnabled() && !!state.timesheetUiEnhancementEnabled,
+            enabled: featuresEnabled() && SHOW_PAGE_REDESIGN_EXPERIMENTS && !!state.timesheetUiEnhancementEnabled,
             dark: effectiveDarkMode(),
         };
         function postToFrames(win) {
@@ -7336,7 +7337,7 @@
         const payload = {
             __ns: AES.MSG_NS,
             type: 'preferences-ui-enhancement',
-            enabled: featuresEnabled() && !!state.preferencesUiEnhancementEnabled,
+            enabled: featuresEnabled() && SHOW_PAGE_REDESIGN_EXPERIMENTS && !!state.preferencesUiEnhancementEnabled,
             dark: effectiveDarkMode(),
         };
         function postToFrames(win) {
@@ -7355,7 +7356,7 @@
         const payload = {
             __ns: AES.MSG_NS,
             type: 'workspace-queues-ui-enhancement',
-            enabled: featuresEnabled() && !!state.workspaceQueuesUiEnhancementEnabled,
+            enabled: featuresEnabled() && SHOW_PAGE_REDESIGN_EXPERIMENTS && !!state.workspaceQueuesUiEnhancementEnabled,
             dark: effectiveDarkMode(),
         };
         function postToFrames(win) {
@@ -8003,13 +8004,20 @@
         if (typeof AES.state.resizableTabBarEnabled === 'boolean') {
             state.resizableTabBarEnabled = AES.state.resizableTabBarEnabled;
         }
-        if (typeof AES.state.timesheetUiEnhancementEnabled === 'boolean') {
+        if (!SHOW_PAGE_REDESIGN_EXPERIMENTS) {
+            state.timesheetUiEnhancementEnabled = false;
+            state.preferencesUiEnhancementEnabled = false;
+            state.workspaceQueuesUiEnhancementEnabled = false;
+            AES.state.timesheetUiEnhancementEnabled = false;
+            AES.state.preferencesUiEnhancementEnabled = false;
+            AES.state.workspaceQueuesUiEnhancementEnabled = false;
+        } else if (typeof AES.state.timesheetUiEnhancementEnabled === 'boolean') {
             state.timesheetUiEnhancementEnabled = AES.state.timesheetUiEnhancementEnabled;
         }
-        if (typeof AES.state.preferencesUiEnhancementEnabled === 'boolean') {
+        if (SHOW_PAGE_REDESIGN_EXPERIMENTS && typeof AES.state.preferencesUiEnhancementEnabled === 'boolean') {
             state.preferencesUiEnhancementEnabled = AES.state.preferencesUiEnhancementEnabled;
         }
-        if (typeof AES.state.workspaceQueuesUiEnhancementEnabled === 'boolean') {
+        if (SHOW_PAGE_REDESIGN_EXPERIMENTS && typeof AES.state.workspaceQueuesUiEnhancementEnabled === 'boolean') {
             state.workspaceQueuesUiEnhancementEnabled = AES.state.workspaceQueuesUiEnhancementEnabled;
         }
         state.tabLine2Fields = normalizeTabLineSettings(AES.state.tabLine2Fields, 2);

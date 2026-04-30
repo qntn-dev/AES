@@ -3330,7 +3330,8 @@
     //      - Surgical/threshold dark color swap (applyDarkEnhancerStyle)
     // When the toggle flips off, every override is removed cleanly.
     function syncDarkEnhancer() {
-        if (darkEnhancerEnabled) {
+        const skipGlobalUiEnhancement = isWorkspaceQueuesFrame();
+        if (darkEnhancerEnabled && !skipGlobalUiEnhancement) {
             injectModernButtonStyles();
             injectLegacyChromeOverrides();
         } else {
@@ -3338,7 +3339,7 @@
             removeLegacyChromeOverrides();
         }
 
-        if (darkEnhancerEnabled && darkEnhancerActiveTheme) {
+        if (darkEnhancerEnabled && darkEnhancerActiveTheme && !skipGlobalUiEnhancement) {
             // Defer to DOMContentLoaded so document.styleSheets is populated
             // and our scan picks up class-based rules.
             if (document.readyState === 'loading') {

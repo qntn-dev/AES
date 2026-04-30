@@ -122,6 +122,7 @@ Improvements:
 - The Customization page is larger and labels Line 2 / Line 3 clearly.
 - Tabs restore more smoothly after browser refresh, and closing a child tab returns to the previous tab when possible.
 - The tab right-click menu is cleaner, with colors moved into a side menu.
+- The experimental page-redesign settings are hidden and disabled by default while they are being stabilized.
 
 Fixes:
 - Fixed opportunity tabs sometimes showing the wrong title.

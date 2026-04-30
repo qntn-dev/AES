@@ -167,9 +167,9 @@
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
-            AES.state.timesheetUiEnhancementEnabled = !!(settings && settings.timesheetUiEnhancementEnabled);
-            AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
-            AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
+            AES.state.timesheetUiEnhancementEnabled = false;
+            AES.state.preferencesUiEnhancementEnabled = false;
+            AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
@@ -201,9 +201,9 @@
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = !!(settings && settings.showTabBarOnNonIframePages);
             AES.state.resizableTabBarEnabled = !!(settings && settings.resizableTabBarEnabled);
-            AES.state.timesheetUiEnhancementEnabled = !!(settings && settings.timesheetUiEnhancementEnabled);
-            AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
-            AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
+            AES.state.timesheetUiEnhancementEnabled = false;
+            AES.state.preferencesUiEnhancementEnabled = false;
+            AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
@@ -251,9 +251,9 @@
             replaceCalendarWithResourcePlanner: !!AES.state.replaceCalendarWithResourcePlanner,
             showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
-            timesheetUiEnhancementEnabled: !!AES.state.timesheetUiEnhancementEnabled,
-            preferencesUiEnhancementEnabled: !!AES.state.preferencesUiEnhancementEnabled,
-            workspaceQueuesUiEnhancementEnabled: !!AES.state.workspaceQueuesUiEnhancementEnabled,
+            timesheetUiEnhancementEnabled: false,
+            preferencesUiEnhancementEnabled: false,
+            workspaceQueuesUiEnhancementEnabled: false,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             releaseNotesLastSeenVersion: typeof AES.state.releaseNotesLastSeenVersion === 'string'
                 ? AES.state.releaseNotesLastSeenVersion
