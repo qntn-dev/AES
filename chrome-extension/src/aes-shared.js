@@ -10,6 +10,7 @@
     AES.MSG_NS = 'autotask-tabs-v1';
     AES.HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
+        '/mvc/servicedesk/ticketnew.mvc',
         '/mvc/crm/accountdetail.mvc',
         '/mvc/crm/contactdetail.mvc',
         '/mvc/crm/installedproductdetail.mvc',
@@ -36,6 +37,12 @@
         '/mvc/projects/taskdetail.mvc',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',
+        '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx',
+        '/mvc/projects/importticket.mvc/copytickettoproject',
+        '/servicedesk/popups/forward/svcforward.asp',
+        '/servicedesk/reports/togoreportframe.asp',
+        '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
+        '/popups/work/svcdetail.asp',
     ];
     AES.NATIVE_HOME_PATHS = [
         '/mvc/inventory/costitem.mvc/shipping',

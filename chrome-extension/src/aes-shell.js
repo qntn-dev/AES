@@ -155,6 +155,15 @@
         settingsModal: null,
         settingsBackdrop: null,
         settingsClosing: false,
+        releaseNotesModal: null,
+        releaseNotesBackdrop: null,
+        releaseNotesClosing: false,
+        releaseNotesLastSeenVersion: typeof (AES.state && typeof AES.state.releaseNotesLastSeenVersion === 'string')
+            ? AES.state.releaseNotesLastSeenVersion
+            : '',
+        releaseNotesSnoozeVersion: typeof (AES.state && typeof AES.state.releaseNotesSnoozeVersion === 'string')
+            ? AES.state.releaseNotesSnoozeVersion
+            : '',
         mapModal: null,
         mapBackdrop: null,
         peekBackdrop: null,
@@ -232,11 +241,76 @@
         tabBarResizing: false,
         metadataRefreshTimerId: 0,
     });
-    const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
+    const SHOW_PAGE_REDESIGN_EXPERIMENTS = true;
     const METADATA_REFRESH_INTERVAL_MS = 7000;
     const IS_SAFARI_WEBKIT = navigator.vendor === 'Apple Computer, Inc.' &&
         /Safari/i.test(navigator.userAgent || '') &&
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
+    const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
+    const RELEASE_NOTES = {
+        version: '0.6.0',
+        sections: [
+            {
+                title: 'New features',
+                items: [
+                    {
+                        text: 'Added AES Tab Bar support for:',
+                        children: [
+                            'Devices / Installed Products',
+                            'Notes',
+                            'Opportunities',
+                            'Sales Orders',
+                            'Purchase Orders',
+                            'Quotes',
+                            'Quote Templates',
+                            'Contact Groups',
+                            'Billing Products',
+                            'Ticket Charges',
+                        ],
+                    },
+                    'Added Autotask-style Font Awesome icons for tabs and tab menu actions.',
+                    'Added tab metadata customization, so you can choose what appears on Line 2 and Line 3 per tab type.',
+                    'Added Set to recommended in Customization to quickly apply a clean default tab layout.',
+                    'Added a setting to open new tabs at the start or end of the tab bar.',
+                    'Added richer device and ticket metadata options, including device details, ticket status/priority, last activity, and quick copy buttons.',
+                    'Added in-app release notes that appear after extension updates, with options to view GitHub notes, be reminded next time, or hide until the next release.',
+                ],
+            },
+            {
+                title: 'Improvements',
+                items: [
+                    'The Customization page is larger, clearer, and labels the Line 2 / Line 3 columns.',
+                    'Tabs restore more smoothly after refreshing the browser.',
+                    'Closing a tab now returns you to the tab you came from when possible.',
+                    'The right-click menu is cleaner, with tab colors moved into a side menu.',
+                    'Hover cards now stay open while your mouse is on them.',
+                    'Status and priority can inherit Autotask color when shown on a tab line.',
+                ],
+            },
+            {
+                title: 'Fixes',
+                items: [
+                    'Fixed opportunity tabs sometimes showing the wrong title.',
+                    'Fixed Shipping sometimes opening as a separate AES tab.',
+                    'Fixed hover card copy buttons.',
+                    'Fixed several icon and menu layout issues.',
+                    'Fixed a Workspace & Queues crash caused by AES styling Autotask large hover overlay previews.',
+                ],
+            },
+        ],
+    };
+
+    function getExtensionVersion() {
+        const runtime = (typeof browser !== 'undefined' && browser && browser.runtime)
+            ? browser.runtime
+            : (typeof chrome !== 'undefined' && chrome.runtime ? chrome.runtime : null);
+        if (!runtime || typeof runtime.getManifest !== 'function') return '';
+        try {
+            return String(runtime.getManifest().version || '');
+        } catch (e) {
+            return '';
+        }
+    }
 
     function faIcon(className) {
         return '<span class="' + className + ' flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>';
@@ -1101,6 +1175,16 @@
             .at-tabs-settings-backdrop.closing {
                 animation: aes-backdrop-out 220ms ease-in both;
             }
+            .at-tabs-release-notes-backdrop {
+                position: fixed;
+                inset: 0;
+                background: rgba(15, 23, 42, 0.24);
+                z-index: 1700;
+                animation: aes-backdrop-in 260ms ease-out both;
+            }
+            .at-tabs-release-notes-backdrop.closing {
+                animation: aes-backdrop-out 220ms ease-in both;
+            }
             .at-tabs-map-backdrop {
                 position: fixed;
                 inset: 0;
@@ -1223,11 +1307,19 @@
                 background: transparent;
                 border-color: transparent;
             }
+            .at-tabs-peek-frame-wrap {
+                position: relative;
+                flex: 1 1 auto;
+                min-width: 0;
+                min-height: 0;
+                overflow: hidden;
+                background: #ffffff;
+            }
             .at-tabs-peek-frame {
                 width: 100%;
                 height: 100%;
                 border: 0;
-                flex: 1 1 auto;
+                display: block;
                 background: #ffffff;
             }
             .at-tabs-viewport.peek-active {
@@ -1326,6 +1418,15 @@
                 width: 20px;
                 height: 20px;
                 display: block;
+            }
+            .at-tabs-peek-action :is(span, i) {
+                width: 20px;
+                height: 20px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                line-height: 1;
             }
             .at-tabs-peek-action.close-action {
                 font-size: 24px;
@@ -1534,9 +1635,32 @@
             .at-tabs-settings-modal.closing {
                 animation: aes-settings-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
             }
+            .at-tabs-release-notes-modal {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: min(720px, calc(100vw - 48px));
+                max-height: min(760px, calc(100vh - 48px));
+                background: #ffffff;
+                border: 1px solid #dbe2ea;
+                border-radius: 14px;
+                box-shadow: 0 20px 56px rgba(15, 23, 42, 0.28);
+                z-index: 1701;
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                animation: aes-settings-in 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+            }
+            .at-tabs-release-notes-modal.closing {
+                animation: aes-settings-out 220ms cubic-bezier(0.4, 0, 1, 1) both;
+            }
             @media (prefers-reduced-motion: reduce) {
                 .at-tabs-settings-backdrop,
                 .at-tabs-settings-modal,
+                .at-tabs-release-notes-backdrop,
+                .at-tabs-release-notes-modal,
                 .at-tabs-peek-backdrop,
                 .at-tabs-peek-wrapper,
                 .at-tabs-viewport.peek-active,
@@ -1574,6 +1698,117 @@
             .at-tabs-settings-close:hover {
                 background: #f1f5f9;
                 color: #0f172a;
+            }
+            .at-tabs-release-notes-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 12px;
+                padding: 14px 16px;
+                border-bottom: 1px solid #e2e8f0;
+            }
+            .at-tabs-release-notes-title {
+                font-size: 14px;
+                font-weight: 600;
+                color: #0f172a;
+                line-height: 1.3;
+            }
+            .at-tabs-release-notes-close {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 28px;
+                height: 28px;
+                border: none;
+                border-radius: 8px;
+                background: transparent;
+                color: #64748b;
+                cursor: pointer;
+                font-size: 18px;
+                line-height: 1;
+            }
+            .at-tabs-release-notes-close:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .at-tabs-release-notes-body {
+                padding: 16px;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+                color: #0f172a;
+                font-size: 13px;
+                line-height: 1.45;
+                overflow: auto;
+            }
+            .at-tabs-release-notes-body p {
+                margin: 0;
+            }
+            .at-tabs-release-notes-intro {
+                font-weight: 700;
+                color: #334155;
+            }
+            .at-tabs-release-notes-section {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .at-tabs-release-notes-section h3 {
+                margin: 0;
+                font-size: 12px;
+                font-weight: 800;
+                color: #0f172a;
+                text-transform: uppercase;
+            }
+            .at-tabs-release-notes-section ul {
+                margin: 0;
+                padding-left: 18px;
+                list-style: disc outside;
+            }
+            .at-tabs-release-notes-section li ul {
+                margin-top: 5px;
+                list-style: circle outside;
+            }
+            .at-tabs-release-notes-section li {
+                margin: 0 0 5px;
+                display: list-item;
+            }
+            .at-tabs-release-notes-section li::marker {
+                color: #334155;
+            }
+            .at-tabs-release-notes-actions {
+                padding: 0 16px 16px;
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 12px;
+                flex-wrap: wrap;
+            }
+            .at-tabs-release-notes-action {
+                appearance: none;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                font: 700 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                padding: 10px 12px;
+                min-height: 36px;
+            }
+            .at-tabs-release-notes-open {
+                margin-right: auto;
+                background: #376A94;
+                border-color: #376A94;
+                color: #ffffff;
+            }
+            .at-tabs-release-notes-action:hover {
+                background: #f1f5f9;
+                border-color: #94a3b8;
+            }
+            .at-tabs-release-notes-open:hover {
+                background: #2c567a;
+                border-color: #2c567a;
+                color: #ffffff;
             }
             .at-tabs-settings-body {
                 padding: 0;
@@ -2131,6 +2366,9 @@
             html.aes-dark .at-tabs-map-backdrop {
                 background: rgba(0, 0, 0, 0.55);
             }
+            html.aes-dark .at-tabs-release-notes-backdrop {
+                background: rgba(0, 0, 0, 0.55);
+            }
             html.aes-dark .at-tabs-settings-modal,
             html.aes-dark .at-tabs-map-modal {
                 background: #1F2227;
@@ -2138,8 +2376,17 @@
                 color: #f1f5f9;
                 box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
             }
+            html.aes-dark .at-tabs-release-notes-modal {
+                background: #1F2227;
+                border-color: #2a2e34;
+                color: #f1f5f9;
+                box-shadow: 0 22px 60px rgba(0, 0, 0, 0.6);
+            }
             html.aes-dark .at-tabs-settings-header,
             html.aes-dark .at-tabs-map-header {
+                border-bottom-color: #2a2e34;
+            }
+            html.aes-dark .at-tabs-release-notes-header {
                 border-bottom-color: #2a2e34;
             }
             html.aes-dark .at-tabs-settings-nav {
@@ -2198,8 +2445,38 @@
                 background: #262A30;
                 color: #f1f5f9;
             }
+            html.aes-dark .at-tabs-release-notes-close {
+                color: #94a8b8;
+            }
+            html.aes-dark .at-tabs-release-notes-close:hover {
+                background: #262A30;
+                color: #f1f5f9;
+            }
             html.aes-dark .at-tabs-settings-note {
                 color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-release-notes-title {
+                color: #f1f5f9;
+            }
+            html.aes-dark .at-tabs-release-notes-body {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-release-notes-intro,
+            html.aes-dark .at-tabs-release-notes-section h3 {
+                color: #f1f5f9;
+            }
+            html.aes-dark .at-tabs-release-notes-section li::marker {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-release-notes-action {
+                background: #1f2937;
+                border-color: #334155;
+                color: #e2e8f0;
+            }
+            html.aes-dark .at-tabs-release-notes-action:hover {
+                background: #263244;
+                border-color: #475569;
+                color: #f1f5f9;
             }
 
             /* Settings modal interior in dark mode */
@@ -2431,6 +2708,13 @@
             }
             html.aes-bar-vertical .at-tab.home {
                 padding: 4px 16px;
+            }
+            html.aes-bar-vertical .at-tab .tab-actions {
+                justify-content: flex-start;
+                padding-top: 4px;
+            }
+            html.aes-bar-vertical .at-tab .resource-badge {
+                margin-top: 2px;
             }
             html.aes-bar-vertical .at-tab.active {
                 border-bottom-color: transparent;
@@ -3629,6 +3913,7 @@
     function tabTypeForUrl(url) {
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
+        if (p === '/mvc/servicedesk/ticketnew.mvc') return 'ticket';
         if (p === '/mvc/crm/accountdetail.mvc') return 'account';
         if (p === '/mvc/crm/installedproductdetail.mvc') return 'device';
         if (p === '/mvc/crm/note.mvc/view') return 'note';
@@ -3643,9 +3928,17 @@
             p === '/autotask35/crm/contactgroupmanager.aspx') return 'group';
         if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') return 'timesheet';
         if (p === '/mvc/inventory/costitem.mvc/shipping' ||
+            p === '/mvc/inventory/receipthistory.mvc' ||
+            p === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder' ||
             p.includes('/picklistdetailforshippinggrid') ||
             p.includes('/packinglistdetailforshippinggrid')) return 'inventory';
         if (p === '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx') return 'charge';
+        if (p === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
+            p === '/mvc/projects/importticket.mvc/copytickettoproject' ||
+            p === '/servicedesk/popups/forward/svcforward.asp' ||
+            p === '/servicedesk/reports/togoreportframe.asp' ||
+            p === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
+            p === '/popups/work/svcdetail.asp') return 'ticket';
         if (p === '/mvc/crm/contractbillingruleassociation.mvc/editcontact') return 'charge';
         if (p.includes('/billingproduct') ||
             p.includes('/billing_product') ||
@@ -3727,6 +4020,19 @@
         try { parsed = new URL(url, location.origin); } catch (e) {}
         const params = parsed ? parsed.searchParams : new URLSearchParams();
 
+        if (path === '/mvc/servicedesk/ticketnew.mvc') {
+            const ticketType = params.get('ticketType') || params.get('tickettype') || '';
+            const typeLabel = ticketType === '2' ? 'Incident Ticket'
+                : ticketType === '3' ? 'Problem Ticket'
+                    : ticketType === '4' ? 'Change Request Ticket'
+                        : ticketType ? 'Ticket Type ' + ticketType
+                            : 'Ticket';
+            return {
+                title: 'New Ticket',
+                number: typeLabel,
+                contact: '',
+            };
+        }
         if (path.includes('/ticketprintview.mvc')) {
             return {
                 title: 'Ticket Print View',
@@ -3747,6 +4053,59 @@
                 title: 'Packing List',
                 number: 'Inventory',
                 contact: account ? 'Account ' + account.split(':')[0] : '',
+            };
+        }
+        if (path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx') {
+            const action = (params.get('selectionAction') || '').toLowerCase();
+            const excludedTicketId = params.get('excludedTicketIds') || '';
+            return {
+                title: action === 'selectticketstomergeto'
+                    ? 'Merge Ticket'
+                    : action === 'selectticketstoabsorb'
+                        ? 'Absorb Tickets'
+                        : 'Select Tickets',
+                number: excludedTicketId ? 'Ticket ' + excludedTicketId : '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/projects/importticket.mvc/copytickettoproject') {
+            const taskId = params.get('taskIDs') || params.get('taskids') || '';
+            return {
+                title: 'Copy Ticket to Project',
+                number: taskId ? 'Ticket ' + taskId : '',
+                contact: '',
+            };
+        }
+        if (path === '/servicedesk/popups/forward/svcforward.asp') {
+            const taskId = params.get('taskIDs') || params.get('taskids') || '';
+            return {
+                title: 'Forward Ticket',
+                number: taskId ? 'Ticket ' + taskId : '',
+                contact: '',
+            };
+        }
+        if (path === '/servicedesk/reports/togoreportframe.asp') {
+            const ticketId = params.get('taskObjectID') || params.get('taskobjectid') || '';
+            return {
+                title: 'Ticket Report',
+                number: ticketId ? 'Ticket ' + ticketId : '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory') {
+            const ticketId = params.get('ticketId') || params.get('ticketid') || '';
+            return {
+                title: params.get('slaTabSelected') ? 'SLA History' : 'Ticket History',
+                number: ticketId ? 'Ticket ' + ticketId : '',
+                contact: '',
+            };
+        }
+        if (path === '/popups/work/svcdetail.asp') {
+            const clientId = params.get('clientID') || params.get('clientid') || '';
+            return {
+                title: 'Work Detail',
+                number: clientId ? 'Client ' + clientId : '',
+                contact: '',
             };
         }
         if (path === '/mvc/crm/installedproductdetail.mvc') {
@@ -3787,6 +4146,22 @@
             return {
                 title: 'Purchase Order',
                 number: purchaseOrderId ? 'ID ' + purchaseOrderId : 'Purchase Order',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/inventory/receipthistory.mvc') {
+            const purchaseOrderId = params.get('purchaseOrderId') || params.get('purchaseorderid') || params.get('purchaseOrderID');
+            return {
+                title: 'Vendor Invoice',
+                number: purchaseOrderId ? 'Purchase Order ' + purchaseOrderId : 'Purchase Order',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder') {
+            const purchaseOrderId = params.get('purchaseOrderId') || params.get('purchaseorderid') || params.get('purchaseOrderID');
+            return {
+                title: 'Email Purchase Order',
+                number: purchaseOrderId ? 'Purchase Order ' + purchaseOrderId : 'Purchase Order',
                 contact: '',
             };
         }
@@ -4320,6 +4695,10 @@
         }, true);
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') {
+                if (state.releaseNotesModal) {
+                    closeReleaseNotesModal();
+                    return;
+                }
                 closeTabContextMenu();
                 if (state.peekBackdrop) closePeekModal();
                 hideHoverCard(true);
@@ -4693,7 +5072,8 @@
         const initials = resource && typeof resource.initials === 'string'
             ? resource.initials.trim().slice(0, 4)
             : '';
-        const shouldShow = tabTypeForUrl(tab.url) === 'ticket' && !!(initials || photoUrl);
+        const tabType = tabTypeForUrl(tab.url);
+        const shouldShow = (tabType === 'ticket' || tabType === 'opportunity') && !!(initials || photoUrl);
 
         resourceEl.className = 'resource-badge';
         resourceEl.textContent = shouldShow && !photoUrl ? initials : '';
@@ -4787,6 +5167,175 @@
             }
             state.settingsClosing = false;
         }, AES_MODAL_EXIT_MS);
+    }
+
+    function closeReleaseNotesModal(immediate) {
+        if (state.releaseNotesClosing) return;
+        if (immediate || prefersReducedMotion()) {
+            if (state.releaseNotesModal) {
+                state.releaseNotesModal.remove();
+                state.releaseNotesModal = null;
+            }
+            if (state.releaseNotesBackdrop) {
+                state.releaseNotesBackdrop.remove();
+                state.releaseNotesBackdrop = null;
+            }
+            state.releaseNotesClosing = false;
+            return;
+        }
+        if (!state.releaseNotesModal && !state.releaseNotesBackdrop) return;
+        state.releaseNotesClosing = true;
+        if (state.releaseNotesModal) state.releaseNotesModal.classList.add('closing');
+        if (state.releaseNotesBackdrop) state.releaseNotesBackdrop.classList.add('closing');
+        window.setTimeout(function () {
+            if (state.releaseNotesModal) {
+                state.releaseNotesModal.remove();
+                state.releaseNotesModal = null;
+            }
+            if (state.releaseNotesBackdrop) {
+                state.releaseNotesBackdrop.remove();
+                state.releaseNotesBackdrop = null;
+            }
+            state.releaseNotesClosing = false;
+        }, AES_MODAL_EXIT_MS);
+    }
+
+    function markReleaseNotesAsSeen(version) {
+        if (!version) return;
+        state.releaseNotesLastSeenVersion = version;
+        AES.state.releaseNotesLastSeenVersion = version;
+        state.releaseNotesSnoozeVersion = '';
+        AES.state.releaseNotesSnoozeVersion = '';
+        void AES.saveSettings();
+    }
+
+    function markReleaseNotesAsSnoozed(version) {
+        if (!version) return;
+        state.releaseNotesSnoozeVersion = version;
+        AES.state.releaseNotesSnoozeVersion = version;
+        void AES.saveSettings();
+    }
+
+    function openReleaseNotesModal() {
+        if (state.releaseNotesModal || state.releaseNotesClosing) return;
+
+        const version = getExtensionVersion();
+        const backdrop = document.createElement('div');
+        backdrop.className = 'at-tabs-release-notes-backdrop';
+        backdrop.addEventListener('click', function () {
+            closeReleaseNotesModal();
+            markReleaseNotesAsSeen(version);
+        });
+
+        const modal = document.createElement('div');
+        modal.className = 'at-tabs-release-notes-modal';
+
+        const header = document.createElement('div');
+        header.className = 'at-tabs-release-notes-header';
+
+        const title = document.createElement('div');
+        title.className = 'at-tabs-release-notes-title';
+        title.textContent = 'Autotask Enhancement Suite Release Notes';
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'at-tabs-release-notes-close';
+        close.textContent = '×';
+        close.title = 'Close release notes';
+        close.addEventListener('click', function () {
+            closeReleaseNotesModal();
+            markReleaseNotesAsSeen(version);
+        });
+
+        const body = document.createElement('div');
+        body.className = 'at-tabs-release-notes-body';
+        const intro = document.createElement('p');
+        intro.className = 'at-tabs-release-notes-intro';
+        intro.textContent = 'Version ' + (RELEASE_NOTES.version || version || 'latest');
+        body.appendChild(intro);
+        RELEASE_NOTES.sections.forEach(function (section) {
+            const sectionEl = document.createElement('section');
+            sectionEl.className = 'at-tabs-release-notes-section';
+            const sectionTitle = document.createElement('h3');
+            sectionTitle.textContent = section.title;
+            const list = document.createElement('ul');
+            section.items.forEach(function (item) {
+                const itemEl = document.createElement('li');
+                if (typeof item === 'string') {
+                    itemEl.textContent = item;
+                } else {
+                    itemEl.appendChild(document.createTextNode(item.text || ''));
+                    if (Array.isArray(item.children) && item.children.length) {
+                        const childList = document.createElement('ul');
+                        item.children.forEach(function (child) {
+                            const childEl = document.createElement('li');
+                            childEl.textContent = child;
+                            childList.appendChild(childEl);
+                        });
+                        itemEl.appendChild(childList);
+                    }
+                }
+                list.appendChild(itemEl);
+            });
+            sectionEl.appendChild(sectionTitle);
+            sectionEl.appendChild(list);
+            body.appendChild(sectionEl);
+        });
+
+        const actions = document.createElement('div');
+        actions.className = 'at-tabs-release-notes-actions';
+
+        const openButton = document.createElement('button');
+        openButton.type = 'button';
+        openButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
+        openButton.textContent = 'View release notes on GitHub';
+        openButton.addEventListener('click', function () {
+            markReleaseNotesAsSeen(version);
+            closeReleaseNotesModal(true);
+            try {
+                window.open(RELEASE_NOTES_URL, '_blank', 'noopener,noreferrer');
+            } catch (e) {}
+        });
+
+        const remindButton = document.createElement('button');
+        remindButton.type = 'button';
+        remindButton.className = 'at-tabs-release-notes-action';
+        remindButton.textContent = 'Remind me next time';
+        remindButton.addEventListener('click', function () {
+            closeReleaseNotesModal(true);
+        });
+
+        const dontShowButton = document.createElement('button');
+        dontShowButton.type = 'button';
+        dontShowButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-snooze';
+        dontShowButton.textContent = "Don\'t show until next release";
+        dontShowButton.addEventListener('click', function () {
+            markReleaseNotesAsSnoozed(version);
+            closeReleaseNotesModal(true);
+        });
+
+        actions.appendChild(openButton);
+        actions.appendChild(remindButton);
+        actions.appendChild(dontShowButton);
+        header.appendChild(title);
+        header.appendChild(close);
+
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(actions);
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        state.releaseNotesBackdrop = backdrop;
+        state.releaseNotesModal = modal;
+    }
+
+    function maybeShowReleaseNotesModalOnUpdate() {
+        const version = getExtensionVersion();
+        if (!version) return;
+        if (state.releaseNotesLastSeenVersion === version) return;
+        if (state.releaseNotesSnoozeVersion === version) return;
+        openReleaseNotesModal();
     }
 
     const SETTING_INFO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
@@ -5414,6 +5963,28 @@
         phoneRow.appendChild(phoneLabel);
         phoneRow.appendChild(phoneToggle);
 
+        const releaseNotesRow = document.createElement('div');
+        releaseNotesRow.className = 'at-tabs-setting-row';
+
+        const releaseNotesLabel = document.createElement('span');
+        releaseNotesLabel.className = 'at-tabs-setting-label';
+
+        const releaseNotesName = document.createElement('span');
+        releaseNotesName.className = 'at-tabs-setting-name';
+        releaseNotesName.textContent = 'View Release Notes';
+        releaseNotesLabel.appendChild(releaseNotesName);
+
+        const releaseNotesAction = document.createElement('button');
+        releaseNotesAction.type = 'button';
+        releaseNotesAction.className = 'at-tabs-settings-page-action';
+        releaseNotesAction.textContent = 'Open';
+        releaseNotesAction.addEventListener('click', function () {
+            closeSettingsModal(true);
+            openReleaseNotesModal();
+        });
+        releaseNotesRow.appendChild(releaseNotesLabel);
+        releaseNotesRow.appendChild(releaseNotesAction);
+
         const customizationSection = document.createElement('div');
         customizationSection.className = 'at-tabs-settings-section';
 
@@ -5539,6 +6110,7 @@
             experimentalSection.appendChild(workspaceQueuesUiRow);
         }
         phoneSection.appendChild(phoneRow);
+        phoneSection.appendChild(releaseNotesRow);
         generalSection.appendChild(enabledRow);
         generalSection.appendChild(enabledReloadNote);
         generalSection.appendChild(themeRow);
@@ -6004,8 +6576,9 @@
         closeButton.focus();
     }
 
-    function openPeekModal(tab) {
+    function openPeekModal(tab, options) {
         if (!tab || !tab.url) return;
+        const opts = options || {};
         closePeekModal(true);
         hideHoverCard(true);
 
@@ -6045,8 +6618,11 @@
                     loader.classList.add('hidden');
                 }, { once: true });
             }
-            modal.appendChild(iframe);
-            modal.appendChild(loader);
+            const frameWrap = document.createElement('div');
+            frameWrap.className = 'at-tabs-peek-frame-wrap';
+            frameWrap.appendChild(iframe);
+            frameWrap.appendChild(loader);
+            modal.appendChild(frameWrap);
             state.peekPrewarm = null;
         }
 
@@ -6067,12 +6643,14 @@
         splitBtn.title = 'Split with current tab';
         splitBtn.setAttribute('aria-label', 'Split with current tab');
         splitBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>';
-        const canSplit = state.activeId !== null && state.activeId !== tab.id;
+        const canSplit = opts.allowSplit !== false && typeof tab.id === 'number' && state.activeId !== null && state.activeId !== tab.id;
         if (!canSplit) {
             splitBtn.disabled = true;
             splitBtn.title = state.activeId === null
                 ? 'Open another custom tab first to split with'
-                : 'Cannot split a tab with itself';
+                : typeof tab.id !== 'number'
+                    ? 'Open this Peek as a tab before splitting'
+                    : 'Cannot split a tab with itself';
         }
         splitBtn.addEventListener('click', function () {
             if (splitBtn.disabled) return;
@@ -6081,7 +6659,20 @@
             enableSplitScreen(tabId);
         });
 
+        const openInTabBtn = document.createElement('button');
+        openInTabBtn.type = 'button';
+        openInTabBtn.className = 'at-tabs-peek-action open-tab-action';
+        openInTabBtn.title = 'Open Peek in tab';
+        openInTabBtn.setAttribute('aria-label', 'Open Peek in tab');
+        openInTabBtn.innerHTML = '<span class="fa-up-right-from-square fa-regular" aria-hidden="true"></span>';
+        openInTabBtn.addEventListener('click', function () {
+            const targetUrl = tab.url;
+            closePeekModal();
+            openTab(targetUrl);
+        });
+
         actions.appendChild(closeBtn);
+        actions.appendChild(openInTabBtn);
         actions.appendChild(splitBtn);
 
         wrapper.appendChild(modal);
@@ -6097,6 +6688,29 @@
         if (reusedLiveIframe && state.peekSyncOverlay) {
             requestAnimationFrame(state.peekSyncOverlay);
         }
+    }
+
+    function openUrlInPeek(url) {
+        if (!featuresEnabled() || !url) return;
+        const existing = state.tabs.find(t => t.url === url);
+        if (existing) {
+            openPeekModal(existing);
+            return;
+        }
+        const fallback = fallbackTabMetadataForUrl(url);
+        const type = tabTypeForUrl(url);
+        openPeekModal({
+            id: null,
+            url: url,
+            title: fallback.title,
+            number: fallback.number,
+            contact: fallback.contact,
+            primaryResource: null,
+            hoverFields: [],
+            metadataFields: fallbackMetadataFields(type, fallback),
+            iframeEl: null,
+            tabEl: null,
+        }, { allowSplit: false });
     }
 
     // --- Tab hover preview card ---------------------------------------------
@@ -6479,6 +7093,11 @@
 
         if (data.type === 'open' && data.url) {
             openTab(data.url);
+            return;
+        }
+
+        if (data.type === 'open-peek' && data.url) {
+            openUrlInPeek(data.url);
             return;
         }
 
@@ -7399,6 +8018,7 @@
         AES.state.tabBarWidth = state.tabBarWidth;
         applyBarOrientationClass();
         applyExtensionEnabledState(false);
+        maybeShowReleaseNotesModalOnUpdate();
         if (featuresEnabled()) {
             await restoreTabs();
             if (!state.tabs.length) activateHome();

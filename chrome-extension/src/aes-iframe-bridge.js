@@ -54,6 +54,26 @@
         catch (e) {}
     }
 
+    function isPeekPopupUrl(url) {
+        const targetUrl = AES.toAbsoluteUrl(url || '');
+        if (!targetUrl) return false;
+        try {
+            const parsed = new URL(targetUrl);
+            const path = AES.normalizeHandledPath(AES.pathOf(parsed.href));
+            if ((path === '/mvc/inventory/receipthistory.mvc' ||
+                path === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder') &&
+                parsed.searchParams.has('purchaseOrderId')) return true;
+            return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
+                path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
+                path === '/servicedesk/popups/forward/svcforward.asp' ||
+                path === '/servicedesk/reports/togoreportframe.asp' ||
+                path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
+                path === '/popups/work/svcdetail.asp';
+        } catch (e) {
+            return false;
+        }
+    }
+
     function extractHandledNavigationUrlFromEventTarget(target) {
         const anchor = target && target.closest ? target.closest('a[href]') : null;
         const anchorTargetUrl = extractAnchorUrl(anchor);
@@ -2719,6 +2739,24 @@
         });
     }
 
+    function isWorkspaceQueuesVolatileOverlayNode(node) {
+        if (!node || node.nodeType !== 1) return false;
+        const el = node;
+        if (!el.matches || !el.closest) return false;
+        return el.matches('.ContextOverlay, .DialogIframeOverlayPage, .PopupOverlay') ||
+            !!el.closest('.ContextOverlay, .DialogIframeOverlayPage, .PopupOverlay');
+    }
+
+    function isWorkspaceQueuesOverlayOnlyMutation(mutation) {
+        if (!mutation) return true;
+        if (!isWorkspaceQueuesVolatileOverlayNode(mutation.target)) return false;
+        const added = Array.prototype.slice.call(mutation.addedNodes || []);
+        const removed = Array.prototype.slice.call(mutation.removedNodes || []);
+        return added.concat(removed).every(function (node) {
+            return node.nodeType !== 1 || isWorkspaceQueuesVolatileOverlayNode(node);
+        });
+    }
+
     function removeWorkspaceQueuesUiEnhancementStyle() {
         removeStyleById(WORKSPACE_QUEUES_UI_STYLE_ID);
         document.documentElement.classList.remove('aes-workspace-queues-ui-enhancement-active');
@@ -2946,44 +2984,10 @@
             'html.aes-workspace-queues-ui-enhancement-active .ToolBar .Button2 .StandardButtonIcon {',
             '    filter: brightness(0) invert(1) !important;',
             '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2,',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2.NormalBackground {',
-            '    background: transparent !important;',
-            '    border: 0 !important;',
-            '    color: var(--aes-wq-text) !important;',
-            '    min-height: 28px !important;',
-            '    height: auto !important;',
-            '    box-shadow: none !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2:hover,',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2.HoverBackground {',
-            '    background: var(--aes-wq-hover) !important;',
-            '    color: var(--aes-wq-text) !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2 .Text2,',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2 .Spacer,',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2 .Icon2 {',
-            '    color: var(--aes-wq-text) !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ToolBar .ContextOverlay .Button2 .StandardButtonIcon {',
-            '    filter: none !important;',
-            '}',
             'html.aes-workspace-queues-ui-enhancement-active .Button2 .Text2,',
             'html.aes-workspace-queues-ui-enhancement-active .Button .Text {',
             '    color: var(--aes-wq-text) !important;',
             '    font-weight: 800 !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Button2.NormalBackground {',
-            '    border: 0 !important;',
-            '    border-radius: .25rem !important;',
-            '    background: transparent !important;',
-            '    color: var(--aes-wq-text) !important;',
-            '    min-height: 28px !important;',
-            '    box-shadow: none !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Button2.NormalBackground:hover {',
-            '    background: var(--aes-wq-hover) !important;',
-            '    color: var(--aes-wq-text) !important;',
             '}',
             'html.aes-workspace-queues-ui-enhancement-active .SearchResultContainer,',
             'html.aes-workspace-queues-ui-enhancement-active .GridContainer,',
@@ -3122,25 +3126,6 @@
             '    border: 1px solid var(--aes-wq-border) !important;',
             '    border-radius: .25rem !important;',
             '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay {',
-            '    background: var(--aes-wq-panel) !important;',
-            '    color: var(--aes-wq-text) !important;',
-            '    border: 1px solid var(--aes-wq-border) !important;',
-            '    border-radius: .25rem !important;',
-            '    box-shadow: var(--aes-wq-overlay-shadow) !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay .Heading1 .Text1 {',
-            '    color: var(--aes-wq-muted) !important;',
-            '    font-weight: 900 !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay a.Button {',
-            '    background: transparent !important;',
-            '    color: var(--aes-wq-text) !important;',
-            '    border-radius: .25rem !important;',
-            '}',
-            'html.aes-workspace-queues-ui-enhancement-active .ContextOverlay a.Button:hover {',
-            '    background: var(--aes-wq-hover) !important;',
-            '}',
         ].join('\n');
         function attach() {
             (document.head || document.documentElement).appendChild(style);
@@ -3250,17 +3235,6 @@
         paintWorkspaceQueuesUi('.ToolBar .Button2 .Text2, .ToolBar .Button2 .Spacer, .ToolBar .Button2 .Icon2', {
             color: '#FFFFFF',
         });
-        paintWorkspaceQueuesUi('.ToolBar .ContextOverlay .Button2, .ToolBar .ContextOverlay .Button2.NormalBackground', {
-            'background-color': 'transparent',
-            color: palette.text,
-            border: '0',
-            'min-height': '28px',
-            height: 'auto',
-            'box-shadow': 'none',
-        });
-        paintWorkspaceQueuesUi('.ToolBar .ContextOverlay .Button2 .Text2, .ToolBar .ContextOverlay .Button2 .Spacer, .ToolBar .ContextOverlay .Button2 .Icon2', {
-            color: palette.text,
-        });
         paintWorkspaceQueuesUi('.ToolBar .DropDownButton2 > .Button2:first-child', {
             'border-radius': '.25rem 0 0 .25rem',
         });
@@ -3268,21 +3242,6 @@
             'border-left': '0',
             'border-radius': '0 .25rem .25rem 0',
             padding: '0',
-        });
-        paintWorkspaceQueuesUi('.ContextOverlay .Button2.NormalBackground', {
-            'background-color': 'transparent',
-            color: palette.text,
-            border: '0',
-            'border-radius': '.25rem',
-            'min-height': '28px',
-            'box-shadow': 'none',
-        });
-        paintWorkspaceQueuesUi('.ContextOverlay', {
-            'background-color': palette.panel,
-            color: palette.text,
-            border: '1px solid ' + palette.border,
-            'border-radius': '.25rem',
-            'box-shadow': palette.overlayShadow,
         });
         paintWorkspaceQueuesUi('input, select, textarea', {
             'background-color': palette.input,
@@ -3331,7 +3290,8 @@
 
     function startWorkspaceQueuesUiObserver() {
         if (workspaceQueuesUiObserver || !document.body || !window.MutationObserver) return;
-        workspaceQueuesUiObserver = new MutationObserver(function () {
+        workspaceQueuesUiObserver = new MutationObserver(function (mutations) {
+            if (mutations && mutations.length && mutations.every(isWorkspaceQueuesOverlayOnlyMutation)) return;
             scheduleWorkspaceQueuesUiInlineStyles();
         });
         workspaceQueuesUiObserver.observe(document.body, {
@@ -3443,7 +3403,10 @@
             if (!data || data.__ns !== AES.MSG_NS) return;
             if (!featureEnabled) return;
             if (data.type === 'open' && data.url && AES.isHandledUrl(data.url)) {
-                postToTop({ type: 'open', url: data.url });
+                postToTop({ type: isPeekPopupUrl(data.url) ? 'open-peek' : 'open', url: data.url });
+            }
+            if (data.type === 'open-peek' && data.url && isPeekPopupUrl(data.url)) {
+                postToTop({ type: 'open-peek', url: data.url });
             }
             if (data.type === 'map' && data.url) {
                 postToTop({ type: 'map', url: data.url });
@@ -3482,6 +3445,10 @@
             }
         }
 
+        function postHandledNavigation(targetUrl) {
+            postToTop({ type: isPeekPopupUrl(targetUrl) ? 'open-peek' : 'open', url: targetUrl });
+        }
+
         document.addEventListener('pointerdown', armMapOpenFromEvent, true);
         document.addEventListener('mousedown', armMapOpenFromEvent, true);
         document.addEventListener('mousedown', function (event) {
@@ -3503,7 +3470,7 @@
             event.stopPropagation();
             event.stopImmediatePropagation();
 
-            postToTop({ type: 'open', url: targetUrl });
+            postHandledNavigation(targetUrl);
         }, true);
 
         document.addEventListener('auxclick', function (event) {
@@ -3532,7 +3499,7 @@
                     return createMapWindow(targetUrl);
                 }
                 if (targetUrl && AES.isHandledUrl(targetUrl)) {
-                    postToTop({ type: 'open', url: targetUrl });
+                    postHandledNavigation(targetUrl);
                     return null;
                 }
                 return originalOpen.call(window, url, target, features);

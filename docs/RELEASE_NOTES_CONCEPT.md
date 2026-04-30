@@ -20,6 +20,7 @@
 - Added `Set to recommended` in Customization to quickly apply a clean default tab layout.
 - Added a setting to open new tabs at the start or end of the tab bar.
 - Added richer device and ticket metadata options, including device details, ticket status/priority, last activity, and quick copy buttons.
+- Added in-app release notes that appear after extension updates, with options to view GitHub notes, be reminded next time, or hide until the next release.
 
 ### Improvements:
 
@@ -36,3 +37,4 @@
 - Fixed Shipping sometimes opening as a separate AES tab.
 - Fixed hover card copy buttons.
 - Fixed a few icon and menu layout issues.
+- Fixed a Workspace & Queues crash caused by AES styling Autotask's large hover overlay previews.

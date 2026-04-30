@@ -115,6 +115,7 @@ New features:
 - Added Autotask-style Font Awesome icons for tabs and tab menu actions.
 - Added tab metadata customization with `Set to recommended`.
 - Added a setting to choose whether new tabs open at the start or end of the tab bar.
+- Added in-app release notes that appear after extension updates, with GitHub, remind next time, and hide until next release actions.
 
 Improvements:
 - Device and ticket metadata can now be used on tab lines, including device details, ticket status/priority, and last activity.
@@ -126,3 +127,4 @@ Fixes:
 - Fixed opportunity tabs sometimes showing the wrong title.
 - Fixed Shipping sometimes opening as a separate AES tab.
 - Fixed hover card copy buttons and several icon/menu layout issues.
+- Fixed a Workspace & Queues crash caused by AES styling Autotask's large hover overlay previews.

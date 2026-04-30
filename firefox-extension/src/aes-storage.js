@@ -53,6 +53,12 @@
     if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
         AES.state.skipPeekBackdropCloseWarning = false;
     }
+    if (typeof AES.state.releaseNotesLastSeenVersion !== 'string') {
+        AES.state.releaseNotesLastSeenVersion = '';
+    }
+    if (typeof AES.state.releaseNotesSnoozeVersion !== 'string') {
+        AES.state.releaseNotesSnoozeVersion = '';
+    }
     if (typeof AES.state.tabBarWidth !== 'number') {
         AES.state.tabBarWidth = AES.BAR_W || 240;
     }
@@ -165,6 +171,12 @@
             AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
             AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
+            AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
+                ? settings.releaseNotesLastSeenVersion
+                : '';
+            AES.state.releaseNotesSnoozeVersion = typeof (settings && settings.releaseNotesSnoozeVersion) === 'string'
+                ? settings.releaseNotesSnoozeVersion
+                : '';
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
@@ -193,6 +205,12 @@
             AES.state.preferencesUiEnhancementEnabled = !!(settings && settings.preferencesUiEnhancementEnabled);
             AES.state.workspaceQueuesUiEnhancementEnabled = !!(settings && settings.workspaceQueuesUiEnhancementEnabled);
             AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
+            AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
+                ? settings.releaseNotesLastSeenVersion
+                : '';
+            AES.state.releaseNotesSnoozeVersion = typeof (settings && settings.releaseNotesSnoozeVersion) === 'string'
+                ? settings.releaseNotesSnoozeVersion
+                : '';
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
@@ -212,6 +230,8 @@
             AES.state.preferencesUiEnhancementEnabled = false;
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = false;
+            AES.state.releaseNotesLastSeenVersion = '';
+            AES.state.releaseNotesSnoozeVersion = '';
             AES.state.tabBarWidth = AES.BAR_W || 240;
             AES.state.tabLine2Fields = {};
             AES.state.tabLine3Fields = {};
@@ -235,6 +255,12 @@
             preferencesUiEnhancementEnabled: !!AES.state.preferencesUiEnhancementEnabled,
             workspaceQueuesUiEnhancementEnabled: !!AES.state.workspaceQueuesUiEnhancementEnabled,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
+            releaseNotesLastSeenVersion: typeof AES.state.releaseNotesLastSeenVersion === 'string'
+                ? AES.state.releaseNotesLastSeenVersion
+                : '',
+            releaseNotesSnoozeVersion: typeof AES.state.releaseNotesSnoozeVersion === 'string'
+                ? AES.state.releaseNotesSnoozeVersion
+                : '',
             tabBarWidth: readTabBarWidth(AES.state),
             tabLine2Fields: AES.state.tabLine2Fields || {},
             tabLine3Fields: AES.state.tabLine3Fields || {},

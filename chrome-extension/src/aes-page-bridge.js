@@ -7,9 +7,11 @@
     const MSG_NS = 'autotask-tabs-v1';
     let pendingMapOpenUntil = 0;
     let pendingDuplicateOpenUntil = 0;
+    let pendingUserNavigationUntil = 0;
     let featureEnabled = true;
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
+        '/mvc/servicedesk/ticketnew.mvc',
         '/mvc/crm/accountdetail.mvc',
         '/mvc/crm/contactdetail.mvc',
         '/mvc/crm/installedproductdetail.mvc',
@@ -37,6 +39,14 @@
         '/mvc/projects/taskdetail.mvc',
         '/contracts/views/contractview.asp',
         '/contracts/views/contractsummary.asp',
+        '/mvc/inventory/receipthistory.mvc',
+        '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder',
+        '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx',
+        '/mvc/projects/importticket.mvc/copytickettoproject',
+        '/servicedesk/popups/forward/svcforward.asp',
+        '/servicedesk/reports/togoreportframe.asp',
+        '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
+        '/popups/work/svcdetail.asp',
     ];
     const NATIVE_HOME_PATHS = [
         '/mvc/inventory/costitem.mvc/shipping',
@@ -220,6 +230,19 @@
         return pendingDuplicateOpenUntil && Date.now() < pendingDuplicateOpenUntil;
     }
 
+    function hasUserNavigationActivation() {
+        if (pendingUserNavigationUntil && Date.now() < pendingUserNavigationUntil) return true;
+        const activation = navigator.userActivation;
+        return !!(activation && activation.isActive);
+    }
+
+    function armUserNavigationFromEvent(event) {
+        if (!featureEnabled || !event || event.isTrusted === false) return;
+        if (extractHandledNavigationUrlFromEventTarget(event.target)) {
+            pendingUserNavigationUntil = Date.now() + 1500;
+        }
+    }
+
     function isMapUrl(url) {
         const targetUrl = absoluteUrl(url);
         if (!targetUrl) return false;
@@ -242,6 +265,34 @@
         return true;
     }
 
+    function isPeekPopupUrl(url) {
+        const targetUrl = absoluteUrl(url);
+        if (!targetUrl) return false;
+        try {
+            const parsed = new URL(targetUrl);
+            const path = pathOf(parsed.href);
+            if ((path === '/mvc/inventory/receipthistory.mvc' ||
+                path === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder') &&
+                parsed.searchParams.has('purchaseOrderId')) return true;
+            return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
+                path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
+                path === '/servicedesk/popups/forward/svcforward.asp' ||
+                path === '/servicedesk/reports/togoreportframe.asp' ||
+                path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
+                path === '/popups/work/svcdetail.asp';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function postPeek(url) {
+        if (!featureEnabled) return false;
+        const targetUrl = absoluteUrl(url);
+        if (!targetUrl || !isPeekPopupUrl(targetUrl)) return false;
+        window.postMessage({ __ns: MSG_NS, type: 'open-peek', url: targetUrl }, location.origin);
+        return true;
+    }
+
     function createMapWindow(url) {
         const targetUrl = absoluteUrl(url);
         return {
@@ -249,6 +300,19 @@
             opener: window,
             focus: function () {
                 if (targetUrl) window.postMessage({ __ns: MSG_NS, type: 'map', url: targetUrl }, location.origin);
+            },
+            blur: function () {},
+            close: function () { this.closed = true; },
+        };
+    }
+
+    function createPeekWindow(url) {
+        const targetUrl = absoluteUrl(url);
+        return {
+            closed: false,
+            opener: window,
+            focus: function () {
+                if (targetUrl) window.postMessage({ __ns: MSG_NS, type: 'open-peek', url: targetUrl }, location.origin);
             },
             blur: function () {},
             close: function () { this.closed = true; },
@@ -297,6 +361,7 @@
     }
 
     document.addEventListener('pointerdown', armMapOpenFromEvent, true);
+    document.addEventListener('pointerdown', armUserNavigationFromEvent, true);
     window.addEventListener('message', function (event) {
         if (event.source !== window) return;
         if (event.origin !== location.origin) return;
@@ -306,9 +371,11 @@
         if (!featureEnabled) {
             pendingMapOpenUntil = 0;
             pendingDuplicateOpenUntil = 0;
+            pendingUserNavigationUntil = 0;
         }
     }, true);
     document.addEventListener('mousedown', armMapOpenFromEvent, true);
+    document.addEventListener('mousedown', armUserNavigationFromEvent, true);
     document.addEventListener('mousedown', function (event) {
         if (!featureEnabled) return;
         if (event.button !== 1) return;
@@ -321,6 +388,7 @@
     document.addEventListener('click', function (event) {
         if (!featureEnabled) return;
         armMapOpenFromEvent(event);
+        armUserNavigationFromEvent(event);
         if (isPendingMapOpen()) {
             const anchor = event.target.closest && event.target.closest('a[href]');
             if (anchor && postMap(anchor.href)) {
@@ -330,6 +398,15 @@
                 return;
             }
         }
+
+        const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
+        if (!targetUrl) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+
+        if (!postPeek(targetUrl)) postOpen(targetUrl);
     }, true);
     document.addEventListener('auxclick', function (event) {
         if (!featureEnabled) return;
@@ -345,6 +422,10 @@
     const originalOpen = window.open;
     window.open = function (url, target, features) {
         if (!featureEnabled) return originalOpen.apply(window, arguments);
+        if (!hasUserNavigationActivation() && !isPendingDuplicateOpen() && !isPendingMapOpen()) {
+            return originalOpen.apply(window, arguments);
+        }
+        if (postPeek(url)) return createPeekWindow(url);
         if (postMap(url)) return createMapWindow(url);
         if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return null;
         if (postOpen(url)) return null;
@@ -354,6 +435,8 @@
     const originalAnchorClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {
         if (!featureEnabled) return originalAnchorClick.apply(this, arguments);
+        if (!hasUserNavigationActivation()) return originalAnchorClick.apply(this, arguments);
+        if (postPeek(this.href)) return;
         if (postMap(this.href)) return;
         return originalAnchorClick.apply(this, arguments);
     };
@@ -366,6 +449,11 @@
         nav.__AESPatchedOpenPage = true;
         nav.__openPage = function (pageObject) {
             if (!featureEnabled) return originalOpenPage.apply(this, arguments);
+            if (!hasUserNavigationActivation() && !isPendingDuplicateOpen() && !isPendingMapOpen()) {
+                return originalOpenPage.apply(this, arguments);
+            }
+            const peekUrl = extractHandledUrlFromPageObject(pageObject);
+            if (peekUrl && postPeek(peekUrl)) return false;
             if (isPendingMapOpen()) {
                 const mapUrl = extractMapUrlFromPageObject(pageObject);
                 if (mapUrl && postMap(mapUrl)) return false;
