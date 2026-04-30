@@ -17,14 +17,84 @@
         return /^ww\d+\.autotask\.net$/i.test(String(hostname || ''));
     }
 
+    const HANDLED_PATHS = [
+        '/mvc/servicedesk/ticketdetail.mvc',
+        '/mvc/servicedesk/ticketnew.mvc',
+        '/mvc/crm/accountdetail.mvc',
+        '/mvc/crm/contactdetail.mvc',
+        '/mvc/crm/installedproductdetail.mvc',
+        '/mvc/crm/note.mvc/view',
+        '/mvc/crm/opportunitydetail.mvc',
+        '/mvc/administrationsetup/resourcedetail.mvc',
+        '/mvc/administration/resourcedetail.mvc',
+        '/mvc/administrationsetup/resource.mvc/resourcedetail',
+        '/mvc/administrationsetup/persondetail.mvc',
+        '/autotask35/grapevine/profile.aspx',
+        '/autotask35/crm/salesorder/salesorderdetail.aspx',
+        '/opportunity/quotes/quote.asp',
+        '/opportunity/quotes/newquote.asp',
+        '/mvc/crm/quotetemplate.mvc/editproperties',
+        '/autotask/popups/tickets/recurring_ticket.aspx',
+        '/autotask/autotaskextend/livelinks/livelinkeditor.aspx',
+        '/autotask/autotaskextend/directory_view.aspx',
+        '/autotask/views/crm/contact_group_management.aspx',
+        '/autotask35/crm/contactgroupmanager.aspx',
+        '/timesheets/views/readonly/tmsreadonly_100.asp',
+        '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx',
+        '/mvc/crm/contractbillingruleassociation.mvc/editcontact',
+        '/mvc/projects/projectdetail.mvc/projectdetail',
+        '/mvc/projects/taskdetail.mvc',
+        '/contracts/views/contractview.asp',
+        '/contracts/views/contractsummary.asp',
+        '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx',
+        '/mvc/projects/importticket.mvc/copytickettoproject',
+        '/servicedesk/popups/forward/svcforward.asp',
+        '/servicedesk/reports/togoreportframe.asp',
+        '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
+        '/popups/work/svcdetail.asp',
+    ];
+    const NATIVE_HOME_PATHS = [
+        '/mvc/inventory/costitem.mvc/shipping',
+    ];
+    const HANDLED_PATH_INCLUDES = [
+        '/ticketprintview.mvc',
+        '/picklistdetailforshippinggrid',
+        '/packinglistdetailforshippinggrid',
+        '/inventory/inventory_edit_order.aspx',
+        '/billingproduct',
+        '/billingproducts',
+        '/billing_product',
+        '/billing_products',
+        '/billingrule',
+        '/billingrules',
+        '/billing_rule',
+        '/billing_rules',
+        '/billingassociation',
+        '/billingassociations',
+        '/billingproductassociation',
+        '/billingruleassociation',
+    ];
+
+    function normalizePath(pathname) {
+        return String(pathname || '').toLowerCase().replace(/\/index$/, '');
+    }
+
+    function isHandledAutotaskPath(path) {
+        if (NATIVE_HOME_PATHS.includes(path)) return false;
+        return HANDLED_PATHS.includes(path) ||
+            HANDLED_PATH_INCLUDES.some(function (fragment) { return path.includes(fragment); }) ||
+            path.includes('/contactdetail') ||
+            path.includes('/resourcedetail') ||
+            path.includes('/persondetail') ||
+            path === '/autotask35/grapevine/profile.aspx';
+    }
+
     function normalizeExternalAutotaskUrl(url) {
         try {
             const parsed = new URL(String(url || ''));
-            const path = parsed.pathname.toLowerCase().replace(/\/index$/, '');
+            const path = normalizePath(parsed.pathname);
             if (!isRegionalAutotaskHost(parsed.hostname)) return '';
-            if (path !== '/contracts/views/contractview.asp'
-                && path !== '/contracts/views/contractsummary.asp') return '';
-            if (!parsed.searchParams.get('contractID') && !parsed.searchParams.get('contractId')) return '';
+            if (!isHandledAutotaskPath(path)) return '';
             return parsed.href;
         } catch (e) {
             return '';

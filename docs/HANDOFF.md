@@ -111,7 +111,7 @@ Before a stable release, verify in Chrome at minimum:
 ## Release Notes For Current Snapshot
 
 0.6.2 Experimental:
-- Added support for opening external Autotask contract links directly in the AES Tab Bar.
+- Added support for opening supported external Autotask entity links directly in the AES Tab Bar.
 
 New features:
 - Added AES Tab Bar support for Devices / Installed Products, Notes, Opportunities, Sales Orders, Purchase Orders, Quotes, Quote Templates, Contact Groups, Billing Products, and Ticket Charges.

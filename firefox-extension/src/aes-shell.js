@@ -4,7 +4,7 @@
     const AES = window.__AES__;
     if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
-    const AES_RUNTIME_BUILD_ID = '0.6.2-external-open-1';
+    const AES_RUNTIME_BUILD_ID = '0.6.2-external-open-2';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
 
@@ -293,7 +293,7 @@
             {
                 title: 'Experimental',
                 items: [
-                    'Added support for opening external Autotask contract links directly in the AES Tab Bar.',
+                    'Added support for opening supported external Autotask entity links directly in the AES Tab Bar.',
                 ],
             },
             {
