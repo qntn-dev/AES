@@ -244,6 +244,9 @@
         rootResizeObserver: null,
         geometryBurstUntil: 0,
         geometryBurstTimerId: 0,
+        geometryResizeFinalizeTimerId: 0,
+        lastGeometryViewportWidth: 0,
+        lastGeometryViewportHeight: 0,
         rootMutationObserver: null,
         themeObserver: null,
         earlyAccessObserver: null,
@@ -3670,6 +3673,26 @@
         state.geometryRaf = window.requestAnimationFrame(syncGeometry);
     }
 
+    function requestResizeSyncGeometry() {
+        const width = window.innerWidth || document.documentElement.clientWidth || 0;
+        const height = window.innerHeight || document.documentElement.clientHeight || 0;
+        if (
+            Math.abs(width - state.lastGeometryViewportWidth) < 2 &&
+            Math.abs(height - state.lastGeometryViewportHeight) < 2
+        ) {
+            return;
+        }
+        state.lastGeometryViewportWidth = width;
+        state.lastGeometryViewportHeight = height;
+        if (state.geometryResizeFinalizeTimerId) {
+            window.clearTimeout(state.geometryResizeFinalizeTimerId);
+        }
+        state.geometryResizeFinalizeTimerId = window.setTimeout(function () {
+            state.geometryResizeFinalizeTimerId = 0;
+            requestSyncGeometry();
+        }, 90);
+    }
+
     function startGeometryBurst(durationMs) {
         const until = Date.now() + durationMs;
         if (until > state.geometryBurstUntil) state.geometryBurstUntil = until;
@@ -3682,18 +3705,17 @@
                 state.geometryBurstTimerId = 0;
                 state.geometryBurstUntil = 0;
             }
-        }, 16);
+        }, 80);
     }
 
     function installGeometrySync() {
-        window.addEventListener('resize', requestSyncGeometry, { passive: true });
-        window.addEventListener('resize', function () { startGeometryBurst(220); }, { passive: true });
+        window.addEventListener('resize', requestResizeSyncGeometry, { passive: true });
         window.addEventListener('transitionrun', function () { startGeometryBurst(450); }, true);
         window.addEventListener('transitionstart', function () { startGeometryBurst(450); }, true);
         window.addEventListener('transitionend', requestSyncGeometry, true);
 
         if ('ResizeObserver' in window && !state.rootResizeObserver) {
-            state.rootResizeObserver = new ResizeObserver(requestSyncGeometry);
+            state.rootResizeObserver = new ResizeObserver(requestResizeSyncGeometry);
             state.rootResizeObserver.observe(document.documentElement);
             if (document.body) state.rootResizeObserver.observe(document.body);
         }

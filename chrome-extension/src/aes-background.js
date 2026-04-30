@@ -12,7 +12,6 @@
 
     const api = (typeof browser !== 'undefined' && browser && browser.action) ? browser : chrome;
     if (!api || !api.action || !api.action.onClicked || !api.tabs) return;
-
     function isRegionalAutotaskHost(hostname) {
         return /^ww\d+\.autotask\.net$/i.test(String(hostname || ''));
     }
