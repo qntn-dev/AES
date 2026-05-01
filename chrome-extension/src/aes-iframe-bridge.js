@@ -6,6 +6,8 @@
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     AES.iframeBridgeInitialized = true;
     let featureEnabled = !(AES.featuresEnabled && !AES.featuresEnabled());
+    let improvedScrollbarsEnabled = false;
+    let mapButtonEnhancementStarted = false;
 
     function decodeUrl(url) {
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
@@ -25,6 +27,10 @@
         if (!anchor) return null;
         const href = anchor.getAttribute('href') || '';
         if (!href || href === '#') return null;
+        const contactMatch = href.match(/OpenContactDetail\s*\(\s*(\d+)\s*\)/i);
+        if (contactMatch) {
+            return AES.toAbsoluteUrl('/opportunity/contacts/Contact.asp?contactID=' + encodeURIComponent(contactMatch[1]));
+        }
 
         const absoluteUrl = AES.toAbsoluteUrl(decodeUrl(href));
         return AES.isHandledUrl(absoluteUrl) ? absoluteUrl : null;
@@ -49,7 +55,8 @@
             && payload.type !== 'feature-enabled-request'
             && payload.type !== 'timesheet-ui-enhancement-request'
             && payload.type !== 'preferences-ui-enhancement-request'
-            && payload.type !== 'workspace-queues-ui-enhancement-request') return;
+            && payload.type !== 'workspace-queues-ui-enhancement-request'
+            && payload.type !== 'improved-scrollbars-request') return;
         try { window.top.postMessage({ __ns: AES.MSG_NS, ...payload }, '*'); }
         catch (e) {}
     }
@@ -63,12 +70,26 @@
             if ((path === '/mvc/inventory/receipthistory.mvc' ||
                 path === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder') &&
                 parsed.searchParams.has('purchaseOrderId')) return true;
+            if (path === '/autotask/column_chooser.aspx') return true;
+            if (path.includes('contract') && (
+                path.includes('service') ||
+                path.includes('discount') ||
+                path.includes('exclusion') ||
+                path.includes('selector') ||
+                path.includes('installedproduct') ||
+                path.includes('contract_products')
+            )) return true;
             return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
                 path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
                 path === '/servicedesk/popups/forward/svcforward.asp' ||
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
-                path === '/popups/work/svcdetail.asp';
+                path === '/popups/work/svcdetail.asp' ||
+                path === '/mvc/contracts/contract.mvc/edit' ||
+                path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
+                path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
+                path === '/mvc/contracts/contracthistory.mvc/entitychangehistory' ||
+                (path === '/popups/journals/jrnpop.asp' && parsed.searchParams.get('action') === 'showCompliance');
         } catch (e) {
             return false;
         }
@@ -223,39 +244,102 @@
     }
 
     // Replace native OS scrollbars in the iframe's document with a thin
-    // translucent styled scrollbar. Selectors use :where() so they have
-    // zero specificity — anything Autotask styles with a normal selector
-    // (e.g. `.SomeGrid::-webkit-scrollbar`) wins automatically and keeps
-    // its own custom scrollbar untouched.
+    // translucent styled scrollbar when the shell setting is enabled.
     function injectScrollbarStyles() {
         const STYLE_ID = 'aes-custom-scrollbar-style';
         if (document.getElementById(STYLE_ID)) return;
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = [
-            ':where(html) {',
-            '    scrollbar-color: rgba(125, 167, 201, 0.5) transparent;',
-            '    scrollbar-width: thin;',
+            'html.aes-improved-scrollbars,',
+            'html.aes-improved-scrollbars body,',
+            'html.aes-improved-scrollbars * {',
+            '    scrollbar-color: rgba(125, 167, 201, 0.5) transparent !important;',
+            '    scrollbar-width: thin !important;',
+            '    scrollbar-gutter: auto !important;',
             '}',
-            ':where(*)::-webkit-scrollbar {',
-            '    width: 10px;',
-            '    height: 10px;',
+            'html.aes-improved-scrollbars::-webkit-scrollbar,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar {',
+            '    background: transparent !important;',
+            '    background-color: transparent !important;',
+            '    width: 4px !important;',
+            '    height: 4px !important;',
             '}',
-            ':where(*)::-webkit-scrollbar-track {',
-            '    background: transparent;',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-track,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-track,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-track {',
+            '    background: transparent !important;',
+            '    background-color: transparent !important;',
+            '    border: 0 !important;',
+            '    box-shadow: none !important;',
             '}',
-            ':where(*)::-webkit-scrollbar-thumb {',
-            '    background-color: rgba(125, 167, 201, 0.5);',
-            '    border-radius: 999px;',
-            '    border: 2px solid transparent;',
-            '    background-clip: content-box;',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-track-piece,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-track-piece,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-track-piece {',
+            '    background: transparent !important;',
+            '    background-color: transparent !important;',
+            '    border: 0 !important;',
+            '    box-shadow: none !important;',
             '}',
-            ':where(*)::-webkit-scrollbar-thumb:hover {',
-            '    background-color: rgba(125, 167, 201, 0.75);',
-            '    background-clip: content-box;',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-thumb,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-thumb,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-thumb {',
+            '    background-color: rgba(125, 167, 201, 0.5) !important;',
+            '    border-radius: 999px !important;',
+            '    border: 1px solid transparent !important;',
+            '    background-clip: content-box !important;',
             '}',
-            ':where(*)::-webkit-scrollbar-corner {',
-            '    background: transparent;',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-thumb:hover,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-thumb:hover,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-thumb:hover {',
+            '    background-color: rgba(125, 167, 201, 0.75) !important;',
+            '    background-clip: content-box !important;',
+            '}',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-corner,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-corner,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-corner {',
+            '    background: transparent !important;',
+            '    background-color: transparent !important;',
+            '}',
+            'html.aes-improved-scrollbars::-webkit-scrollbar-button,',
+            'html.aes-improved-scrollbars body::-webkit-scrollbar-button,',
+            'html.aes-improved-scrollbars *::-webkit-scrollbar-button,',
+            'html.aes-improved-scrollbars::-webkit-resizer,',
+            'html.aes-improved-scrollbars body::-webkit-resizer,',
+            'html.aes-improved-scrollbars *::-webkit-resizer {',
+            '    display: none !important;',
+            '    background: transparent !important;',
+            '    background-color: transparent !important;',
+            '    width: 0 !important;',
+            '    height: 0 !important;',
+            '}',
+            'html.aes-ui-enhancer-enabled.aes-autotask-dark-theme {',
+            '    color-scheme: dark;',
+            '}',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme {',
+            '    scrollbar-color: rgba(125, 167, 201, 0.58) #0f141a !important;',
+            '}',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-track,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-track,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-track {',
+            '    background: transparent !important;',
+            '}',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-thumb,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-thumb,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-thumb {',
+            '    background-color: rgba(125, 167, 201, 0.58) !important;',
+            '    border-color: #0f141a !important;',
+            '}',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-thumb:hover,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-thumb:hover,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-thumb:hover {',
+            '    background-color: rgba(125, 167, 201, 0.82) !important;',
+            '}',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-corner,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-corner,',
+            'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-corner {',
+            '    background: transparent !important;',
             '}',
         ].join('\n');
         function attach() {
@@ -447,7 +531,7 @@
             /* The EntityHeadingIconButton wrapper ships with fixed width/margins
                for the original 16px icon. Reset it so our button sits inline
                with the address text baseline. */
-            .EntityHeadingIconButton:has(> .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]) {
+            html.aes-ui-enhancer-enabled .EntityHeadingIconButton:has(> .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]) {
                 width: auto !important;
                 height: auto !important;
                 margin: 0 !important;
@@ -458,7 +542,7 @@
             }
             /* Match Autotask's native primary button (e.g. "Assign & Schedule"):
                rounded, brand blue fill, white text, medium-weight 13px label. */
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] {
                 width: auto !important;
                 height: auto !important;
                 min-width: 0 !important;
@@ -482,20 +566,20 @@
                 overflow: visible !important;
                 user-select: none !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]:hover,
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"].HoverState {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]:hover,
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"].HoverState {
                 background: #24475f !important;
                 color: #ffffff !important;
                 box-shadow: none !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]:active {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]:active {
                 background: #1d3a4d !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon,
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-text {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon,
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-text {
                 pointer-events: none !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon {
                 width: 14px !important;
                 height: 14px !important;
                 display: inline-flex !important;
@@ -503,12 +587,12 @@
                 justify-content: center !important;
                 flex: 0 0 auto !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon svg {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-icon svg {
                 width: 14px !important;
                 height: 14px !important;
                 display: block !important;
             }
-            .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-text {
+            html.aes-ui-enhancer-enabled .InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"] .aes-map-button-text {
                 display: inline-block !important;
                 line-height: 1 !important;
                 letter-spacing: 0.01em !important;
@@ -518,10 +602,18 @@
     }
 
     function enhanceMapButtons(root) {
+        if (!darkEnhancerEnabled) return;
         const scope = root && root.querySelectorAll ? root : document;
         const buttons = scope.querySelectorAll('.InlineIconButton.InlineIcon.Map:not([data-aes-map-enhanced])');
         for (const button of buttons) {
             button.dataset.aesMapEnhanced = 'true';
+            button.dataset.aesMapOriginalHtml = button.innerHTML;
+            if (button.hasAttribute('title')) button.dataset.aesMapOriginalTitle = button.getAttribute('title') || '';
+            else button.dataset.aesMapOriginalTitleMissing = 'true';
+            if (button.hasAttribute('role')) button.dataset.aesMapOriginalRole = button.getAttribute('role') || '';
+            else button.dataset.aesMapOriginalRoleMissing = 'true';
+            if (button.hasAttribute('aria-label')) button.dataset.aesMapOriginalAriaLabel = button.getAttribute('aria-label') || '';
+            else button.dataset.aesMapOriginalAriaLabelMissing = 'true';
             button.title = button.title || 'Open organization location';
             button.setAttribute('role', button.getAttribute('role') || 'button');
             button.setAttribute('aria-label', button.getAttribute('aria-label') || 'Open organization location');
@@ -529,7 +621,33 @@
         }
     }
 
+    function restoreMapButtons(root) {
+        const scope = root && root.querySelectorAll ? root : document;
+        const buttons = scope.querySelectorAll('.InlineIconButton.InlineIcon.Map[data-aes-map-enhanced="true"]');
+        for (const button of buttons) {
+            if (Object.prototype.hasOwnProperty.call(button.dataset, 'aesMapOriginalHtml')) {
+                button.innerHTML = button.dataset.aesMapOriginalHtml;
+            }
+            if (button.dataset.aesMapOriginalTitleMissing === 'true') button.removeAttribute('title');
+            else if (Object.prototype.hasOwnProperty.call(button.dataset, 'aesMapOriginalTitle')) button.setAttribute('title', button.dataset.aesMapOriginalTitle);
+            if (button.dataset.aesMapOriginalRoleMissing === 'true') button.removeAttribute('role');
+            else if (Object.prototype.hasOwnProperty.call(button.dataset, 'aesMapOriginalRole')) button.setAttribute('role', button.dataset.aesMapOriginalRole);
+            if (button.dataset.aesMapOriginalAriaLabelMissing === 'true') button.removeAttribute('aria-label');
+            else if (Object.prototype.hasOwnProperty.call(button.dataset, 'aesMapOriginalAriaLabel')) button.setAttribute('aria-label', button.dataset.aesMapOriginalAriaLabel);
+            delete button.dataset.aesMapEnhanced;
+            delete button.dataset.aesMapOriginalHtml;
+            delete button.dataset.aesMapOriginalTitle;
+            delete button.dataset.aesMapOriginalTitleMissing;
+            delete button.dataset.aesMapOriginalRole;
+            delete button.dataset.aesMapOriginalRoleMissing;
+            delete button.dataset.aesMapOriginalAriaLabel;
+            delete button.dataset.aesMapOriginalAriaLabelMissing;
+        }
+    }
+
     function startMapButtonEnhancement() {
+        if (!darkEnhancerEnabled || mapButtonEnhancementStarted) return;
+        mapButtonEnhancementStarted = true;
         injectMapButtonStyles();
         enhanceMapButtons(document);
         const obs = new MutationObserver(function (mutations) {
@@ -855,14 +973,61 @@
             }
         }
 
+        function findContractField(labelText) {
+            const wanted = String(labelText || '').toLowerCase();
+            for (const td of document.querySelectorAll('td.FieldLabels')) {
+                const label = cleanText(td.textContent).toLowerCase();
+                if (label !== wanted) continue;
+                const valueTd = td.nextElementSibling;
+                return valueTd ? cleanText(valueTd.textContent) : '';
+            }
+            return '';
+        }
+
+        const contractType = findContractField('Contract Type');
+        const contractCategory = findContractField('Contract Category');
+        const purchaseOrderNumber = findContractField('Purchase Order Number');
+        const accountManager = findContractField('Account Manager');
+        const contactName = findContractField('Contact Name');
+        const serviceLevelAgreement = findContractField('Service Level Agreement');
+        const opportunity = findContractField('Opportunity');
+        const defaultServiceDeskContract = findContractField('Default Service Desk Contract');
+        const startDate = findContractField('Start Date');
+        const endDate = findContractField('End Date');
+        const period = findContractField('Contract Period Type');
+        const hoverFields = [
+            { label: 'Account Manager', value: accountManager },
+            { label: 'Contact Name', value: contactName },
+            { label: 'Service Level Agreement', value: serviceLevelAgreement },
+            { label: 'Opportunity', value: opportunity },
+            { label: 'Default SD Contract', value: defaultServiceDeskContract },
+            { label: 'Contract Type', value: contractType },
+            { label: 'Category', value: contractCategory },
+            { label: 'Start date', value: startDate },
+            { label: 'End date', value: endDate },
+            { label: 'Period', value: period },
+        ].filter(field => field.value);
+
         return {
             title: name || 'Contract',
             number: id ? ('ID ' + id).slice(0, 40) : 'Contract',
             contact: org.slice(0, 80),
+            hoverFields: hoverFields,
             metadataFields: {
                 type: 'Contract',
                 id: id ? ('ID ' + id).slice(0, 40) : '',
                 organization: org.slice(0, 80),
+                contractType: contractType.slice(0, 80),
+                contractCategory: contractCategory.slice(0, 80),
+                purchaseOrderNumber: purchaseOrderNumber.slice(0, 80),
+                accountManager: accountManager.slice(0, 80),
+                contactName: contactName.slice(0, 80),
+                serviceLevelAgreement: serviceLevelAgreement.slice(0, 80),
+                opportunity: opportunity.slice(0, 120),
+                defaultServiceDeskContract: defaultServiceDeskContract.slice(0, 80),
+                startDate: startDate.slice(0, 80),
+                endDate: endDate.slice(0, 80),
+                period: period.slice(0, 80),
             },
         };
     }
@@ -1334,6 +1499,11 @@
     }
 
     let lastSent = '';
+    function hasPageLevelWarning() {
+        const warning = document.querySelector('table.PageLevelInstructions #errorSmall');
+        return !!(warning && cleanText(warning.textContent));
+    }
+
     function reportSelf() {
         if (!AES.isHandledUrl(location.href)) return;
         let info;
@@ -1349,6 +1519,7 @@
                 hoverFields: [],
             };
         }
+        const pageWarning = hasPageLevelWarning();
         const primaryResource = info.primaryResource || null;
         const priority = info.priority || '';
         const status = info.status || '';
@@ -1372,6 +1543,7 @@
             info.title, info.number, info.contact,
             JSON.stringify(primaryResource),
             priority, status, lastActivity,
+            pageWarning ? 'warning' : '',
             JSON.stringify(hoverFields),
             JSON.stringify(metadataFields),
         ].join('|');
@@ -1387,6 +1559,7 @@
             priority: priority,
             status: status,
             lastActivity: lastActivity,
+            pageWarning: pageWarning,
             hoverFields: hoverFields,
             metadataFields: metadataFields,
         });
@@ -3355,11 +3528,24 @@
     function handleDarkEnhancerMessage(data) {
         darkEnhancerEnabled = !!data.enabled;
         darkEnhancerActiveTheme = !!data.dark;
+        document.documentElement.classList.toggle('aes-ui-enhancer-enabled', darkEnhancerEnabled);
+        document.documentElement.classList.toggle('aes-autotask-dark-theme', darkEnhancerActiveTheme);
         syncDarkEnhancer();
+        if (darkEnhancerEnabled) startMapButtonEnhancement();
+        else restoreMapButtons(document);
     }
 
     function requestDarkEnhancerState() {
         postToTop({ type: 'dark-enhancer-request' });
+    }
+
+    function handleImprovedScrollbarsMessage(data) {
+        improvedScrollbarsEnabled = featureEnabled && !!data.enabled;
+        document.documentElement.classList.toggle('aes-improved-scrollbars', improvedScrollbarsEnabled);
+    }
+
+    function requestImprovedScrollbarsState() {
+        postToTop({ type: 'improved-scrollbars-request' });
     }
 
     AES.initIframeBridge = function initIframeBridge() {
@@ -3384,6 +3570,10 @@
                 handleWorkspaceQueuesUiEnhancementMessage(data);
                 return;
             }
+            if (data && data.__ns === AES.MSG_NS && data.type === 'improved-scrollbars') {
+                handleImprovedScrollbarsMessage(data);
+                return;
+            }
             if (data && data.__ns === AES.MSG_NS && data.type === 'metadata-refresh') {
                 reportSelf();
                 return;
@@ -3395,6 +3585,7 @@
                     handleTimesheetUiEnhancementMessage({ enabled: false });
                     handlePreferencesUiEnhancementMessage({ enabled: false });
                     handleWorkspaceQueuesUiEnhancementMessage({ enabled: false });
+                    handleImprovedScrollbarsMessage({ enabled: false });
                 }
                 return;
             }
@@ -3424,6 +3615,7 @@
         requestTimesheetUiEnhancementState();
         requestPreferencesUiEnhancementState();
         requestWorkspaceQueuesUiEnhancementState();
+        requestImprovedScrollbarsState();
         postToTop({ type: 'feature-enabled-request' });
         window.setTimeout(requestDarkEnhancerState, 250);
         window.setTimeout(requestDarkEnhancerState, 1000);
@@ -3437,7 +3629,10 @@
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 250);
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 1000);
         window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 2500);
-        startMapButtonEnhancement();
+        window.setTimeout(requestImprovedScrollbarsState, 250);
+        window.setTimeout(requestImprovedScrollbarsState, 1000);
+        window.setTimeout(requestImprovedScrollbarsState, 2500);
+        if (darkEnhancerEnabled) startMapButtonEnhancement();
 
         function armMapOpenFromEvent(event) {
             if (!featureEnabled) return;
@@ -3499,7 +3694,7 @@
                     postToTop({ type: 'map', url: targetUrl });
                     return createMapWindow(targetUrl);
                 }
-                if (targetUrl && AES.isHandledUrl(targetUrl)) {
+                if (targetUrl && (AES.isHandledUrl(targetUrl) || isPeekPopupUrl(targetUrl))) {
                     postHandledNavigation(targetUrl);
                     return null;
                 }
@@ -3521,6 +3716,13 @@
         window.addEventListener('beforeunload', function () {
             postToTop({ type: 'nav-start' });
         });
+
+        function reportFrameInteraction() {
+            postToTop({ type: 'frame-interaction' });
+        }
+        document.addEventListener('pointerdown', reportFrameInteraction, true);
+        document.addEventListener('mousedown', reportFrameInteraction, true);
+        document.addEventListener('focusin', reportFrameInteraction, true);
 
         // Report this iframe's <title> to the top shell. The shell uses it
         // for the Home-tab label when this is the native (non-tab) iframe;

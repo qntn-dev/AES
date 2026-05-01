@@ -4,7 +4,7 @@
     const AES = window.__AES__;
     if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
-    const AES_RUNTIME_BUILD_ID = '0.6.5-stable-1';
+    const AES_RUNTIME_BUILD_ID = '0.7.0-stable-1';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
 
@@ -67,6 +67,9 @@
         { value: 'quoteName', label: 'Quote name' },
         { value: 'date', label: 'Date' },
         { value: 'primaryResource', label: 'Primary resource' },
+        { value: 'contractType', label: 'Contract Type' },
+        { value: 'contractCategory', label: 'Contract Category' },
+        { value: 'purchaseOrderNumber', label: 'Purchase Order Number' },
         { value: 'deviceType', label: 'Device type' },
         { value: 'manufacturer', label: 'Manufacturer' },
         { value: 'model', label: 'Model' },
@@ -90,7 +93,7 @@
         salesorder: ['type', 'id', 'organization', 'none'],
         purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
         quote: ['type', 'id', 'quoteName', 'organization', 'none'],
-        contract: ['type', 'id', 'organization', 'none'],
+        contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
         project: ['type', 'id', 'organization', 'none'],
         timesheet: ['type', 'date', 'contact', 'none'],
         inventory: ['type', 'number', 'id', 'organization', 'none'],
@@ -107,7 +110,7 @@
         salesorder: { line2: 'id', line3: 'organization' },
         purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
         quote: { line2: 'id', line3: 'quoteName' },
-        contract: { line2: 'id', line3: 'organization' },
+        contract: { line2: 'contractType', line3: 'organization' },
         project: { line2: 'id', line3: 'organization' },
         timesheet: { line2: 'date', line3: 'contact' },
         inventory: { line2: 'id', line3: 'organization' },
@@ -124,7 +127,7 @@
         salesorder: { line2: 'id', line3: 'organization' },
         purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
         quote: { line2: 'id', line3: 'quoteName' },
-        contract: { line2: 'id', line3: 'organization' },
+        contract: { line2: 'contractType', line3: 'organization' },
         project: { line2: 'id', line3: 'organization' },
         timesheet: { line2: 'date', line3: 'contact' },
         inventory: { line2: 'id', line3: 'organization' },
@@ -169,12 +172,38 @@
         return typeof type === 'string' ? type.toLowerCase() : '';
     }
 
+    function createRandomId(prefix) {
+        try {
+            if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                return prefix + window.crypto.randomUUID();
+            }
+        } catch (e) {}
+        return prefix + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2);
+    }
+
     const state = AES.state = Object.assign(AES.state || {}, {
         tabs: [],
         activeId: null,
         splitId: null,
+        splitPairIds: Array.isArray(AES.state && AES.state.splitPairIds)
+            ? AES.state.splitPairIds
+            : null,
+        splitPairColor: AES.state && typeof AES.state.splitPairColor === 'string'
+            ? AES.state.splitPairColor
+            : '',
+        splitRatio: AES.state && typeof AES.state.splitRatio === 'number'
+            ? AES.state.splitRatio
+            : 0.5,
+        splitRatios: Array.isArray(AES.state && AES.state.splitRatios)
+            ? AES.state.splitRatios
+            : [],
         activationHistory: [],
         restoreLoadTimers: [],
+        tabsSyncClientId: createRandomId('client-'),
+        tabsSyncApplyingRemote: false,
+        tabsSyncLastSeenAt: 0,
+        tabsSyncHasOwnedTabs: false,
+        tabsSyncWatcherInstalled: false,
         nextId: 1,
         bar: null,
         viewport: null,
@@ -264,9 +293,10 @@
         phoneLinksEnabled: AES.state && typeof AES.state.phoneLinksEnabled === 'boolean'
             ? AES.state.phoneLinksEnabled
             : true,
-        themePreference: AES.state && ['auto', 'light', 'dark'].includes(AES.state.themePreference)
-            ? AES.state.themePreference
-            : 'auto',
+        improvedScrollbarsEnabled: AES.state && typeof AES.state.improvedScrollbarsEnabled === 'boolean'
+            ? AES.state.improvedScrollbarsEnabled
+            : true,
+        themePreference: 'auto',
         extensionEnabled: !(AES.state && AES.state.extensionEnabled === false),
         barOrientation: AES.state && ['horizontal', 'vertical'].includes(AES.state.barOrientation)
             ? AES.state.barOrientation
@@ -277,6 +307,8 @@
         replaceCalendarWithResourcePlanner: !!(AES.state && AES.state.replaceCalendarWithResourcePlanner),
         showTabBarOnNonIframePages: !!(AES.state && AES.state.showTabBarOnNonIframePages),
         resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
+        horizontalCompactTabsEnabled: !!(AES.state && AES.state.horizontalCompactTabsEnabled),
+        roundedPageFramesEnabled: !!(AES.state && AES.state.roundedPageFramesEnabled),
         timesheetUiEnhancementEnabled: false,
         preferencesUiEnhancementEnabled: false,
         workspaceQueuesUiEnhancementEnabled: false,
@@ -288,6 +320,10 @@
         tabBarExpandTimer: 0,
         tabBarResizeHandleHovered: false,
         tabBarResizing: false,
+        splitResizeHandle: null,
+        splitResizeHandles: [],
+        splitResizeHandleIndex: 0,
+        splitResizing: false,
         metadataRefreshTimerId: 0,
     });
     const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
@@ -301,31 +337,129 @@
     const GITHUB_RELEASE_DISMISS_STORAGE_KEY = 'aes-github-release-dismissed-version';
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const RELEASE_NOTES = {
-        version: '0.6.5',
+        version: '0.7.0',
         sections: [
             {
-                title: 'New features',
+                title: 'Highlights:',
                 items: [
-                    'Added support for opening external Autotask links directly in AES tabs.',
-                    'AES can now let you know when a newer stable version is available on GitHub.',
-                    'The Tab Bar now works on more Autotask pages by default, including pages that are not loaded inside an iframe.',
-                    'The vertical Tab Bar can now be resized by default.',
+                    'Workspace tab sync',
+                    'Resizable split view',
+                    'Slimmer Autotask scrollbars',
+                    'Rounded page frames',
+                    'Better contract tabs',
                 ],
             },
             {
-                title: 'Improvements',
-                items: [
-                    'Tab Bar resize and show on all Autotask pages are now normal Tab Bar settings instead of beta options.',
-                    'Tab customization now starts with the recommended layout by default.',
-                    'The Organization tab now correctly shows Classification where Autotask uses that field.',
+                title: 'New features:',
+                subsections: [
+                    {
+                        title: 'Tabs',
+                        items: [
+                            'AES tabs now sync across multiple Autotask browser tabs, so your workspace is no longer tied to one browser tab.',
+                            'Synced tabs only load when opened, helping keep Autotask lighter when working with larger tab sets.',
+                            'Remember tabs after closing the browser is now enabled by default, including saved tab titles, metadata, colors, warnings, and split groups.',
+                            'Added a compact horizontal tab layout from the Tab bar position menu.',
+                        ],
+                    },
+                    {
+                        title: 'Split view',
+                        items: [
+                            'Split view now supports up to four pages side by side.',
+                            'Split view can now be resized with a dedicated drag handle, so you can give important pages more space.',
+                            'Split tabs now have right-click actions for swapping pages and detaching pages from a split.',
+                            'Split groups now remain available when switching to other tabs or Home.',
+                        ],
+                    },
+                    {
+                        title: 'Contracts',
+                        items: [
+                            'Contract tabs now show richer hover-card details, including account manager, contact, SLA, opportunity, contract type, category, start date, end date, and period.',
+                            'Contract tabs can now show a red warning badge when Autotask displays an important page warning, such as an expired contract.',
+                            'More legacy contract actions can now open through Peek or directly in AES tabs.',
+                        ],
+                    },
+                    {
+                        title: 'Visual enhancements',
+                        items: [
+                            'Added a new visual option for rounded page frames with extra spacing around Autotask pages.',
+                            'Added an Improved scrollbars setting under Enhancements, making Autotask scrollbars slimmer across supported pages and frames.',
+                        ],
+                    },
                 ],
             },
             {
-                title: 'Fixes',
-                items: [
-                    'Fixed settings sometimes falling back to defaults after reloading the extension.',
-                    'Fixed the Home tab spinner getting stuck after refreshing Autotask from another AES tab.',
-                    'Improved Home tab behavior on newer non-iframe Autotask pages.',
+                title: 'Improvements:',
+                subsections: [
+                    {
+                        title: 'Tabs',
+                        items: [
+                            'Separators between tabs are cleaner, including hiding the separator between pages inside the same split.',
+                            'Compact horizontal tabs hide Line 3, shorten the tab bar, and disable the Line 3 customization column while selected.',
+                        ],
+                    },
+                    {
+                        title: 'Split view',
+                        items: [
+                            'Tab colors now work consistently across split groups.',
+                            'Split layouts are remembered when switching between tabs.',
+                            'Restored normal tabs stay unloaded until needed, while restored split views load all pages in the active split group right away.',
+                        ],
+                    },
+                    {
+                        title: 'Visual enhancements',
+                        items: [
+                            'Rounded and split page frames now look better in dark mode, including borders and scrollbars.',
+                            'Improved scrollbar styling now applies across the main Autotask page and nested Autotask frames.',
+                        ],
+                    },
+                    {
+                        title: 'Settings',
+                        items: [
+                            'AES now follows Autotask\'s light or dark mode automatically.',
+                            'The settings entry is now named Autotask Enhancement Suite.',
+                            'Experimental visual settings have been reorganized.',
+                        ],
+                    },
+                ],
+            },
+            {
+                title: 'Fixes:',
+                subsections: [
+                    {
+                        title: 'Legacy pages',
+                        items: [
+                            'Fixed some legacy Autotask pages opening incomplete after syncing or refreshing.',
+                        ],
+                    },
+                    {
+                        title: 'Split view',
+                        items: [
+                            'Fixed several split-view layout issues around spacing, right-click menus, loading indicators, and accidental resize dragging.',
+                            'Fixed split view sometimes showing an unloaded pane after refreshing or reopening the browser.',
+                        ],
+                    },
+                    {
+                        title: 'Tabs',
+                        items: [
+                            'Fixed the Home tab sometimes showing a loading spinner for too long.',
+                            'Fixed a small visual alignment issue between the AES tab bar and the native Autotask header.',
+                        ],
+                    },
+                    {
+                        title: 'Visual enhancements',
+                        items: [
+                            'Fixed some experimental visual changes applying even when the experimental UI enhancement setting was turned off.',
+                            'Fixed a dark-mode contrast issue that could make text hard to read on some light legacy pages.',
+                            'Fixed the map button visual treatment so it now follows the experimental UI enhancement setting.',
+                        ],
+                    },
+                    {
+                        title: 'Settings',
+                        items: [
+                            'Fixed the AES settings menu item sometimes looking selected when it should not be.',
+                            'Fixed the experimental Autotask UI Enhancement setting not staying enabled after reloading Autotask.',
+                        ],
+                    },
                 ],
             },
         ],
@@ -431,8 +565,8 @@
         settings: faIcon('fa-puzzle-piece fa-regular'),
         refresh: faIcon('fa-arrows-rotate fa-regular'),
         split: faIcon('fa-table-columns fa-regular'),
-        clearColor: '<i class="fa-solid fa-border-none" aria-hidden="true"></i>',
-        colorTab: '<i class="fa-regular fa-paintbrush" aria-hidden="true"></i>',
+        clearColor: faIcon('fa-border-none fa-regular'),
+        colorTab: faIcon('fa-paintbrush fa-regular'),
         duplicate: faIcon('fa-clone fa-regular'),
         peek: faIcon('fa-eye fa-regular'),
         copy: faIcon('fa-clipboard fa-regular'),
@@ -444,10 +578,6 @@
         '#06B6D4', '#6366F1', '#8B5CF6', '#A16207',
         '#A855F7', '#EC4899', '#F43F5E', '#64748B',
     ];
-
-    const RESTORE_ACTIVE_TAB_DELAY_MS = 900;
-    const RESTORE_BACKGROUND_TAB_DELAY_MS = 2200;
-    const RESTORE_BACKGROUND_TAB_STAGGER_MS = 450;
 
     function createTabIframe(url, options) {
         const opts = options || {};
@@ -473,6 +603,13 @@
             saveTabs();
         });
         return iframeEl;
+    }
+
+    function createTabPaneLoader() {
+        const loaderEl = document.createElement('div');
+        loaderEl.className = 'at-tabs-pane-loader hidden';
+        loaderEl.setAttribute('aria-label', 'Loading');
+        return loaderEl;
     }
 
     function requestTabMetadataRefresh(tab) {
@@ -520,11 +657,27 @@
     function updateLoaderVisibility() {
         if (!state.loader) return;
         const active = state.tabs.find(t => t.id === state.activeId);
-        const split = state.tabs.find(t => t.id === state.splitId);
+        const group = getSplitGroupIds();
+        const activeMemberId = active ? active.id : null;
+        const splitVisible = !!(group.includes(activeMemberId) && group.length >= 2);
+        const roundedSingleVisible = !!(state.roundedPageFramesEnabled && active && !splitVisible);
+        const visibleSplitLoading = group.includes(activeMemberId)
+            ? group.some(function (id) {
+                const tab = tabById(id);
+                return !!(tab && tab.id !== state.activeId && tab.loading);
+            })
+            : false;
         state.loader.classList.toggle('show', !!(
-            (active && active.loading) ||
-            (split && split.id !== state.activeId && split.loading)
+            !splitVisible && !roundedSingleVisible && ((active && active.loading) || visibleSplitLoading)
         ));
+        for (const tab of state.tabs) {
+            if (!tab.loaderEl) continue;
+            const show = !!tab.loading && (
+                (splitVisible && group.includes(tab.id)) ||
+                (roundedSingleVisible && tab.id === state.activeId)
+            );
+            tab.loaderEl.classList.toggle('show', show);
+        }
     }
 
     function injectStyles() {
@@ -681,6 +834,42 @@
                 z-index: 218;
                 pointer-events: auto;
             }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tabs-bar,
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tabs-home-cover {
+                height: 50px;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab {
+                padding-top: 4px;
+                padding-bottom: 4px;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .line.contact {
+                display: none;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .icon {
+                width: 16px;
+                height: 16px;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .icon :is(svg, span, i) {
+                width: 16px;
+                height: 16px;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .tab-actions {
+                justify-content: center;
+                gap: 0;
+                padding-top: 0;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .resource-badge,
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .tab-warning-badge {
+                width: 20px;
+                height: 20px;
+                min-width: 20px;
+                min-height: 20px;
+                flex: 0 0 20px;
+            }
+            html.aes-horizontal-compact-tabs:not(.aes-bar-vertical) .at-tab .tab-warning-badge svg {
+                width: 12px;
+                height: 12px;
+            }
             .at-tabs-viewport.empty { display: none; }
             .at-tabs-shell-hidden .at-tabs-bar,
             .at-tabs-shell-hidden .at-tabs-viewport,
@@ -694,6 +883,18 @@
                 height: 100%;
                 border: 0;
             }
+            .at-tabs-pane-loader {
+                position: absolute;
+                inset: 0;
+                z-index: 3;
+                display: none;
+                align-items: center;
+                justify-content: center;
+                background: rgba(255, 255, 255, 0.72);
+                border-radius: 10px;
+                pointer-events: none;
+            }
+            .at-tabs-pane-loader.show { display: flex; }
             html.aes-safari-webkit .at-tabs-viewport,
             html.aes-safari-webkit .at-tabs-viewport > iframe {
                 transform: none !important;
@@ -702,24 +903,201 @@
                 visibility: hidden;
                 pointer-events: auto;
             }
+            .at-tabs-viewport.rounded-pages:not(.split) > iframe.hidden {
+                inset: 8px;
+                width: calc(100% - 16px);
+                height: calc(100% - 16px);
+            }
+            .at-tabs-pane-loader.hidden {
+                display: none !important;
+            }
+            .at-tabs-viewport.rounded-pages:not(.split) > iframe:not(.hidden),
+            .at-tabs-viewport.rounded-pages:not(.split) > .at-tabs-pane-loader:not(.hidden) {
+                inset: 8px;
+                width: calc(100% - 16px);
+                height: calc(100% - 16px);
+                border-radius: 10px;
+                box-sizing: border-box;
+            }
+            .at-tabs-viewport.rounded-pages:not(.split) > iframe:not(.hidden) {
+                border: 1px solid rgba(55, 106, 148, 0.24);
+                box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+                background: #ffffff;
+                color-scheme: light;
+            }
+            .at-tabs-viewport.rounded-pages:not(.split) {
+                background: #f6f7f8;
+            }
             .at-tabs-viewport.split {
-                --at-tabs-split-gap: 10px;
-                background: #dbe3ec;
+                --at-tabs-split-gap: 26px;
+                --at-tabs-split-left: 50%;
+                --at-tabs-split-b1: 33.33%;
+                --at-tabs-split-b2: 66.67%;
+                --at-tabs-split-b3: 75%;
+                background: #f6f7f8;
+            }
+            .at-tabs-viewport.split > iframe,
+            .at-tabs-viewport.split > .at-tabs-pane-loader {
+                inset: auto;
+                top: 8px;
+                bottom: 8px;
+                height: calc(100% - 16px);
             }
             .at-tabs-viewport.split > iframe {
-                inset: auto;
-                top: 0;
-                bottom: 0;
-                width: calc((100% - var(--at-tabs-split-gap)) / 2);
-                height: 100%;
+                border: 1px solid rgba(55, 106, 148, 0.24);
+                border-radius: 10px;
+                box-shadow: 0 14px 34px rgba(15, 23, 42, 0.22);
+                background: #ffffff;
+                color-scheme: light;
+                box-sizing: border-box;
+                overflow: hidden;
             }
-            .at-tabs-viewport.split > iframe.left-pane {
-                left: 0;
+            .at-tabs-viewport.split > iframe.left-pane,
+            .at-tabs-viewport.split > .at-tabs-pane-loader.left-pane {
+                left: 8px;
+                right: auto;
+                width: calc(var(--at-tabs-split-left) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-viewport.split > iframe.right-pane,
+            .at-tabs-viewport.split > .at-tabs-pane-loader.right-pane {
+                left: auto;
+                right: 8px;
+                width: calc(100% - var(--at-tabs-split-left) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe,
+            .at-tabs-viewport.split.split-count-4 > iframe,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader {
+                top: 8px;
+                bottom: 8px;
+                height: calc(100% - 16px);
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-0,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-0,
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-0,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-0 {
+                left: 8px;
                 right: auto;
             }
-            .at-tabs-viewport.split > iframe.right-pane {
-                left: auto;
-                right: 0;
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-1,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-1 {
+                left: calc(var(--at-tabs-split-b1) + (var(--at-tabs-split-gap) / 2));
+                right: auto;
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-2,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-2 {
+                left: calc(var(--at-tabs-split-b2) + (var(--at-tabs-split-gap) / 2));
+                right: 8px;
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-0,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-0 {
+                width: calc(var(--at-tabs-split-b1) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-1,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-1 {
+                width: calc(var(--at-tabs-split-b2) - var(--at-tabs-split-b1) - var(--at-tabs-split-gap));
+            }
+            .at-tabs-viewport.split.split-count-3 > iframe.split-pane-index-2,
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-pane-loader.split-pane-index-2 {
+                width: calc(100% - var(--at-tabs-split-b2) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-1,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-1 {
+                left: calc(var(--at-tabs-split-b1) + (var(--at-tabs-split-gap) / 2));
+                right: auto;
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-2,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-2 {
+                left: calc(var(--at-tabs-split-b2) + (var(--at-tabs-split-gap) / 2));
+                right: auto;
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-3,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-3 {
+                left: calc(var(--at-tabs-split-b3) + (var(--at-tabs-split-gap) / 2));
+                right: 8px;
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-0,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-0 {
+                width: calc(var(--at-tabs-split-b1) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-1,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-1 {
+                width: calc(var(--at-tabs-split-b2) - var(--at-tabs-split-b1) - var(--at-tabs-split-gap));
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-2,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-2 {
+                width: calc(var(--at-tabs-split-b3) - var(--at-tabs-split-b2) - var(--at-tabs-split-gap));
+            }
+            .at-tabs-viewport.split.split-count-4 > iframe.split-pane-index-3,
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-pane-loader.split-pane-index-3 {
+                width: calc(100% - var(--at-tabs-split-b3) - (var(--at-tabs-split-gap) / 2) - 8px);
+            }
+            .at-tabs-split-resize-handle {
+                display: none;
+                position: absolute;
+                top: 8px;
+                bottom: 8px;
+                left: calc(var(--at-tabs-split-left, 50%) - 17px);
+                width: 34px;
+                z-index: 4;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                pointer-events: none;
+            }
+            .at-tabs-split-resize-grip {
+                width: 17px;
+                height: 68px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border-radius: 999px;
+                cursor: col-resize;
+                touch-action: none;
+                pointer-events: auto;
+            }
+            .at-tabs-viewport.split.split-count-2 > .at-tabs-split-resize-handle[data-split-handle="0"] {
+                display: flex;
+            }
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-split-resize-handle[data-split-handle="0"],
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-split-resize-handle[data-split-handle="0"] {
+                display: flex;
+                left: calc(var(--at-tabs-split-b1) - 17px);
+            }
+            .at-tabs-viewport.split.split-count-3 > .at-tabs-split-resize-handle[data-split-handle="1"],
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-split-resize-handle[data-split-handle="1"] {
+                display: flex;
+                left: calc(var(--at-tabs-split-b2) - 17px);
+            }
+            .at-tabs-viewport.split.split-count-4 > .at-tabs-split-resize-handle[data-split-handle="2"] {
+                display: flex;
+                left: calc(var(--at-tabs-split-b3) - 17px);
+            }
+            .at-tabs-split-resize-grip::before {
+                content: "";
+                width: 5px;
+                height: 56px;
+                border-radius: 999px;
+                background: rgba(55, 106, 148, 0.72);
+                box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.72), 0 8px 22px rgba(15, 23, 42, 0.22);
+                transition: width 0.16s ease, background 0.16s ease;
+            }
+            .at-tabs-split-resize-grip:hover::before,
+            .at-tabs-viewport.split-resizing .at-tabs-split-resize-grip::before {
+                width: 7px;
+                background: #376A94;
+            }
+            .at-tabs-viewport.split-resizing {
+                cursor: col-resize;
+                user-select: none;
+            }
+            .at-tabs-viewport.split-resizing::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: 3;
+                cursor: col-resize;
+                background: transparent;
             }
             .at-tabs-loader {
                 position: absolute;
@@ -732,7 +1110,8 @@
                 pointer-events: none;
             }
             .at-tabs-loader.show { display: flex; }
-            .at-tabs-loader::before {
+            .at-tabs-loader::before,
+            .at-tabs-pane-loader::before {
                 content: "";
                 width: 36px;
                 height: 36px;
@@ -821,36 +1200,101 @@
             }
 
             /* ============================================================
-               Custom scrollbars for the top document. Uses :where() so the
-               selectors carry zero specificity — anything Autotask styles
-               with a regular selector (.SomeGrid::-webkit-scrollbar { ... },
-               etc.) automatically wins and keeps its custom scrollbar. The
-               translucent neutral thumb works on both light and dark
-               surfaces without a theme switch. ============================
+               Custom scrollbars for Autotask documents and injected frames.
+               These intentionally use normal specificity + !important so
+               legacy Autotask grids and nested pages do not bring back the
+               oversized native scrollbars. ================================
             */
-            :where(html) {
-                scrollbar-color: rgba(125, 167, 201, 0.5) transparent;
-                scrollbar-width: thin;
+            html.aes-improved-scrollbars,
+            html.aes-improved-scrollbars body,
+            html.aes-improved-scrollbars * {
+                scrollbar-color: rgba(125, 167, 201, 0.5) transparent !important;
+                scrollbar-width: thin !important;
+                scrollbar-gutter: auto !important;
             }
-            :where(*)::-webkit-scrollbar {
-                width: 10px;
-                height: 10px;
+            html.aes-improved-scrollbars::-webkit-scrollbar,
+            html.aes-improved-scrollbars body::-webkit-scrollbar,
+            html.aes-improved-scrollbars *::-webkit-scrollbar {
+                background: transparent !important;
+                background-color: transparent !important;
+                width: 4px !important;
+                height: 4px !important;
             }
-            :where(*)::-webkit-scrollbar-track {
-                background: transparent;
+            html.aes-improved-scrollbars::-webkit-scrollbar-track,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-track,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-track {
+                background: transparent !important;
+                background-color: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
             }
-            :where(*)::-webkit-scrollbar-thumb {
-                background-color: rgba(125, 167, 201, 0.5);
-                border-radius: 999px;
-                border: 2px solid transparent;
-                background-clip: content-box;
+            html.aes-improved-scrollbars::-webkit-scrollbar-track-piece,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-track-piece,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-track-piece {
+                background: transparent !important;
+                background-color: transparent !important;
+                border: 0 !important;
+                box-shadow: none !important;
             }
-            :where(*)::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(125, 167, 201, 0.75);
-                background-clip: content-box;
+            html.aes-improved-scrollbars::-webkit-scrollbar-thumb,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-thumb,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-thumb {
+                background-color: rgba(125, 167, 201, 0.5) !important;
+                border-radius: 999px !important;
+                border: 1px solid transparent !important;
+                background-clip: content-box !important;
             }
-            :where(*)::-webkit-scrollbar-corner {
-                background: transparent;
+            html.aes-improved-scrollbars::-webkit-scrollbar-thumb:hover,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-thumb:hover,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(125, 167, 201, 0.75) !important;
+                background-clip: content-box !important;
+            }
+            html.aes-improved-scrollbars::-webkit-scrollbar-corner,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-corner,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-corner {
+                background: transparent !important;
+                background-color: transparent !important;
+            }
+            html.aes-improved-scrollbars::-webkit-scrollbar-button,
+            html.aes-improved-scrollbars body::-webkit-scrollbar-button,
+            html.aes-improved-scrollbars *::-webkit-scrollbar-button,
+            html.aes-improved-scrollbars::-webkit-resizer,
+            html.aes-improved-scrollbars body::-webkit-resizer,
+            html.aes-improved-scrollbars *::-webkit-resizer {
+                display: none !important;
+                background: transparent !important;
+                background-color: transparent !important;
+                width: 0 !important;
+                height: 0 !important;
+            }
+            html.aes-improved-scrollbars .at-tabs-scroll {
+                scrollbar-color: transparent transparent !important;
+                scrollbar-width: none !important;
+            }
+            html.aes-improved-scrollbars.aes-dark {
+                scrollbar-color: rgba(125, 167, 201, 0.58) #11161c !important;
+            }
+            html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-track,
+            html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-track,
+            html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-track {
+                background: transparent !important;
+            }
+            html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-thumb,
+            html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-thumb,
+            html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-thumb {
+                background-color: rgba(125, 167, 201, 0.58) !important;
+                border-color: #11161c !important;
+            }
+            html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-thumb:hover,
+            html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-thumb:hover,
+            html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-thumb:hover {
+                background-color: rgba(125, 167, 201, 0.82) !important;
+            }
+            html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-corner,
+            html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-corner,
+            html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-corner {
+                background: transparent !important;
             }
             .at-tab {
                 display: inline-flex;
@@ -873,6 +1317,7 @@
                 --aes-tab-bg-idle: transparent;
                 --aes-tab-bg-hover: #f1f5f9;
                 --aes-tab-bg-active: #E1E9EF;
+                --aes-tab-separator: #e2e8f0;
             }
             .at-tab:hover { background: var(--aes-tab-bg-hover); }
             .at-tab:not(.active) + .at-tab:not(.active)::before {
@@ -882,7 +1327,7 @@
                 top: 14px;
                 bottom: 14px;
                 width: 1px;
-                background: #e2e8f0;
+                background: var(--aes-tab-separator);
             }
             .at-tab.active {
                 background: var(--aes-tab-bg-active);
@@ -906,6 +1351,9 @@
             }
             .at-tab.split-target {
                 box-shadow: inset 0 -3px 0 #7da7c9;
+            }
+            .at-tab.split-member + .at-tab.split-member::before {
+                display: none;
             }
             .at-tab.dragging {
                 opacity: 0.46;
@@ -1060,6 +1508,8 @@
                 justify-content: center;
                 width: 22px;
                 height: 22px;
+                min-width: 22px;
+                min-height: 22px;
                 border-radius: 50%;
                 border: 1px solid rgba(15, 23, 42, 0.16);
                 background: #64748b;
@@ -1081,6 +1531,36 @@
                 background-size: cover;
                 color: transparent;
                 text-shadow: none;
+            }
+            .at-tab .tab-warning-badge {
+                display: none;
+                align-items: center;
+                justify-content: center;
+                width: 22px;
+                height: 22px;
+                min-width: 22px;
+                min-height: 22px;
+                border-radius: 50%;
+                border: 1px solid rgba(127, 29, 29, 0.22);
+                background: #dc2626;
+                color: #ffffff;
+                box-sizing: border-box;
+                box-shadow: 0 2px 6px rgba(127, 29, 29, 0.24);
+                line-height: 1;
+            }
+            .at-tab .tab-warning-badge.contract-warning {
+                color: #b7791f !important;
+                background: rgba(245, 158, 11, 0.1) !important;
+                border-color: rgba(245, 158, 11, 0.2) !important;
+                box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.1) !important;
+            }
+            .at-tab .tab-warning-badge.visible {
+                display: inline-flex;
+            }
+            .at-tab .tab-warning-badge svg {
+                width: 13px;
+                height: 13px;
+                display: block;
             }
             .at-tab.home {
                 width: auto;
@@ -2242,6 +2722,14 @@
                 width: 100%;
                 max-width: none;
             }
+            .at-tabs-setting-line-controls.line3-disabled select[data-tab-line="3"] {
+                opacity: 0.48;
+                cursor: not-allowed;
+                background-color: #eef2f6;
+            }
+            .at-tabs-customization-header-lines .line3-disabled {
+                opacity: 0.48;
+            }
             .at-tabs-customization-header {
                 display: grid;
                 grid-template-columns: minmax(180px, 1fr) minmax(0, 460px);
@@ -2312,16 +2800,64 @@
             html.aes-dark .at-tabs-viewport {
                 background: #1F2227;
             }
-            html.aes-dark .at-tabs-viewport.peek-active > iframe {
+            html.aes-dark.aes-ui-enhancer-enabled .at-tabs-viewport.peek-active > iframe {
                 color-scheme: dark !important;
             }
             html.aes-dark .at-tabs-viewport.split {
                 background: #11161c;
             }
+            html.aes-dark .at-tabs-viewport.rounded-pages:not(.split) {
+                background: #11161c;
+            }
+            html.aes-dark .at-tabs-viewport.split > iframe {
+                border-color: rgba(125, 167, 201, 0.26);
+                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+                background: #0f141a;
+                color-scheme: light;
+            }
+            html.aes-dark .at-tabs-viewport.rounded-pages:not(.split) > iframe:not(.hidden) {
+                border-color: rgba(125, 167, 201, 0.26);
+                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.34);
+                background: #0f141a;
+                color-scheme: light;
+            }
+            html.aes-dark.aes-ui-enhancer-enabled .at-tabs-viewport.split > iframe {
+                color-scheme: dark;
+            }
+            html.aes-dark.aes-ui-enhancer-enabled .at-tabs-viewport.rounded-pages:not(.split) > iframe:not(.hidden) {
+                color-scheme: dark;
+            }
+            .aes-non-iframe-rounded-frame > :not([class^="at-tabs-"]):not([class*=" at-tabs-"]):not([class^="aes-"]):not([class*=" aes-"]) {
+                border-radius: 10px !important;
+                box-sizing: border-box !important;
+                clip-path: inset(0 round 10px) !important;
+                overflow: hidden !important;
+            }
+            .aes-non-iframe-rounded-frame,
+            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="h-full"][class~="flex"],
+            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="flex-grow"][class~="h-full"],
+            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="height:100%"],
+            .aes-non-iframe-rounded-frame .o-view-layout {
+                border-radius: 10px !important;
+                clip-path: inset(0 round 10px) !important;
+                overflow: hidden !important;
+            }
+            html.aes-dark .at-tabs-split-resize-grip::before {
+                background: rgba(125, 167, 201, 0.78);
+                box-shadow: 0 0 0 4px rgba(17, 22, 28, 0.8), 0 8px 22px rgba(0, 0, 0, 0.36);
+            }
+            html.aes-dark .at-tabs-split-resize-grip:hover::before,
+            html.aes-dark .at-tabs-viewport.split-resizing .at-tabs-split-resize-grip::before {
+                background: #7da7c9;
+            }
             html.aes-dark .at-tabs-loader {
                 background: rgba(31, 34, 39, 0.85);
             }
-            html.aes-dark .at-tabs-loader::before {
+            html.aes-dark .at-tabs-pane-loader {
+                background: rgba(31, 34, 39, 0.68);
+            }
+            html.aes-dark .at-tabs-loader::before,
+            html.aes-dark .at-tabs-pane-loader::before {
                 border-color: #475569;
                 border-top-color: #376A94;
             }
@@ -2331,6 +2867,7 @@
                 --aes-tab-bg-idle: transparent;
                 --aes-tab-bg-hover: #262A30;
                 --aes-tab-bg-active: #232D37;
+                --aes-tab-separator: #2a2e34;
             }
             html.aes-dark .at-tab:hover {
                 background: var(--aes-tab-bg-hover, #262A30);
@@ -2374,10 +2911,20 @@
                 color: #f1f5f9;
             }
             html.aes-dark .at-tab:not(.active) + .at-tab:not(.active)::before {
-                background: #2a2e34;
+                background: var(--aes-tab-separator);
             }
             html.aes-dark .at-tab .resource-badge {
                 border-color: rgba(241, 245, 249, 0.18);
+            }
+            html.aes-dark .at-tab .tab-warning-badge.contract-warning {
+                color: #f6c453 !important;
+                background: rgba(246, 196, 83, 0.12) !important;
+                border-color: rgba(246, 196, 83, 0.24) !important;
+                box-shadow: inset 0 0 0 1px rgba(246, 196, 83, 0.08) !important;
+            }
+            html.aes-dark .at-tab .tab-warning-badge {
+                border-color: rgba(254, 202, 202, 0.24);
+                box-shadow: 0 2px 8px rgba(127, 29, 29, 0.34);
             }
             html.aes-dark .at-tab-title-spinner,
             html.aes-dark .at-tab.home .home-spinner {
@@ -2719,6 +3266,11 @@
                 background: #1F2227;
                 color: #f1f5f9;
             }
+            html.aes-dark .at-tabs-setting-line-controls.line3-disabled select[data-tab-line="3"] {
+                background-color: #1F2227;
+                border-color: #334155;
+                color: #64748b;
+            }
 
             /* Home tab label ellipsis (was static "Home", now mirrors document.title). */
             .at-tab.home .home-label {
@@ -2898,11 +3450,34 @@
 
     function normalizeTabState(tab) {
         if (!tab) return tab;
+        if (!tab.syncKey || typeof tab.syncKey !== 'string') {
+            tab.syncKey = createRandomId('tab-');
+        }
+        tab.url = canonicalTabUrl(tab.url);
         tab.pinned = !!tab.pinned;
         tab.color = TAB_COLOR_PRESETS.includes(tab.color) ? tab.color : '';
+        tab.pageWarning = !!tab.pageWarning;
         tab.hoverFields = normalizeHoverFields(tab.hoverFields);
         tab.metadataFields = normalizeMetadataFields(tab.metadataFields);
         return tab;
+    }
+
+    function canonicalTabUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            const path = parsed.pathname.toLowerCase();
+            if (/\/contracts\/views\/contract(summary|side)\.asp$/i.test(path)) {
+                const contractId = parsed.searchParams.get('contractID') || parsed.searchParams.get('contractId');
+                if (contractId) {
+                    const canonical = new URL('/contracts/views/contractView.asp', parsed.origin);
+                    canonical.searchParams.set('contractID', contractId);
+                    return canonical.href;
+                }
+            }
+            return parsed.href;
+        } catch (e) {
+            return url || '';
+        }
     }
 
     function getLineOptionsForType(type) {
@@ -2982,42 +3557,6 @@
         updateLoaderVisibility();
     }
 
-    function scheduleRestoredTabLoads() {
-        clearRestoreLoadTimers();
-        const active = tabById(state.activeId);
-        let backgroundScheduled = false;
-
-        function scheduleBackgroundTabs(delay) {
-            if (backgroundScheduled) return;
-            backgroundScheduled = true;
-            const backgroundTabs = state.tabs.filter(function (tab) {
-                return !active || tab.id !== active.id;
-            });
-            backgroundTabs.forEach(function (tab, index) {
-                state.restoreLoadTimers.push(window.setTimeout(function () {
-                    ensureTabIframeLoaded(tab);
-                }, delay + (index * RESTORE_BACKGROUND_TAB_STAGGER_MS)));
-            });
-        }
-
-        if (active) {
-            state.restoreLoadTimers.push(window.setTimeout(function () {
-                ensureTabIframeLoaded(active);
-                const fallbackTimer = window.setTimeout(function () {
-                    scheduleBackgroundTabs(0);
-                }, RESTORE_BACKGROUND_TAB_DELAY_MS);
-                state.restoreLoadTimers.push(fallbackTimer);
-                active.iframeEl.addEventListener('load', function () {
-                    window.clearTimeout(fallbackTimer);
-                    scheduleBackgroundTabs(RESTORE_BACKGROUND_TAB_STAGGER_MS);
-                }, { once: true });
-            }, RESTORE_ACTIVE_TAB_DELAY_MS));
-            return;
-        }
-
-        scheduleBackgroundTabs(RESTORE_BACKGROUND_TAB_DELAY_MS);
-    }
-
     function hexToRgb(hex) {
         const normalized = String(hex || '').trim().replace('#', '');
         if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
@@ -3035,9 +3574,13 @@
     }
 
     function buildTabsPayload() {
+        const updatedAt = Date.now();
         return {
+            updatedAt: updatedAt,
+            clientId: state.tabsSyncClientId,
             tabs: state.tabs.map(t => ({
-                url: t.url,
+                syncKey: t.syncKey || (t.syncKey = createRandomId('tab-')),
+                url: canonicalTabUrl(t.url),
                 title: t.title,
                 number: t.number,
                 contact: t.contact,
@@ -3047,6 +3590,7 @@
                 priority: t.priority || '',
                 status: t.status || '',
                 lastActivity: t.lastActivity || '',
+                pageWarning: !!t.pageWarning,
                 hoverFields: normalizeHoverFields(t.hoverFields),
                 metadataFields: normalizeMetadataFields(t.metadataFields),
             })),
@@ -3056,7 +3600,57 @@
             splitIndex: state.splitId === null
                 ? null
                 : state.tabs.findIndex(t => t.id === state.splitId),
+            splitPairIndexes: getSplitPairIndexes(),
+            splitPairColor: TAB_COLOR_PRESETS.includes(state.splitPairColor) ? state.splitPairColor : '',
+            splitRatio: normalizeSplitRatio(state.splitRatio),
+            splitRatios: normalizeSplitRatios(state.splitRatios, getSplitGroupIds().length),
         };
+    }
+
+    function getSplitPairIndexes() {
+        const pair = normalizeSplitPairIds(state.splitPairIds);
+        if (!pair) return null;
+        const indexes = pair.map(id => state.tabs.findIndex(tab => tab.id === id));
+        return indexes.every(index => index >= 0) ? indexes : null;
+    }
+
+    function normalizeSplitRatio(value) {
+        const numeric = typeof value === 'number' && Number.isFinite(value) ? value : 0.5;
+        return Math.min(0.8, Math.max(0.2, numeric));
+    }
+
+    function defaultSplitRatios(count) {
+        if (count === 3) return [1 / 3, 2 / 3];
+        if (count === 4) return [0.25, 0.5, 0.75];
+        return [normalizeSplitRatio(state.splitRatio)];
+    }
+
+    function normalizeSplitRatios(values, count) {
+        const expected = Math.max(1, Math.min(3, Number(count || 2) - 1));
+        const defaults = defaultSplitRatios(count);
+        const ratios = [];
+        for (let i = 0; i < expected; i++) {
+            const fallback = defaults[i] || ((i + 1) / (expected + 1));
+            const raw = Array.isArray(values) && typeof values[i] === 'number' && Number.isFinite(values[i])
+                ? values[i]
+                : fallback;
+            const min = i === 0 ? 0.12 : ratios[i - 1] + 0.12;
+            const max = i === expected - 1 ? 0.88 : 1 - ((expected - i) * 0.12);
+            ratios.push(Math.min(max, Math.max(min, raw)));
+        }
+        return ratios;
+    }
+
+    function applySplitRatio() {
+        state.splitRatio = normalizeSplitRatio(state.splitRatio);
+        if (state.viewport) {
+            state.viewport.style.setProperty('--at-tabs-split-left', (state.splitRatio * 100).toFixed(2) + '%');
+            const count = getSplitGroupIds().length || 2;
+            state.splitRatios = normalizeSplitRatios(state.splitRatios, count);
+            state.splitRatios.forEach(function (ratio, index) {
+                state.viewport.style.setProperty('--at-tabs-split-b' + (index + 1), (ratio * 100).toFixed(2) + '%');
+            });
+        }
     }
 
     function handleNativeFrameLoad(event) {
@@ -3184,12 +3778,16 @@
     }
 
     function saveTabs() {
+        if (state.tabsSyncApplyingRemote) return;
+        if (!state.tabs.length && !state.tabsSyncHasOwnedTabs) return;
         const payload = buildTabsPayload();
+        state.tabsSyncLastSeenAt = payload.updatedAt || Date.now();
         void AES.writeTabsPayload(payload);
     }
 
     function addTabToList(tab) {
         const normalized = normalizeTabState(tab);
+        state.tabsSyncHasOwnedTabs = true;
         if (!state.openNewTabsAtStart || normalized.pinned) {
             state.tabs.push(normalized);
             return normalized;
@@ -3212,11 +3810,15 @@
 
         for (const saved of payload.tabs) {
             if (!saved.url) continue;
-            const iframeEl = createTabIframe(saved.url, { deferLoad: true });
+            const savedUrl = canonicalTabUrl(saved.url);
+            const iframeEl = createTabIframe(savedUrl, { deferLoad: true });
+            const loaderEl = createTabPaneLoader();
             state.viewport.appendChild(iframeEl);
+            state.viewport.appendChild(loaderEl);
             state.tabs.push(normalizeTabState({
                 id: state.nextId++,
-                url: saved.url,
+                syncKey: saved.syncKey || '',
+                url: savedUrl,
                 title: saved.title || '',
                 number: saved.number || '',
                 contact: saved.contact || '',
@@ -3226,29 +3828,205 @@
                 priority: saved.priority || '',
                 status: saved.status || '',
                 lastActivity: saved.lastActivity || '',
+                pageWarning: !!saved.pageWarning,
                 hoverFields: normalizeHoverFields(saved.hoverFields),
                 metadataFields: normalizeMetadataFields(saved.metadataFields),
                 iframeEl,
+                loaderEl,
                 tabEl: null,
-                loading: true,
+                loading: false,
                 loadStarted: false,
             }));
         }
+        state.tabsSyncHasOwnedTabs = state.tabs.length > 0;
+        state.tabsSyncLastSeenAt = Number(payload.updatedAt) || Date.now();
         renderTabs();
+        if (typeof payload.splitRatio === 'number') {
+            state.splitRatio = normalizeSplitRatio(payload.splitRatio);
+        }
+        if (Array.isArray(payload.splitRatios)) {
+            state.splitRatios = normalizeSplitRatios(payload.splitRatios, payload.splitPairIndexes && payload.splitPairIndexes.length || 2);
+        }
+        state.splitPairColor = TAB_COLOR_PRESETS.includes(payload.splitPairColor) ? payload.splitPairColor : '';
         const idx = payload.activeIndex;
         const splitIdx = payload.splitIndex;
-        if (typeof splitIdx === 'number' && splitIdx >= 0 && state.tabs[splitIdx]) {
+        if (Array.isArray(payload.splitPairIndexes)
+            && payload.splitPairIndexes.length >= 2) {
+            const restoredSplitIds = [];
+            payload.splitPairIndexes.slice(0, 4).forEach(function (splitIndex) {
+                if (typeof splitIndex !== 'number' || !state.tabs[splitIndex]) return;
+                const id = state.tabs[splitIndex].id;
+                if (!restoredSplitIds.includes(id)) restoredSplitIds.push(id);
+            });
+            state.splitPairIds = restoredSplitIds.length >= 2 ? restoredSplitIds : null;
+            state.splitId = state.splitPairIds ? state.splitPairIds.find(id => typeof idx !== 'number' || !state.tabs[idx] || id !== state.tabs[idx].id) || null : null;
+        } else if (typeof idx === 'number' && idx >= 0 && state.tabs[idx]
+            && typeof splitIdx === 'number' && splitIdx >= 0 && state.tabs[splitIdx]
+            && idx !== splitIdx) {
+            state.splitPairIds = [state.tabs[idx].id, state.tabs[splitIdx].id];
             state.splitId = state.tabs[splitIdx].id;
         } else {
+            state.splitPairIds = null;
             state.splitId = null;
         }
         if (typeof idx === 'number' && idx >= 0 && state.tabs[idx]) {
-            activateTab(state.tabs[idx].id, { load: false, recordPrevious: false });
+            const shouldLoadRestoredSplit = Boolean(state.splitPairIds && state.splitPairIds.includes(state.tabs[idx].id));
+            activateTab(state.tabs[idx].id, { load: shouldLoadRestoredSplit, recordPrevious: false });
             clearHomeLoading();
         } else {
             activateHome();
         }
-        scheduleRestoredTabLoads();
+    }
+
+    function createLazyTabFromSaved(saved) {
+        const savedUrl = canonicalTabUrl(saved.url);
+        const iframeEl = createTabIframe(savedUrl, { deferLoad: true });
+        const loaderEl = createTabPaneLoader();
+        state.viewport.appendChild(iframeEl);
+        state.viewport.appendChild(loaderEl);
+        return normalizeTabState({
+            id: state.nextId++,
+            syncKey: saved.syncKey || '',
+            url: savedUrl,
+            title: saved.title || '',
+            number: saved.number || '',
+            contact: saved.contact || '',
+            primaryResource: saved.primaryResource || null,
+            pinned: !!saved.pinned,
+            color: saved.color || '',
+            priority: saved.priority || '',
+            status: saved.status || '',
+            lastActivity: saved.lastActivity || '',
+            pageWarning: !!saved.pageWarning,
+            hoverFields: normalizeHoverFields(saved.hoverFields),
+            metadataFields: normalizeMetadataFields(saved.metadataFields),
+            iframeEl: iframeEl,
+            loaderEl: loaderEl,
+            tabEl: null,
+            loading: false,
+            loadStarted: false,
+        });
+    }
+
+    function applySavedMetadataToTab(tab, saved) {
+        tab.syncKey = saved.syncKey || tab.syncKey || createRandomId('tab-');
+        tab.url = canonicalTabUrl(saved.url || tab.url);
+        tab.title = saved.title || '';
+        tab.number = saved.number || '';
+        tab.contact = saved.contact || '';
+        tab.primaryResource = saved.primaryResource || null;
+        tab.pinned = !!saved.pinned;
+        tab.color = saved.color || '';
+        tab.priority = saved.priority || '';
+        tab.status = saved.status || '';
+        tab.lastActivity = saved.lastActivity || '';
+        tab.pageWarning = !!saved.pageWarning;
+        tab.hoverFields = normalizeHoverFields(saved.hoverFields);
+        tab.metadataFields = normalizeMetadataFields(saved.metadataFields);
+        return normalizeTabState(tab);
+    }
+
+    function takeReusableTab(saved, pools) {
+        if (saved.syncKey && pools.byKey.has(saved.syncKey)) {
+            const tab = pools.byKey.get(saved.syncKey);
+            pools.byKey.delete(saved.syncKey);
+            const urlPool = pools.byUrl.get(tab.url) || [];
+            const urlIndex = urlPool.indexOf(tab);
+            if (urlIndex >= 0) urlPool.splice(urlIndex, 1);
+            return tab;
+        }
+        const candidates = pools.byUrl.get(saved.url) || [];
+        return candidates.shift() || null;
+    }
+
+    function buildTabReusePools() {
+        const byKey = new Map();
+        const byUrl = new Map();
+        state.tabs.forEach(function (tab) {
+            if (tab.syncKey) byKey.set(tab.syncKey, tab);
+            const list = byUrl.get(tab.url) || [];
+            list.push(tab);
+            byUrl.set(tab.url, list);
+        });
+        return { byKey, byUrl };
+    }
+
+    function applyRemoteTabsPayload(payload) {
+        if (!featuresEnabled()) return;
+        if (!payload || !Array.isArray(payload.tabs)) return;
+        if (payload.clientId && payload.clientId === state.tabsSyncClientId) return;
+        const updatedAt = Number(payload.updatedAt) || Date.now();
+        if (updatedAt < state.tabsSyncLastSeenAt) return;
+        state.tabsSyncLastSeenAt = updatedAt;
+        state.tabsSyncApplyingRemote = true;
+        clearRestoreLoadTimers();
+
+        const previousActiveId = state.activeId;
+        const reusable = buildTabReusePools();
+        const nextTabs = [];
+        const reused = new Set();
+        payload.tabs.forEach(function (saved) {
+            if (!saved || !saved.url) return;
+            const existing = takeReusableTab(saved, reusable);
+            const tab = existing
+                ? applySavedMetadataToTab(existing, saved)
+                : createLazyTabFromSaved(saved);
+            reused.add(tab);
+            nextTabs.push(tab);
+        });
+
+        state.tabs.forEach(function (tab) {
+            if (reused.has(tab)) return;
+            try { if (tab.iframeEl) tab.iframeEl.remove(); } catch (e) {}
+            try { if (tab.loaderEl) tab.loaderEl.remove(); } catch (e) {}
+        });
+
+        state.tabs = nextTabs;
+        state.tabsSyncHasOwnedTabs = state.tabs.length > 0;
+        const maxId = state.tabs.reduce(function (max, tab) { return Math.max(max, tab.id || 0); }, 0);
+        state.nextId = Math.max(state.nextId, maxId + 1);
+        if (previousActiveId !== null && tabById(previousActiveId)) {
+            state.activeId = previousActiveId;
+        } else {
+            state.activeId = null;
+            state.splitId = null;
+            state.splitPairIds = null;
+        }
+        if (state.splitPairIds) {
+            const validSplitIds = state.splitPairIds.filter(function (id) { return !!tabById(id); });
+            state.splitPairIds = validSplitIds.length >= 2 ? validSplitIds : null;
+            if (!state.splitPairIds) {
+                state.splitId = null;
+                state.splitPairColor = '';
+            }
+        }
+        state.activationHistory = state.activationHistory.filter(function (id) {
+            return id === null || !!tabById(id);
+        });
+
+        renderTabs();
+        syncTabPaneState();
+        updateHomeTabActive();
+        updateLoaderVisibility();
+        requestSyncGeometry();
+        ensureActiveTabVisible();
+        updateTabScrollButtons();
+        state.tabsSyncApplyingRemote = false;
+    }
+
+    function installTabsMetadataSyncWatcher() {
+        if (state.tabsSyncWatcherInstalled) return;
+        if (!AES.hasChromeStorage()) return;
+        try {
+            if (!chrome.storage || !chrome.storage.onChanged) return;
+            chrome.storage.onChanged.addListener(function (changes, areaName) {
+                if (areaName !== 'local') return;
+                const change = changes && changes[AES.STORAGE_KEY];
+                if (!change || !change.newValue) return;
+                applyRemoteTabsPayload(change.newValue);
+            });
+            state.tabsSyncWatcherInstalled = true;
+        } catch (e) {}
     }
 
     // The native Home iframe is shifted by syncGeometry itself. Keep this as a
@@ -3305,12 +4083,20 @@
         }
 
         const marginTop = parseFloat(frame.style.getPropertyValue('margin-top')) || 0;
-        if (Math.abs(marginTop - AES.BAR_H) < 0.5) frame.style.removeProperty('margin-top');
+        if (Math.abs(marginTop - currentHorizontalBarHeight()) < 0.5 || Math.abs(marginTop - AES.BAR_H) < 0.5) frame.style.removeProperty('margin-top');
         if (frame.style.getPropertyValue('translate')) frame.style.removeProperty('translate');
     }
 
     function isVerticalBar() {
         return state.barOrientation === 'vertical';
+    }
+
+    function horizontalCompactTabsActive() {
+        return !!state.horizontalCompactTabsEnabled && !isVerticalBar();
+    }
+
+    function currentHorizontalBarHeight() {
+        return horizontalCompactTabsActive() ? 50 : AES.BAR_H;
     }
 
     function normalizedTabBarWidth(value) {
@@ -3333,6 +4119,7 @@
 
     function updateResizableBarClasses() {
         document.documentElement.classList.toggle('aes-resizable-tabs', !!state.resizableTabBarEnabled);
+        document.documentElement.classList.toggle('aes-horizontal-compact-tabs', !!state.horizontalCompactTabsEnabled);
         if (!state.bar) return;
         state.bar.classList.toggle('compact', isCompactVerticalBar());
         state.bar.classList.toggle('hover-expanded', isCompactVerticalBar() && !!state.tabBarHoverExpanded);
@@ -3386,8 +4173,21 @@
         const container = frame && frame.parentElement;
         const axis = reservationAxis(container) || reservationAxis(frame);
         if (!axis) return { top: 0, left: 0 };
-        if (axis === 'vertical') return { top: 0, left: currentVerticalBarWidth() };
-        return { top: AES.BAR_H, left: 0 };
+        const roundedInset = frame && frame.dataset && frame.dataset.aesNativeRoundedFrame === 'true' ? 8 : 0;
+        if (axis === 'vertical') {
+            return {
+                top: roundedInset,
+                left: currentVerticalBarWidth() + roundedInset,
+                right: roundedInset,
+                bottom: roundedInset,
+            };
+        }
+        return {
+            top: currentHorizontalBarHeight() + roundedInset,
+            left: roundedInset,
+            right: roundedInset,
+            bottom: roundedInset,
+        };
     }
 
     function nonIframeReservationAxis(el) {
@@ -3403,6 +4203,60 @@
             document.querySelector('[role="main"]') ||
             document.querySelector('.min-w-0.flex-1') ||
             null;
+    }
+
+    function findNonIframeContentSurface(container) {
+        if (!container) return null;
+        const children = Array.prototype.slice.call(container.children || []);
+        let best = null;
+        let bestArea = 0;
+        children.forEach(function (child) {
+            if (child.classList && Array.prototype.some.call(child.classList, function (className) {
+                return className.indexOf('at-tabs-') === 0 || className.indexOf('aes-') === 0;
+            })) return;
+            const rect = child.getBoundingClientRect();
+            const area = Math.max(0, rect.width) * Math.max(0, rect.height);
+            if (area > bestArea) {
+                best = child;
+                bestArea = area;
+            }
+        });
+        return best || null;
+    }
+
+    function applyNonIframeRoundedSurfaceStyles() {
+        if (!state.roundedPageFramesEnabled || !state.nonIframeReservedContainer || state.activeId !== null) return;
+        const selectors = [
+            '[class~="bg-background-primary"][class~="h-full"][class~="flex"]',
+            '[class~="bg-background-primary"][class~="flex-grow"][class~="h-full"]',
+            '[class~="bg-background-primary"][class~="height:100%"]',
+            '.o-view-layout',
+        ];
+        const candidates = [];
+        selectors.forEach(function (selector) {
+            Array.prototype.forEach.call(document.querySelectorAll(selector), function (el) {
+                if (!el || el === document.body || el === document.documentElement || el === state.nonIframeReservedContainer) return;
+                if (el.classList && Array.prototype.some.call(el.classList, function (className) {
+                    return className.indexOf('at-tabs-') === 0 || className.indexOf('aes-') === 0;
+                })) return;
+                candidates.push(el);
+            });
+        });
+        candidates.forEach(function (surface) {
+            const rect = surface.getBoundingClientRect();
+            if (rect.width < 200 || rect.height < 200) return;
+            surface.style.setProperty('border-radius', '10px', 'important');
+            surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
+            surface.style.setProperty('overflow', 'hidden', 'important');
+        });
+    }
+
+    function scheduleNonIframeRoundedSurfaceStyles() {
+        if (state.nonIframeRoundedSurfaceRaf) return;
+        state.nonIframeRoundedSurfaceRaf = window.requestAnimationFrame(function () {
+            state.nonIframeRoundedSurfaceRaf = 0;
+            applyNonIframeRoundedSurfaceStyles();
+        });
     }
 
     function readNoIframeBase(container) {
@@ -3432,8 +4286,8 @@
         return {
             top: rect.top - off.top,
             left: rect.left - off.left,
-            width: rect.width + off.left,
-            height: rect.height + off.top,
+            width: rect.width + off.left + (off.right || 0),
+            height: rect.height + off.top + (off.bottom || 0),
         };
     }
 
@@ -3464,17 +4318,28 @@
             restoreInlineStyle(container, 'padding-left', 'aesPrevPaddingLeft');
             restoreInlineStyle(container, 'box-sizing', 'aesPrevBoxSizing');
             restoreInlineStyle(container, 'overflow', 'aesPrevOverflow');
+            restoreInlineStyle(container, 'background', 'aesPrevBackground');
+            restoreInlineStyle(container, 'width', 'aesPrevNativeSplitWidth');
             delete container.dataset.aesNativeChromeReserved;
             delete container.dataset.aesNativeChromeReservedAxis;
         }
         state.nativeReservedContainer = null;
 
         if (!frame) return;
+        restoreInlineStyle(frame, 'margin-top', 'aesPrevMarginTop');
+        restoreInlineStyle(frame, 'margin-left', 'aesPrevMarginLeft');
         restoreInlineStyle(frame, 'height', 'aesPrevHeight');
         restoreInlineStyle(frame, 'width', 'aesPrevWidth');
         restoreInlineStyle(frame, 'display', 'aesPrevDisplay');
+        restoreInlineStyle(frame, 'border-radius', 'aesPrevBorderRadius');
+        restoreInlineStyle(frame, 'border', 'aesPrevBorder');
+        restoreInlineStyle(frame, 'box-shadow', 'aesPrevBoxShadow');
+        restoreInlineStyle(frame, 'box-sizing', 'aesPrevFrameBoxSizing');
+        restoreInlineStyle(frame, 'max-width', 'aesPrevNativeSplitMaxWidth');
+        restoreInlineStyle(frame, 'clip-path', 'aesPrevNativeSplitClipPath');
         delete frame.dataset.aesNativeChromeReserved;
         delete frame.dataset.aesNativeChromeReservedAxis;
+        delete frame.dataset.aesNativeRoundedFrame;
         clearLegacyNativeFrameOffset(frame);
     }
 
@@ -3483,10 +4348,29 @@
             (findNonIframeContentContainer() && nonIframeReservationAxis(findNonIframeContentContainer())
                 ? findNonIframeContentContainer()
                 : null);
+        const surface = state.nonIframeReservedSurface ||
+            (container ? findNonIframeContentSurface(container) : null);
+        if (surface) {
+            restoreInlineStyle(surface, 'border-radius', 'aesPrevNonIframeSurfaceBorderRadius');
+            restoreInlineStyle(surface, 'border', 'aesPrevNonIframeSurfaceBorder');
+            restoreInlineStyle(surface, 'box-shadow', 'aesPrevNonIframeSurfaceBoxShadow');
+            restoreInlineStyle(surface, 'box-sizing', 'aesPrevNonIframeSurfaceBoxSizing');
+            restoreInlineStyle(surface, 'overflow', 'aesPrevNonIframeSurfaceOverflow');
+            restoreInlineStyle(surface, 'clip-path', 'aesPrevNonIframeSurfaceClipPath');
+        }
+        state.nonIframeReservedSurface = null;
         if (!container) return;
         restoreInlineStyle(container, 'padding-top', 'aesPrevNonIframePaddingTop');
         restoreInlineStyle(container, 'padding-left', 'aesPrevNonIframePaddingLeft');
+        restoreInlineStyle(container, 'padding-right', 'aesPrevNonIframePaddingRight');
+        restoreInlineStyle(container, 'padding-bottom', 'aesPrevNonIframePaddingBottom');
         restoreInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
+        restoreInlineStyle(container, 'overflow', 'aesPrevNonIframeOverflow');
+        restoreInlineStyle(container, 'background', 'aesPrevNonIframeBackground');
+        restoreInlineStyle(container, 'border-radius', 'aesPrevNonIframeBorderRadius');
+        restoreInlineStyle(container, 'clip-path', 'aesPrevNonIframeClipPath');
+        restoreInlineStyle(container, 'position', 'aesPrevNonIframePosition');
+        container.classList.remove('aes-non-iframe-rounded-frame');
         delete container.dataset.aesNonIframeReserved;
         delete container.dataset.aesNonIframeReservedAxis;
         state.nonIframeReservedContainer = null;
@@ -3511,22 +4395,77 @@
             clearNonIframeReservation();
         }
 
+        const surface = findNonIframeContentSurface(container);
+        if (state.nonIframeReservedSurface && state.nonIframeReservedSurface !== surface) {
+            clearNonIframeReservation();
+        }
+
         rememberInlineStyle(container, 'padding-top', 'aesPrevNonIframePaddingTop');
         rememberInlineStyle(container, 'padding-left', 'aesPrevNonIframePaddingLeft');
+        rememberInlineStyle(container, 'padding-right', 'aesPrevNonIframePaddingRight');
+        rememberInlineStyle(container, 'padding-bottom', 'aesPrevNonIframePaddingBottom');
         rememberInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
+        rememberInlineStyle(container, 'overflow', 'aesPrevNonIframeOverflow');
+        rememberInlineStyle(container, 'background', 'aesPrevNonIframeBackground');
+        rememberInlineStyle(container, 'border-radius', 'aesPrevNonIframeBorderRadius');
+        rememberInlineStyle(container, 'clip-path', 'aesPrevNonIframeClipPath');
+        rememberInlineStyle(container, 'position', 'aesPrevNonIframePosition');
         container.style.setProperty('box-sizing', 'border-box', 'important');
+        container.style.setProperty('overflow', 'hidden', 'important');
+        if (getComputedStyle(container).position === 'static') {
+            container.style.setProperty('position', 'relative', 'important');
+        }
+        if (state.roundedPageFramesEnabled) {
+            container.classList.add('aes-non-iframe-rounded-frame');
+            container.style.setProperty('background', effectiveDarkMode() ? '#11161c' : '#f6f7f8', 'important');
+            container.style.setProperty('padding-right', '8px', 'important');
+            container.style.setProperty('padding-bottom', '8px', 'important');
+            container.style.setProperty('border-radius', '10px', 'important');
+            container.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
+        } else {
+            container.classList.remove('aes-non-iframe-rounded-frame');
+            container.style.removeProperty('background');
+            container.style.removeProperty('padding-right');
+            container.style.removeProperty('padding-bottom');
+            container.style.removeProperty('border-radius');
+            container.style.removeProperty('clip-path');
+        }
+
+        if (surface) {
+            rememberInlineStyle(surface, 'border-radius', 'aesPrevNonIframeSurfaceBorderRadius');
+            rememberInlineStyle(surface, 'border', 'aesPrevNonIframeSurfaceBorder');
+            rememberInlineStyle(surface, 'box-shadow', 'aesPrevNonIframeSurfaceBoxShadow');
+            rememberInlineStyle(surface, 'box-sizing', 'aesPrevNonIframeSurfaceBoxSizing');
+            rememberInlineStyle(surface, 'overflow', 'aesPrevNonIframeSurfaceOverflow');
+            rememberInlineStyle(surface, 'clip-path', 'aesPrevNonIframeSurfaceClipPath');
+            if (state.roundedPageFramesEnabled) {
+                surface.style.setProperty('border-radius', '10px', 'important');
+                surface.style.setProperty('box-sizing', 'border-box', 'important');
+                surface.style.setProperty('overflow', 'hidden', 'important');
+                surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
+            } else {
+                surface.style.removeProperty('border-radius');
+                surface.style.removeProperty('border');
+                surface.style.removeProperty('box-shadow');
+                surface.style.removeProperty('box-sizing');
+                surface.style.removeProperty('overflow');
+                surface.style.removeProperty('clip-path');
+            }
+            state.nonIframeReservedSurface = surface;
+        }
 
         if (targetAxis === 'vertical') {
-            container.style.removeProperty('padding-top');
-            container.style.setProperty('padding-left', currentVerticalBarWidth() + 'px', 'important');
+            container.style.setProperty('padding-top', state.roundedPageFramesEnabled ? '8px' : '0', 'important');
+            container.style.setProperty('padding-left', (currentVerticalBarWidth() + (state.roundedPageFramesEnabled ? 8 : 0)) + 'px', 'important');
         } else {
-            container.style.removeProperty('padding-left');
-            container.style.setProperty('padding-top', AES.BAR_H + 'px', 'important');
+            container.style.setProperty('padding-left', state.roundedPageFramesEnabled ? '8px' : '0', 'important');
+            container.style.setProperty('padding-top', (currentHorizontalBarHeight() + (state.roundedPageFramesEnabled ? 8 : 0)) + 'px', 'important');
         }
 
         container.dataset.aesNonIframeReserved = 'true';
         container.dataset.aesNonIframeReservedAxis = targetAxis;
         state.nonIframeReservedContainer = container;
+        scheduleNonIframeRoundedSurfaceStyles();
     }
 
     function applyNativeChromeReservation(frame) {
@@ -3559,30 +4498,66 @@
         rememberInlineStyle(container, 'padding-left', 'aesPrevPaddingLeft');
         rememberInlineStyle(container, 'box-sizing', 'aesPrevBoxSizing');
         rememberInlineStyle(container, 'overflow', 'aesPrevOverflow');
+        rememberInlineStyle(container, 'background', 'aesPrevBackground');
+        rememberInlineStyle(container, 'width', 'aesPrevNativeSplitWidth');
+        rememberInlineStyle(frame, 'margin-top', 'aesPrevMarginTop');
+        rememberInlineStyle(frame, 'margin-left', 'aesPrevMarginLeft');
         rememberInlineStyle(frame, 'height', 'aesPrevHeight');
         rememberInlineStyle(frame, 'width', 'aesPrevWidth');
         rememberInlineStyle(frame, 'display', 'aesPrevDisplay');
+        rememberInlineStyle(frame, 'border-radius', 'aesPrevBorderRadius');
+        rememberInlineStyle(frame, 'border', 'aesPrevBorder');
+        rememberInlineStyle(frame, 'box-shadow', 'aesPrevBoxShadow');
+        rememberInlineStyle(frame, 'box-sizing', 'aesPrevFrameBoxSizing');
+        rememberInlineStyle(frame, 'max-width', 'aesPrevNativeSplitMaxWidth');
+        rememberInlineStyle(frame, 'clip-path', 'aesPrevNativeSplitClipPath');
 
         container.style.setProperty('box-sizing', 'border-box', 'important');
         container.style.setProperty('overflow', 'hidden', 'important');
+        if (state.roundedPageFramesEnabled) {
+            container.style.setProperty('background', effectiveDarkMode() ? '#11161c' : '#f6f7f8', 'important');
+        } else {
+            container.style.removeProperty('background');
+        }
         frame.style.removeProperty('translate');
         frame.style.removeProperty('margin-top');
+        frame.style.removeProperty('margin-left');
         frame.style.setProperty('display', 'block', 'important');
 
         if (targetAxis === 'vertical') {
-            container.style.removeProperty('padding-top');
+            container.style.setProperty('padding-top', '0', 'important');
             container.style.setProperty('padding-left', currentVerticalBarWidth() + 'px', 'important');
-            // Container is border-box with padding-left, so its content area
-            // is already shrunk. Iframe just fills it (100%/100%).
+        } else {
+            container.style.setProperty('padding-left', '0', 'important');
+            container.style.setProperty('padding-top', currentHorizontalBarHeight() + 'px', 'important');
+        }
+
+        container.style.removeProperty('width');
+
+        if (state.roundedPageFramesEnabled) {
+            frame.style.setProperty('margin-top', '8px', 'important');
+            frame.style.setProperty('margin-left', '8px', 'important');
+            frame.style.setProperty('width', 'calc(100% - 16px)', 'important');
+            frame.style.setProperty('height', 'calc(100% - 16px)', 'important');
+            frame.style.setProperty('border-radius', '10px', 'important');
+            frame.style.setProperty('border', '1px solid rgba(55, 106, 148, 0.24)', 'important');
+            frame.style.setProperty('box-shadow', effectiveDarkMode() ? '0 10px 28px rgba(0, 0, 0, 0.34)' : '0 14px 34px rgba(15, 23, 42, 0.22)', 'important');
+            frame.style.setProperty('box-sizing', 'border-box', 'important');
+            frame.dataset.aesNativeRoundedFrame = 'true';
+        } else {
+            frame.style.removeProperty('margin-top');
+            frame.style.removeProperty('margin-left');
             frame.style.setProperty('width', '100%', 'important');
             frame.style.setProperty('height', '100%', 'important');
-        } else {
-            container.style.removeProperty('padding-left');
-            container.style.setProperty('padding-top', AES.BAR_H + 'px', 'important');
-            // Same idea — content area is already height - BAR_H.
-            frame.style.removeProperty('width');
-            frame.style.setProperty('height', '100%', 'important');
+            frame.style.removeProperty('border-radius');
+            frame.style.removeProperty('border');
+            frame.style.removeProperty('box-shadow');
+            frame.style.removeProperty('box-sizing');
+            delete frame.dataset.aesNativeRoundedFrame;
         }
+
+        frame.style.removeProperty('max-width');
+        frame.style.removeProperty('clip-path');
 
         container.dataset.aesNativeChromeReserved = 'true';
         container.dataset.aesNativeChromeReservedAxis = targetAxis;
@@ -3648,11 +4623,12 @@
                 setCssPx(state.bar, 'left', base.left);
                 setCssPx(state.bar, 'top', base.top);
                 setCssPx(state.bar, 'width', base.width);
-                setCssPx(state.bar, 'height', AES.BAR_H);
+                const barHeight = currentHorizontalBarHeight();
+                setCssPx(state.bar, 'height', barHeight);
                 setCssPx(state.viewport, 'left', base.left);
-                setCssPx(state.viewport, 'top', base.top + AES.BAR_H);
+                setCssPx(state.viewport, 'top', base.top + barHeight);
                 setCssPx(state.viewport, 'width', base.width);
-                setCssPx(state.viewport, 'height', Math.max(0, base.height - AES.BAR_H));
+                setCssPx(state.viewport, 'height', Math.max(0, base.height - barHeight));
                 state.viewport.style.bottom = 'auto';
             }
             updateTabScrollButtons();
@@ -3677,19 +4653,20 @@
 
         state.bar.style.display = '';
         state.viewport.style.display = '';
+        const barTop = base.top;
         if (isVerticalBar()) {
             const barWidth = currentVerticalBarWidth();
             if (state.homeCover) {
                 state.homeCover.style.display = state.activeId === null ? '' : 'none';
                 setCssPx(state.homeCover, 'left', base.left);
-                setCssPx(state.homeCover, 'top', base.top);
+                setCssPx(state.homeCover, 'top', barTop);
                 setCssPx(state.homeCover, 'width', barWidth);
-                setCssPx(state.homeCover, 'height', base.height);
+                setCssPx(state.homeCover, 'height', Math.max(0, base.height - 1));
             }
             setCssPx(state.bar, 'left', base.left);
-            setCssPx(state.bar, 'top', base.top);
+            setCssPx(state.bar, 'top', barTop);
             setCssPx(state.bar, 'width', barWidth);
-            setCssPx(state.bar, 'height', base.height);
+            setCssPx(state.bar, 'height', Math.max(0, base.height - 1));
             setCssPx(state.viewport, 'left', base.left + barWidth);
             setCssPx(state.viewport, 'top', base.top);
             setCssPx(state.viewport, 'width', Math.max(0, base.width - barWidth));
@@ -3699,18 +4676,20 @@
             if (state.homeCover) {
                 state.homeCover.style.display = state.activeId === null ? '' : 'none';
                 setCssPx(state.homeCover, 'left', base.left);
-                setCssPx(state.homeCover, 'top', base.top);
+                setCssPx(state.homeCover, 'top', barTop);
                 setCssPx(state.homeCover, 'width', base.width);
-                setCssPx(state.homeCover, 'height', AES.BAR_H);
+                const barHeight = currentHorizontalBarHeight();
+                setCssPx(state.homeCover, 'height', barHeight);
             }
             setCssPx(state.bar, 'left', base.left);
-            setCssPx(state.bar, 'top', base.top);
+            setCssPx(state.bar, 'top', barTop);
             setCssPx(state.bar, 'width', base.width);
-            setCssPx(state.bar, 'height', AES.BAR_H);
+            const barHeight = currentHorizontalBarHeight();
+            setCssPx(state.bar, 'height', barHeight);
             setCssPx(state.viewport, 'left', base.left);
-            setCssPx(state.viewport, 'top', base.top + AES.BAR_H);
+            setCssPx(state.viewport, 'top', base.top + barHeight);
             setCssPx(state.viewport, 'width', base.width);
-            setCssPx(state.viewport, 'height', Math.max(0, base.height - AES.BAR_H));
+            setCssPx(state.viewport, 'height', Math.max(0, base.height - barHeight));
             state.viewport.style.bottom = 'auto';
         }
         updateTabScrollButtons();
@@ -3774,6 +4753,9 @@
                 for (const mutation of mutations) {
                     if (isShellOwnedMutationTarget(mutation.target)) continue;
                     if (mutation.type === 'childList') {
+                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && state.activeId === null) {
+                            scheduleNonIframeRoundedSurfaceStyles();
+                        }
                         const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
                         if (nodes.some(node => node && (
                             node.nodeName === 'IFRAME' ||
@@ -3785,7 +4767,12 @@
                         }
                     }
                     if (mutation.type === 'attributes') {
-                        if (noIframeTestMode) continue;
+                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && state.activeId === null) {
+                            scheduleNonIframeRoundedSurfaceStyles();
+                        }
+                        if (noIframeTestMode) {
+                            continue;
+                        }
                         if (state.nonIframeReservedContainer && mutation.target === state.nonIframeReservedContainer) continue;
                         startGeometryBurst(300);
                         return;
@@ -3834,6 +4821,7 @@
             clearNonIframeReservation();
             stopNonIframeTitleWatcher();
             if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(false);
+            syncImprovedScrollbarsState();
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
             broadcastDarkModeEnhancerState();
@@ -3853,6 +4841,7 @@
             }
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
+            syncImprovedScrollbarsState();
             broadcastDarkModeEnhancerState();
             broadcastTimesheetUiEnhancementState();
             broadcastPreferencesUiEnhancementState();
@@ -3866,48 +4855,145 @@
         return state.tabs.find(t => t.id === id) || null;
     }
 
+    function normalizeSplitPairIds(pair) {
+        if (!Array.isArray(pair)) return null;
+        const ids = [];
+        for (const id of pair) {
+            if (ids.includes(id)) continue;
+            if (!tabById(id)) continue;
+            ids.push(id);
+            if (ids.length >= 4) break;
+        }
+        return ids.length >= 2 ? ids : null;
+    }
+
     function syncTabPaneState() {
         if (!state.viewport) return;
 
         const active = tabById(state.activeId);
-        let split = tabById(state.splitId);
-        if (!active || (split && split.id === active.id)) {
-            split = null;
+        let pair = normalizeSplitPairIds(state.splitPairIds);
+        const activeMemberId = active ? active.id : null;
+        let visibleSplitIds = pair && pair.includes(activeMemberId) ? pair.slice(0, 4) : [];
+        if (visibleSplitIds.length) {
+            state.splitPairIds = pair;
+            state.splitId = visibleSplitIds.find(id => id !== activeMemberId) || null;
+        } else {
             state.splitId = null;
+            if (state.splitPairIds && !pair) {
+                state.splitPairIds = null;
+                pair = null;
+            }
         }
 
-        const splitActive = !!(active && split);
+        let splitSharedColor = '';
+        if (pair) {
+            const activePairTab = active && pair.includes(active.id) ? active : null;
+            const firstPairTab = tabById(pair[0]);
+            const secondPairTab = tabById(pair.find(id => !firstPairTab || id !== firstPairTab.id));
+            splitSharedColor = TAB_COLOR_PRESETS.includes(state.splitPairColor)
+                ? state.splitPairColor
+                : activePairTab && TAB_COLOR_PRESETS.includes(activePairTab.color)
+                ? activePairTab.color
+                : (firstPairTab && TAB_COLOR_PRESETS.includes(firstPairTab.color)
+                    ? firstPairTab.color
+                    : (secondPairTab && TAB_COLOR_PRESETS.includes(secondPairTab.color) ? secondPairTab.color : ''));
+            state.splitPairColor = splitSharedColor;
+        } else {
+            state.splitPairColor = '';
+        }
+
+        const splitActive = visibleSplitIds.length >= 2;
         state.viewport.classList.toggle('empty', !active);
         state.viewport.classList.toggle('split', splitActive);
+        state.viewport.classList.toggle('split-count-2', splitActive && visibleSplitIds.length === 2);
+        state.viewport.classList.toggle('split-count-3', splitActive && visibleSplitIds.length === 3);
+        state.viewport.classList.toggle('split-count-4', splitActive && visibleSplitIds.length === 4);
+        state.viewport.classList.toggle('split-resizing', splitActive && state.splitResizing);
+        applySplitRatio();
 
-        const activeIndex = active ? state.tabs.findIndex(tab => tab.id === active.id) : -1;
-        const splitIndex = split ? state.tabs.findIndex(tab => tab.id === split.id) : -1;
-        const splitIsLeft = splitActive && splitIndex >= 0 && activeIndex >= 0 && splitIndex < activeIndex;
-        const leftPaneId = splitActive && splitIsLeft ? split.id : active && active.id;
-        const rightPaneId = splitActive && splitIsLeft ? active.id : split && split.id;
+        const visibleSet = new Set(visibleSplitIds);
+        if (state.homeTabEl) state.homeTabEl.classList.toggle('split-target', false);
 
         for (const tab of state.tabs) {
             const isPrimary = !!(active && tab.id === active.id);
-            const isSplit = !!(splitActive && tab.id === split.id);
-            const isLeftPane = !!(splitActive && tab.id === leftPaneId);
-            const isRightPane = !!(splitActive && tab.id === rightPaneId);
+            const splitPaneIndex = splitActive ? visibleSplitIds.indexOf(tab.id) : -1;
+            const isSplitMember = !!(pair && pair.includes(tab.id));
+            const isVisibleSplitPane = splitPaneIndex >= 0;
+            const isSplit = !!(splitActive && isVisibleSplitPane && !isPrimary);
+            const isLeftPane = !!(splitActive && visibleSplitIds.length === 2 && splitPaneIndex === 0);
+            const isRightPane = !!(splitActive && visibleSplitIds.length === 2 && splitPaneIndex === 1);
 
+            tab.splitSharedColor = isSplitMember ? splitSharedColor : '';
             if (tab.tabEl) {
                 tab.tabEl.classList.toggle('active', isPrimary);
+                tab.tabEl.classList.toggle('split-member', isSplitMember);
                 tab.tabEl.classList.toggle('split-target', isSplit);
+                applyTabColorStyle(tab);
             }
 
             tab.iframeEl.classList.toggle('primary-pane', splitActive && isPrimary);
             tab.iframeEl.classList.toggle('split-pane', isSplit);
             tab.iframeEl.classList.toggle('left-pane', isLeftPane);
             tab.iframeEl.classList.toggle('right-pane', isRightPane);
-            tab.iframeEl.classList.toggle('hidden', !(isPrimary || isSplit));
+            for (let i = 0; i < 4; i++) {
+                tab.iframeEl.classList.toggle('split-pane-index-' + i, splitPaneIndex === i);
+            }
+            tab.iframeEl.classList.toggle('hidden', splitActive ? !visibleSet.has(tab.id) : !isPrimary);
+            if (tab.loaderEl) {
+                tab.loaderEl.classList.toggle('left-pane', isLeftPane);
+                tab.loaderEl.classList.toggle('right-pane', isRightPane);
+                for (let i = 0; i < 4; i++) {
+                    tab.loaderEl.classList.toggle('split-pane-index-' + i, splitPaneIndex === i);
+                }
+            tab.loaderEl.classList.toggle('hidden', splitActive ? !visibleSet.has(tab.id) : !(state.roundedPageFramesEnabled && isPrimary));
+            }
         }
     }
 
-    function enableSplitScreen(tabId) {
+    function getSplitPaneIds() {
+        const pair = normalizeSplitPairIds(state.splitPairIds);
+        const activeMemberId = state.activeId;
+        if (!pair || !pair.includes(activeMemberId) || pair.length !== 2) return null;
+        const left = tabById(pair[0]);
+        const right = tabById(pair[1]);
+        if (!left || !right) return null;
+        return { left: pair[0], right: pair[1] };
+    }
+
+    function getSplitGroupIds() {
+        return normalizeSplitPairIds(state.splitPairIds) || [];
+    }
+
+    function splitGroupIncludesActive(group) {
+        return state.activeId !== null && Array.isArray(group) && group.includes(state.activeId);
+    }
+
+    function canAddTabToSplit(tabId) {
         if (state.activeId === null || state.activeId === tabId || !tabById(tabId)) return false;
+        const group = getSplitGroupIds();
+        if (!group.length) return true;
+        if (!splitGroupIncludesActive(group)) return true;
+        return !group.includes(tabId) && group.length < 4;
+    }
+
+    function enableSplitScreen(tabId) {
+        if (!canAddTabToSplit(tabId)) return false;
+        const active = tabById(state.activeId);
+        const split = tabById(tabId);
+        const group = getSplitGroupIds();
+        state.splitPairIds = splitGroupIncludesActive(group)
+            ? group.concat(tabId).slice(0, 4)
+            : [active.id, tabId];
+        state.splitRatios = normalizeSplitRatios(state.splitRatios, state.splitPairIds.length);
         state.splitId = tabId;
+        state.splitPairColor = TAB_COLOR_PRESETS.includes(state.splitPairColor)
+            ? state.splitPairColor
+            : TAB_COLOR_PRESETS.includes(active && active.color)
+            ? active.color
+            : (TAB_COLOR_PRESETS.includes(split && split.color) ? split.color : '');
+        state.splitRatio = normalizeSplitRatio(state.splitRatio);
+        ensureTabIframeLoaded(active);
+        ensureTabIframeLoaded(split);
         syncTabPaneState();
         updateLoaderVisibility();
         updateTabScrollButtons();
@@ -3916,12 +5002,157 @@
     }
 
     function disableSplitScreen() {
-        if (state.splitId === null) return;
+        if (state.splitId === null && !state.splitPairIds) return;
         state.splitId = null;
+        state.splitPairIds = null;
+        state.splitPairColor = '';
+        state.splitResizing = false;
         syncTabPaneState();
         updateLoaderVisibility();
         updateTabScrollButtons();
         saveTabs();
+    }
+
+    function swapSplitTabs() {
+        const panes = getSplitPaneIds();
+        if (!panes) return;
+        const leftIndex = state.tabs.findIndex(tab => tab.id === panes.left);
+        const rightIndex = state.tabs.findIndex(tab => tab.id === panes.right);
+        if (leftIndex < 0 || rightIndex < 0) return;
+        const tmp = state.tabs[leftIndex];
+        state.tabs[leftIndex] = state.tabs[rightIndex];
+        state.tabs[rightIndex] = tmp;
+        state.splitPairIds = [panes.right, panes.left];
+        renderTabs();
+        syncTabPaneState();
+        updateLoaderVisibility();
+        ensureActiveTabVisible();
+        updateTabScrollButtons();
+        saveTabs();
+    }
+
+    function detachSplitPane(side) {
+        const panes = getSplitPaneIds();
+        if (!panes) return;
+        const tabId = side === 'left' ? panes.left : panes.right;
+        detachSplitTab(tabId);
+    }
+
+    function detachSplitTab(tabId) {
+        const group = getSplitGroupIds();
+        if (!group.includes(tabId)) return;
+        const nextGroup = group.filter(id => id !== tabId);
+        const activeMemberId = state.activeId;
+        const remainingId = nextGroup.includes(activeMemberId) ? activeMemberId : nextGroup[0];
+        if (!remainingId) return;
+        state.activeId = remainingId;
+        state.splitId = null;
+        state.splitPairIds = nextGroup.length >= 2 ? nextGroup : null;
+        state.splitRatios = state.splitPairIds ? normalizeSplitRatios(state.splitRatios, state.splitPairIds.length) : [];
+        if (!state.splitPairIds) state.splitPairColor = '';
+        state.splitResizing = false;
+        syncTabPaneState();
+        updateHomeTabActive();
+        updateLoaderVisibility();
+        ensureActiveTabVisible();
+        updateTabScrollButtons();
+        saveTabs();
+    }
+
+    function openSplitHandleContextMenu(x, y) {
+        if (!getSplitPaneIds()) return;
+        closeTabContextMenu();
+
+        const menu = document.createElement('div');
+        menu.className = 'at-tabs-context-menu';
+        menu.setAttribute('role', 'menu');
+        menu.appendChild(createContextMenuItem(
+            'Swap tabs',
+            ICONS.split,
+            function () {
+                closeTabContextMenu();
+                swapSplitTabs();
+            }
+        ));
+        menu.appendChild(createContextMenuDivider());
+        menu.appendChild(createContextMenuItem(
+            'Detach left tab',
+            '',
+            function () {
+                closeTabContextMenu();
+                detachSplitPane('left');
+            }
+        ));
+        menu.appendChild(createContextMenuItem(
+            'Detach right tab',
+            '',
+            function () {
+                closeTabContextMenu();
+                detachSplitPane('right');
+            }
+        ));
+
+        document.body.appendChild(menu);
+        state.tabContextMenu = menu;
+        positionContextMenu(menu, x, y);
+    }
+
+    function legacyRemovedSplitFunctionsAnchor() {
+        return null;
+    }
+
+    function updateSplitRatioFromPointer(event) {
+        if (!state.viewport) return;
+        const rect = state.viewport.getBoundingClientRect();
+        if (!rect.width) return;
+        const ratio = (event.clientX - rect.left) / rect.width;
+        const count = getSplitGroupIds().length || 2;
+        if (count <= 2) {
+            state.splitRatio = normalizeSplitRatio(ratio);
+        } else {
+            const index = Math.max(0, Math.min(count - 2, Number(state.splitResizeHandleIndex) || 0));
+            const ratios = normalizeSplitRatios(state.splitRatios, count);
+            const min = index === 0 ? 0.12 : ratios[index - 1] + 0.12;
+            const max = index === ratios.length - 1 ? 0.88 : ratios[index + 1] - 0.12;
+            ratios[index] = Math.min(max, Math.max(min, ratio));
+            state.splitRatios = ratios;
+        }
+        applySplitRatio();
+    }
+
+    function stopSplitResize(event) {
+        if (!state.splitResizing) return;
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        state.splitResizing = false;
+        state.splitResizeHandleIndex = 0;
+        if (state.viewport) state.viewport.classList.remove('split-resizing');
+        document.removeEventListener('pointermove', updateSplitRatioFromPointer, true);
+        document.removeEventListener('pointerup', stopSplitResize, true);
+        document.removeEventListener('pointercancel', stopSplitResize, true);
+        saveTabs();
+    }
+
+    function startSplitResize(event) {
+        if (event.button !== 0) return;
+        const count = getSplitGroupIds().length || 0;
+        if (!state.viewport || count < 2 || count > 4) return;
+        event.preventDefault();
+        event.stopPropagation();
+        state.splitResizeHandleIndex = Number(event.currentTarget && event.currentTarget.dataset && event.currentTarget.dataset.splitHandle) || 0;
+        state.splitResizing = true;
+        state.viewport.classList.add('split-resizing');
+        try {
+            if (event.currentTarget && event.currentTarget.setPointerCapture) {
+                event.currentTarget.setPointerCapture(event.pointerId);
+            }
+        } catch (e) { /* Pointer capture is best-effort. */ }
+        updateSplitRatioFromPointer(event);
+        document.addEventListener('pointermove', updateSplitRatioFromPointer, true);
+        document.addEventListener('pointerup', stopSplitResize, true);
+        document.addEventListener('pointercancel', stopSplitResize, true);
     }
 
     function activateHome() {
@@ -3950,8 +5181,11 @@
     function activateTab(id, options) {
         const opts = options || {};
         const previousId = state.activeId;
-        if (state.splitId === id) state.splitId = null;
         state.activeId = id;
+        const pair = normalizeSplitPairIds(state.splitPairIds);
+        state.splitId = pair && pair.includes(id)
+            ? pair.find(candidateId => candidateId !== id) || null
+            : null;
         if (previousId === null) {
             state.activationHistory = state.activationHistory.filter(historyId => historyId !== null);
             state.activationHistory.push(null);
@@ -3960,7 +5194,16 @@
             state.activationHistory = state.activationHistory.filter(candidateId => candidateId !== previousId);
             state.activationHistory.push(previousId);
         }
-        if (opts.load !== false) ensureTabIframeLoaded(tabById(id));
+        if (opts.load !== false) {
+            const activeSplitPair = pair && pair.includes(id) ? pair : null;
+            if (activeSplitPair) {
+                activeSplitPair.forEach(function (splitId) {
+                    ensureTabIframeLoaded(tabById(splitId));
+                });
+            } else {
+                ensureTabIframeLoaded(tabById(id));
+            }
+        }
         syncTabPaneState();
         state.viewport.style.display = '';
         updateHomeTabActive();
@@ -3976,7 +5219,15 @@
         if (idx === -1) return;
         const removed = state.tabs.splice(idx, 1)[0];
         try { removed.iframeEl.remove(); } catch (e) {}
+        try { if (removed.loaderEl) removed.loaderEl.remove(); } catch (e) {}
         if (state.splitId === id) state.splitId = null;
+        if (state.splitPairIds && state.splitPairIds.includes(id)) {
+            const nextGroup = state.splitPairIds.filter(candidateId => candidateId !== id);
+            state.splitPairIds = nextGroup.length >= 2 ? nextGroup : null;
+            state.splitRatios = state.splitPairIds ? normalizeSplitRatios(state.splitRatios, state.splitPairIds.length) : [];
+            state.splitId = null;
+            if (!state.splitPairIds) state.splitPairColor = '';
+        }
         state.activationHistory = state.activationHistory.filter(candidateId => candidateId !== id);
         if (state.activeId === id) {
             const previousId = state.activationHistory.pop();
@@ -4091,6 +5342,7 @@
 
     function tabLineValue(tab, line) {
         if (!tab) return '';
+        if (line === 3 && horizontalCompactTabsActive()) return '';
         const type = tabTypeForUrl(tab.url || '');
         const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
         const options = getLineOptionsForType(type);
@@ -4669,7 +5921,21 @@
     function setTabColor(tabId, color) {
         const tab = tabById(tabId);
         if (!tab) return;
-        tab.color = TAB_COLOR_PRESETS.includes(color) ? color : '';
+        const nextColor = TAB_COLOR_PRESETS.includes(color) ? color : '';
+        const pair = normalizeSplitPairIds(state.splitPairIds);
+        if (pair && pair.includes(tabId)) {
+            state.splitPairColor = nextColor;
+            for (const pairId of pair) {
+                const pairTab = tabById(pairId);
+                if (!pairTab) continue;
+                pairTab.color = nextColor;
+                updateTabEl(pairTab);
+            }
+            syncTabPaneState();
+            saveTabs();
+            return;
+        }
+        tab.color = nextColor;
         updateTabEl(tab);
         saveTabs();
     }
@@ -4714,6 +5980,20 @@
         if (insertIndex > withoutDragged.length) insertIndex = withoutDragged.length;
         withoutDragged.splice(insertIndex, 0, dragged);
         state.tabs = withoutDragged;
+        const splitPair = normalizeSplitPairIds(state.splitPairIds);
+        if (splitPair) {
+            const orderedSplitPair = state.tabs
+                .map(function (tab) { return tab.id; })
+                .filter(function (id) { return splitPair.includes(id); });
+            state.splitPairIds = orderedSplitPair.length >= 2 ? orderedSplitPair : null;
+            if (!state.splitPairIds) {
+                state.splitId = null;
+                state.splitPairColor = '';
+            } else if (state.activeId !== null && state.splitPairIds.includes(state.activeId)) {
+                state.splitId = state.splitPairIds.find(function (id) { return id !== state.activeId; }) || null;
+            }
+            state.splitRatios = state.splitPairIds ? normalizeSplitRatios(state.splitRatios, state.splitPairIds.length) : [];
+        }
         renderTabs();
         syncTabPaneState();
         updateLoaderVisibility();
@@ -4746,8 +6026,9 @@
         );
         const label = splitButton.querySelector('.at-tabs-context-label');
 
-        if (tab.id === state.splitId) {
-            label.textContent = 'Remove from split screen';
+        const currentSplitGroup = getSplitGroupIds();
+        if (currentSplitGroup.includes(tab.id)) {
+            label.textContent = 'Close split screen';
             splitButton.addEventListener('click', function () {
                 closeTabContextMenu();
                 disableSplitScreen();
@@ -4759,10 +6040,16 @@
                 disableSplitScreen();
             });
         } else {
-            label.textContent = 'Open in split screen';
-            const canSplit = state.activeId !== null && state.activeId !== tab.id;
+            const group = getSplitGroupIds();
+            const addingToExistingSplit = splitGroupIncludesActive(group) && group.length >= 2;
+            label.textContent = addingToExistingSplit ? 'Add tab to split' : 'Open in split screen';
+            const canSplit = canAddTabToSplit(tab.id);
             splitButton.disabled = !canSplit;
-            splitButton.title = canSplit ? '' : 'Open another custom tab first, then split this tab beside it.';
+            splitButton.title = canSplit
+                ? ''
+                : (addingToExistingSplit && group.length >= 4
+                    ? 'A split can contain up to 4 tabs.'
+                    : 'Open another custom tab first, then split this tab beside it.');
             splitButton.addEventListener('click', function () {
                 if (splitButton.disabled) return;
                 closeTabContextMenu();
@@ -4781,6 +6068,16 @@
 
         menu.appendChild(refreshButton);
         menu.appendChild(splitButton);
+        if (normalizeSplitPairIds(state.splitPairIds) && state.splitPairIds.includes(tab.id)) {
+            menu.appendChild(createContextMenuItem(
+                'Detach tab',
+                ICONS.split,
+                function () {
+                    closeTabContextMenu();
+                    detachSplitTab(tab.id);
+                }
+            ));
+        }
         menu.appendChild(pinButton);
         menu.appendChild(createContextMenuDivider());
         menu.appendChild(createTabColorSubmenu(tab));
@@ -4892,10 +6189,15 @@
         resource.className = 'resource-badge';
         updateTabResourceEl(resource, tab);
 
+        const warning = document.createElement('span');
+        warning.className = 'tab-warning-badge';
+        updateTabWarningEl(warning, tab);
+
         const actions = document.createElement('div');
         actions.className = 'tab-actions';
         actions.appendChild(close);
         actions.appendChild(resource);
+        actions.appendChild(warning);
 
         el.appendChild(meta);
         el.appendChild(actions);
@@ -5164,22 +6466,31 @@
     function applyTabColorStyle(tab) {
         if (!tab || !tab.tabEl) return;
         tab.tabEl.classList.toggle('pinned', !!tab.pinned);
-        const color = TAB_COLOR_PRESETS.includes(tab.color) ? tab.color : '';
+        const ownColor = TAB_COLOR_PRESETS.includes(tab.color) ? tab.color : '';
+        const sharedColor = TAB_COLOR_PRESETS.includes(tab.splitSharedColor) ? tab.splitSharedColor : '';
+        const color = ownColor || sharedColor;
         if (!color) {
             tab.tabEl.dataset.aesColored = 'false';
             tab.tabEl.style.removeProperty('--aes-tab-border');
             tab.tabEl.style.removeProperty('--aes-tab-bg-idle');
             tab.tabEl.style.removeProperty('--aes-tab-bg-hover');
             tab.tabEl.style.removeProperty('--aes-tab-bg-active');
+            tab.tabEl.style.removeProperty('--aes-tab-split-bg');
+            tab.tabEl.style.removeProperty('--aes-tab-split-border');
+            tab.tabEl.style.removeProperty('--aes-tab-split-ring');
             return;
         }
 
         const dark = document.documentElement.classList.contains('aes-dark');
+        const splitColor = sharedColor || color;
         tab.tabEl.dataset.aesColored = 'true';
-        tab.tabEl.style.setProperty('--aes-tab-border', color);
-        tab.tabEl.style.setProperty('--aes-tab-bg-idle', colorToRgba(color, dark ? 0.18 : 0.14));
-        tab.tabEl.style.setProperty('--aes-tab-bg-hover', colorToRgba(color, dark ? 0.26 : 0.2));
-        tab.tabEl.style.setProperty('--aes-tab-bg-active', colorToRgba(color, dark ? 0.34 : 0.28));
+        tab.tabEl.style.setProperty('--aes-tab-border', splitColor);
+        tab.tabEl.style.setProperty('--aes-tab-bg-idle', colorToRgba(splitColor, dark ? 0.18 : 0.14));
+        tab.tabEl.style.setProperty('--aes-tab-bg-hover', colorToRgba(splitColor, dark ? 0.26 : 0.2));
+        tab.tabEl.style.setProperty('--aes-tab-bg-active', colorToRgba(splitColor, dark ? 0.34 : 0.28));
+        tab.tabEl.style.setProperty('--aes-tab-split-bg', colorToRgba(splitColor, dark ? 0.22 : 0.18));
+        tab.tabEl.style.setProperty('--aes-tab-split-border', colorToRgba(splitColor, dark ? 0.7 : 0.62));
+        tab.tabEl.style.setProperty('--aes-tab-split-ring', colorToRgba(splitColor, dark ? 0.34 : 0.28));
     }
 
     function isTransparentColor(value) {
@@ -5231,12 +6542,30 @@
         }
     }
 
+    function updateTabWarningEl(warningEl, tab) {
+        if (!warningEl) return;
+        warningEl.className = 'tab-warning-badge';
+        warningEl.innerHTML = '';
+        warningEl.title = '';
+        if (!tab || !tab.pageWarning) return;
+        warningEl.classList.add('visible');
+        if (tab.type === 'contract') {
+            warningEl.classList.add('contract-warning');
+            warningEl.title = 'Contract needs attention';
+            warningEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v5.2"/><path d="M12 16.8h.01"/></svg>';
+        } else {
+            warningEl.title = 'Page warning';
+            warningEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18.4A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>';
+        }
+    }
+
     function updateTabEl(tab) {
         if (!tab.tabEl) return;
         const t = tab.tabEl.querySelector('.line.title');
         const n = tab.tabEl.querySelector('.line.number');
         const c = tab.tabEl.querySelector('.line.contact');
         const r = tab.tabEl.querySelector('.resource-badge');
+        const w = tab.tabEl.querySelector('.tab-warning-badge');
         if (t) updateTabTitleEl(t, tab);
         if (n) {
             n.textContent = tabLineValue(tab, 2);
@@ -5247,6 +6576,7 @@
             applyTabLineStyle(c, tab, 3);
         }
         if (r) updateTabResourceEl(r, tab);
+        if (w) updateTabWarningEl(w, tab);
         updateTabRowCount(tab);
         applyTabColorStyle(tab);
     }
@@ -5254,6 +6584,7 @@
     function updateHomeTabActive() {
         if (!state.homeTabEl) return;
         state.homeTabEl.classList.toggle('active', state.activeId === null);
+        state.homeTabEl.classList.toggle('split-member', false);
         updateHomeLoadingIndicator();
         ensureActiveTabVisible();
         updateTabScrollButtons();
@@ -5380,32 +6711,42 @@
         intro.className = 'at-tabs-release-notes-intro';
         intro.textContent = 'Version ' + (RELEASE_NOTES.version || version || 'latest');
         body.appendChild(intro);
+        function appendReleaseNoteList(parent, items) {
+            if (!Array.isArray(items) || !items.length) return;
+            const list = document.createElement('ul');
+            items.forEach(function (item) {
+                const itemEl = document.createElement('li');
+                if (typeof item === 'string') {
+                    itemEl.textContent = item;
+                } else if (item && typeof item === 'object' && item.text) {
+                    itemEl.textContent = item.text;
+                }
+                list.appendChild(itemEl);
+            });
+            parent.appendChild(list);
+        }
+
         RELEASE_NOTES.sections.forEach(function (section) {
             const sectionEl = document.createElement('section');
             sectionEl.className = 'at-tabs-release-notes-section';
             const sectionTitle = document.createElement('h3');
             sectionTitle.textContent = section.title;
-            const list = document.createElement('ul');
-            section.items.forEach(function (item) {
-                const itemEl = document.createElement('li');
-                if (typeof item === 'string') {
-                    itemEl.textContent = item;
-                } else {
-                    itemEl.appendChild(document.createTextNode(item.text || ''));
-                    if (Array.isArray(item.children) && item.children.length) {
-                        const childList = document.createElement('ul');
-                        item.children.forEach(function (child) {
-                            const childEl = document.createElement('li');
-                            childEl.textContent = child;
-                            childList.appendChild(childEl);
-                        });
-                        itemEl.appendChild(childList);
-                    }
-                }
-                list.appendChild(itemEl);
-            });
             sectionEl.appendChild(sectionTitle);
-            sectionEl.appendChild(list);
+
+            appendReleaseNoteList(sectionEl, section.items);
+
+            if (Array.isArray(section.subsections)) {
+                section.subsections.forEach(function (subsection) {
+                    const subsectionEl = document.createElement('div');
+                    subsectionEl.className = 'at-tabs-release-notes-subsection';
+                    const subsectionTitle = document.createElement('h4');
+                    subsectionTitle.textContent = subsection.title;
+                    subsectionEl.appendChild(subsectionTitle);
+                    appendReleaseNoteList(subsectionEl, subsection.items);
+                    sectionEl.appendChild(subsectionEl);
+                });
+            }
+
             body.appendChild(sectionEl);
         });
 
@@ -5599,7 +6940,7 @@
     function defaultSettingsState() {
         return {
             extensionEnabled: true,
-            rememberTabsAfterClose: false,
+            rememberTabsAfterClose: true,
             openNewTabsAtStart: false,
             phoneLinksEnabled: true,
             themePreference: 'auto',
@@ -5609,6 +6950,9 @@
             replaceCalendarWithResourcePlanner: false,
             showTabBarOnNonIframePages: true,
             resizableTabBarEnabled: true,
+            horizontalCompactTabsEnabled: false,
+            roundedPageFramesEnabled: false,
+            improvedScrollbarsEnabled: true,
             timesheetUiEnhancementEnabled: false,
             preferencesUiEnhancementEnabled: false,
             workspaceQueuesUiEnhancementEnabled: false,
@@ -5701,43 +7045,6 @@
         enabledRow.appendChild(enabledLabel);
         enabledRow.appendChild(enabledToggle);
 
-        const themeRow = document.createElement('label');
-        themeRow.className = 'at-tabs-setting-row';
-
-        const themeLabel = document.createElement('span');
-        themeLabel.className = 'at-tabs-setting-label';
-
-        const themeName = document.createElement('span');
-        themeName.className = 'at-tabs-setting-name';
-        themeName.textContent = 'Theme';
-        themeLabel.appendChild(createSettingInfo('Force tabbar to show in a specific mode, recommended to set to Follow Autotask'));
-        themeLabel.appendChild(themeName);
-
-        const themeSelect = document.createElement('select');
-        themeSelect.className = 'at-tabs-setting-select';
-        [
-            { value: 'auto', label: 'Follow Autotask' },
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
-        ].forEach(function (opt) {
-            const optionEl = document.createElement('option');
-            optionEl.value = opt.value;
-            optionEl.textContent = opt.label;
-            if (state.themePreference === opt.value) optionEl.selected = true;
-            themeSelect.appendChild(optionEl);
-        });
-        themeSelect.addEventListener('change', function () {
-            const value = themeSelect.value;
-            if (!['auto', 'light', 'dark'].includes(value)) return;
-            state.themePreference = value;
-            AES.state.themePreference = value;
-            applyAutotaskTheme();
-            void AES.saveSettings();
-        });
-
-        themeRow.appendChild(themeLabel);
-        themeRow.appendChild(themeSelect);
-
         // Autotask UI Enhancement row (legacy iframe color overrides +
         // button/chrome polish for iframe pages).
         const enhancerRow = document.createElement('label');
@@ -5748,7 +7055,7 @@
 
         const enhancerName = document.createElement('span');
         enhancerName.className = 'at-tabs-setting-name';
-        enhancerName.textContent = 'Autotask UI Enhancement';
+        enhancerName.textContent = '[EXPERIMENTAL] Autotask UI Enhancement';
         enhancerLabel.appendChild(createSettingInfo('Align legacy iframe pages to the newer Autotask Onyx styling, including dark surfaces, button styling, and legacy chrome cleanup (can cause visual issues)'));
         enhancerLabel.appendChild(enhancerName);
 
@@ -5851,23 +7158,44 @@
         const orientationName = document.createElement('span');
         orientationName.className = 'at-tabs-setting-name';
         orientationName.textContent = 'Tab bar position';
-        orientationLabel.appendChild(createSettingInfo('Show either a horizontal or vertical tab bar for legacy pages'));
+        orientationLabel.appendChild(createSettingInfo('Choose the tab bar layout. Compact horizontal tabs hide Line 3 and reduce tab height.'));
         orientationLabel.appendChild(orientationName);
+
+        function currentTabBarPositionValue() {
+            if (state.barOrientation === 'vertical') return 'vertical-left';
+            return state.horizontalCompactTabsEnabled ? 'horizontal-compact' : 'horizontal';
+        }
 
         const orientationSelect = document.createElement('select');
         orientationSelect.className = 'at-tabs-setting-select';
         [
-            { value: 'horizontal', label: 'Horizontal (top)' },
-            { value: 'vertical', label: 'Vertical (left)' },
+            { value: 'horizontal', label: 'Horizontal' },
+            { value: 'horizontal-compact', label: 'Horizontal (Compact)' },
+            { value: 'vertical-left', label: 'Vertical (left)' },
+            { value: 'vertical-right', label: 'Vertical (right) (coming in a future update)', disabled: true },
         ].forEach(function (opt) {
             const optionEl = document.createElement('option');
             optionEl.value = opt.value;
             optionEl.textContent = opt.label;
-            if (state.barOrientation === opt.value) optionEl.selected = true;
+            if (opt.disabled) optionEl.disabled = true;
+            if (currentTabBarPositionValue() === opt.value) optionEl.selected = true;
             orientationSelect.appendChild(optionEl);
         });
         orientationSelect.addEventListener('change', function () {
-            setBarOrientation(orientationSelect.value);
+            if (orientationSelect.value === 'vertical-right') {
+                orientationSelect.value = currentTabBarPositionValue();
+                return;
+            }
+            const compact = orientationSelect.value === 'horizontal-compact';
+            const nextOrientation = orientationSelect.value === 'vertical-left' ? 'vertical' : 'horizontal';
+            state.horizontalCompactTabsEnabled = compact;
+            AES.state.horizontalCompactTabsEnabled = compact;
+            setBarOrientation(nextOrientation);
+            updateResizableBarClasses();
+            state.tabs.forEach(updateTabEl);
+            updateCustomizationCompactState();
+            requestSyncGeometry();
+            saveTabs();
             void AES.saveSettings();
         });
 
@@ -5969,10 +7297,6 @@
         persistRow.appendChild(persistLabel);
         persistRow.appendChild(persistToggle);
 
-        const persistNote = document.createElement('div');
-        persistNote.className = 'at-tabs-setting-note';
-        persistNote.textContent = 'Note that this will severely increase initial load times since all tabs will be loaded in one go';
-
         const openAtStartRow = document.createElement('label');
         openAtStartRow.className = 'at-tabs-setting-row';
 
@@ -6073,9 +7397,6 @@
         peekConfirmRow.appendChild(peekConfirmLabel);
         peekConfirmRow.appendChild(peekConfirmToggle);
 
-        const phoneSection = document.createElement('div');
-        phoneSection.className = 'at-tabs-settings-section';
-
         const experimentalSection = document.createElement('div');
         experimentalSection.className = 'at-tabs-settings-section';
 
@@ -6175,6 +7496,72 @@
         workspaceQueuesUiRow.appendChild(workspaceQueuesUiLabel);
         workspaceQueuesUiRow.appendChild(workspaceQueuesUiToggle);
 
+        const roundedPageFramesRow = document.createElement('label');
+        roundedPageFramesRow.className = 'at-tabs-setting-row';
+
+        const roundedPageFramesLabel = document.createElement('span');
+        roundedPageFramesLabel.className = 'at-tabs-setting-label';
+
+        const roundedPageFramesName = document.createElement('span');
+        roundedPageFramesName.className = 'at-tabs-setting-name';
+        roundedPageFramesName.textContent = 'Add rounded corners to all pages';
+        roundedPageFramesLabel.appendChild(createSettingInfo('Adds padding, a subtle frame, and rounded corners around AES tab pages. Split panes already use this treatment.'));
+        roundedPageFramesLabel.appendChild(roundedPageFramesName);
+
+        const roundedPageFramesToggle = document.createElement('span');
+        roundedPageFramesToggle.className = 'at-tabs-setting-toggle';
+
+        const roundedPageFramesInput = document.createElement('input');
+        roundedPageFramesInput.type = 'checkbox';
+        roundedPageFramesInput.checked = !!state.roundedPageFramesEnabled;
+        roundedPageFramesInput.addEventListener('change', function () {
+            state.roundedPageFramesEnabled = roundedPageFramesInput.checked;
+            AES.state.roundedPageFramesEnabled = roundedPageFramesInput.checked;
+            applyPageFrameClass();
+            syncTabPaneState();
+            updateLoaderVisibility();
+            void AES.saveSettings();
+        });
+
+        const roundedPageFramesToggleUi = document.createElement('span');
+        roundedPageFramesToggleUi.className = 'at-tabs-setting-toggle-ui';
+        roundedPageFramesToggle.appendChild(roundedPageFramesInput);
+        roundedPageFramesToggle.appendChild(roundedPageFramesToggleUi);
+        roundedPageFramesRow.appendChild(roundedPageFramesLabel);
+        roundedPageFramesRow.appendChild(roundedPageFramesToggle);
+
+        const improvedScrollbarsRow = document.createElement('label');
+        improvedScrollbarsRow.className = 'at-tabs-setting-row';
+
+        const improvedScrollbarsLabel = document.createElement('span');
+        improvedScrollbarsLabel.className = 'at-tabs-setting-label';
+
+        const improvedScrollbarsName = document.createElement('span');
+        improvedScrollbarsName.className = 'at-tabs-setting-name';
+        improvedScrollbarsName.textContent = 'Improved scrollbars';
+        improvedScrollbarsLabel.appendChild(createSettingInfo('Uses slimmer scrollbars throughout Autotask, including legacy pages and nested frames.'));
+        improvedScrollbarsLabel.appendChild(improvedScrollbarsName);
+
+        const improvedScrollbarsToggle = document.createElement('span');
+        improvedScrollbarsToggle.className = 'at-tabs-setting-toggle';
+
+        const improvedScrollbarsInput = document.createElement('input');
+        improvedScrollbarsInput.type = 'checkbox';
+        improvedScrollbarsInput.checked = !!state.improvedScrollbarsEnabled;
+        improvedScrollbarsInput.addEventListener('change', function () {
+            state.improvedScrollbarsEnabled = improvedScrollbarsInput.checked;
+            AES.state.improvedScrollbarsEnabled = improvedScrollbarsInput.checked;
+            syncImprovedScrollbarsState();
+            void AES.saveSettings();
+        });
+
+        const improvedScrollbarsToggleUi = document.createElement('span');
+        improvedScrollbarsToggleUi.className = 'at-tabs-setting-toggle-ui';
+        improvedScrollbarsToggle.appendChild(improvedScrollbarsInput);
+        improvedScrollbarsToggle.appendChild(improvedScrollbarsToggleUi);
+        improvedScrollbarsRow.appendChild(improvedScrollbarsLabel);
+        improvedScrollbarsRow.appendChild(improvedScrollbarsToggle);
+
         const phoneRow = document.createElement('label');
         phoneRow.className = 'at-tabs-setting-row';
 
@@ -6209,28 +7596,6 @@
         phoneRow.appendChild(phoneLabel);
         phoneRow.appendChild(phoneToggle);
 
-        const releaseNotesRow = document.createElement('div');
-        releaseNotesRow.className = 'at-tabs-setting-row';
-
-        const releaseNotesLabel = document.createElement('span');
-        releaseNotesLabel.className = 'at-tabs-setting-label';
-
-        const releaseNotesName = document.createElement('span');
-        releaseNotesName.className = 'at-tabs-setting-name';
-        releaseNotesName.textContent = 'View Release Notes';
-        releaseNotesLabel.appendChild(releaseNotesName);
-
-        const releaseNotesAction = document.createElement('button');
-        releaseNotesAction.type = 'button';
-        releaseNotesAction.className = 'at-tabs-settings-page-action';
-        releaseNotesAction.textContent = 'Open';
-        releaseNotesAction.addEventListener('click', function () {
-            closeSettingsModal(true);
-            openReleaseNotesModal();
-        });
-        releaseNotesRow.appendChild(releaseNotesLabel);
-        releaseNotesRow.appendChild(releaseNotesAction);
-
         const customizationSection = document.createElement('div');
         customizationSection.className = 'at-tabs-settings-section';
 
@@ -6239,9 +7604,10 @@
         customizationHeader.appendChild(document.createElement('span'));
         const customizationHeaderLines = document.createElement('span');
         customizationHeaderLines.className = 'at-tabs-customization-header-lines';
-        ['Line 2', 'Line 3'].forEach(function (labelText) {
+        ['Line 2', 'Line 3'].forEach(function (labelText, index) {
             const label = document.createElement('span');
             label.textContent = labelText;
+            if (index === 1) label.dataset.tabLineHeader = '3';
             customizationHeaderLines.appendChild(label);
         });
         customizationHeader.appendChild(customizationHeaderLines);
@@ -6338,6 +7704,22 @@
             customizationSection.appendChild(row);
         });
 
+        function updateCustomizationCompactState() {
+            const disabled = !!state.horizontalCompactTabsEnabled;
+            customizationSection.querySelectorAll('select[data-tab-line="3"]').forEach(function (select) {
+                select.disabled = disabled;
+                select.title = disabled ? 'Line 3 is hidden when Compact horizontal tabs is enabled' : 'Line 3';
+            });
+            customizationSection.querySelectorAll('.at-tabs-setting-line-controls').forEach(function (controls) {
+                controls.classList.toggle('line3-disabled', disabled);
+            });
+            customizationSection.querySelectorAll('[data-tab-line-header="3"]').forEach(function (label) {
+                label.classList.toggle('line3-disabled', disabled);
+                label.title = disabled ? 'Line 3 is hidden when Compact horizontal tabs is enabled' : '';
+            });
+        }
+        updateCustomizationCompactState();
+
         const uiSection = document.createElement('div');
         uiSection.className = 'at-tabs-settings-section';
 
@@ -6347,33 +7729,31 @@
         section.appendChild(hideRow);
         section.appendChild(openAtStartRow);
         section.appendChild(persistRow);
-        section.appendChild(persistNote);
         section.appendChild(peekConfirmRow);
         if (SHOW_PAGE_REDESIGN_EXPERIMENTS) {
             experimentalSection.appendChild(timesheetUiRow);
             experimentalSection.appendChild(preferencesUiRow);
             experimentalSection.appendChild(workspaceQueuesUiRow);
         }
-        phoneSection.appendChild(phoneRow);
-        phoneSection.appendChild(releaseNotesRow);
         generalSection.appendChild(enabledRow);
         generalSection.appendChild(enabledReloadNote);
-        generalSection.appendChild(themeRow);
-        uiSection.appendChild(enhancerRow);
         uiSection.appendChild(earlyAccessRow);
         uiSection.appendChild(resourcePlannerRow);
+        uiSection.appendChild(roundedPageFramesRow);
+        uiSection.appendChild(improvedScrollbarsRow);
+        uiSection.appendChild(phoneRow);
+        experimentalSection.appendChild(enhancerRow);
 
         const nav = document.createElement('div');
         nav.className = 'at-tabs-settings-nav';
         const pages = document.createElement('div');
         pages.className = 'at-tabs-settings-pages';
         const pageDefs = [
-            { id: 'general', label: 'General', description: 'Core extension controls and theme behavior.', section: generalSection },
-            { id: 'ui', label: 'UI Enhancement', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
+            { id: 'general', label: 'General', description: 'Core extension controls.', section: generalSection },
+            { id: 'ui', label: 'Enhancements', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
             { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, Peek behavior, and visibility.', section: section },
             { id: 'customization', label: 'Customization', description: 'Choose what metadata appears on each tab line.', section: customizationSection },
             { id: 'experimental', label: 'Experimental', description: 'Beta features and page-specific experiments that may need extra testing.', section: experimentalSection },
-            { id: 'misc', label: 'Miscellaneous', description: 'Extra productivity helpers that do not belong to the tab shell.', section: phoneSection },
         ];
         const navButtons = [];
         const pageEls = [];
@@ -6437,11 +7817,11 @@
 
             enabledInput.checked = defaults.extensionEnabled;
             enabledReloadNote.classList.remove('visible');
-            themeSelect.value = defaults.themePreference;
             enhancerInput.checked = defaults.darkModeEnhancerEnabled;
             earlyAccessInput.checked = defaults.hideEarlyAccessLabels;
             resourcePlannerInput.checked = defaults.replaceCalendarWithResourcePlanner;
-            orientationSelect.value = defaults.barOrientation;
+            roundedPageFramesInput.checked = defaults.roundedPageFramesEnabled;
+            orientationSelect.value = defaults.barOrientation === 'vertical' ? 'vertical-left' : (defaults.horizontalCompactTabsEnabled ? 'horizontal-compact' : 'horizontal');
             resizeInput.checked = defaults.resizableTabBarEnabled;
             hideInput.checked = state.shellHidden;
             openAtStartInput.checked = defaults.openNewTabsAtStart;
@@ -6451,11 +7831,15 @@
             timesheetUiInput.checked = defaults.timesheetUiEnhancementEnabled;
             preferencesUiInput.checked = defaults.preferencesUiEnhancementEnabled;
             workspaceQueuesUiInput.checked = defaults.workspaceQueuesUiEnhancementEnabled;
+            improvedScrollbarsInput.checked = defaults.improvedScrollbarsEnabled;
             phoneInput.checked = defaults.phoneLinksEnabled;
             setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
+            updateCustomizationCompactState();
 
             applyAutotaskTheme();
             applyBarOrientationClass();
+            applyPageFrameClass();
+            syncImprovedScrollbarsState();
             updateResizableBarClasses();
             updateShellVisibility();
             applyExtensionEnabledState();
@@ -6489,8 +7873,21 @@
         resetButton.textContent = 'Reset settings';
         resetButton.title = 'Reset AES settings to defaults';
         resetButton.addEventListener('click', resetSettingsToDefaults);
+        const releaseNotesButton = document.createElement('button');
+        releaseNotesButton.type = 'button';
+        releaseNotesButton.className = 'at-tabs-settings-reset';
+        releaseNotesButton.textContent = 'Release notes';
+        releaseNotesButton.title = 'View AES release notes';
+        releaseNotesButton.addEventListener('click', function () {
+            closeSettingsModal(true);
+            openReleaseNotesModal();
+        });
+        const footerActions = document.createElement('span');
+        footerActions.className = 'at-tabs-settings-footer-actions';
+        footerActions.appendChild(releaseNotesButton);
+        footerActions.appendChild(resetButton);
         footer.appendChild(footerText);
-        footer.appendChild(resetButton);
+        footer.appendChild(footerActions);
 
         modal.appendChild(header);
         modal.appendChild(body);
@@ -6953,6 +8350,7 @@
             primaryResource: null,
             hoverFields: [],
             metadataFields: fallbackMetadataFields(type, fallback),
+            pageWarning: false,
             iframeEl: null,
             tabEl: null,
         }, { allowSplit: false });
@@ -7179,7 +8577,9 @@
         }
         const opts = options || {};
         const iframeEl = createTabIframe(url);
+        const loaderEl = createTabPaneLoader();
         state.viewport.appendChild(iframeEl);
+        state.viewport.appendChild(loaderEl);
         const fallback = fallbackTabMetadataForUrl(url);
         const type = tabTypeForUrl(url);
 
@@ -7195,9 +8595,11 @@
             priority: (seedFromTab && seedFromTab.priority) || '',
             status: (seedFromTab && seedFromTab.status) || '',
             lastActivity: (seedFromTab && seedFromTab.lastActivity) || '',
+            pageWarning: !!(seedFromTab && seedFromTab.pageWarning),
             hoverFields: normalizeHoverFields(seedFromTab && seedFromTab.hoverFields),
             metadataFields: normalizeMetadataFields((seedFromTab && seedFromTab.metadataFields) || fallbackMetadataFields(type, fallback)),
             iframeEl: iframeEl,
+            loaderEl: loaderEl,
             tabEl: null,
             loading: true,
             loadStarted: true,
@@ -7293,6 +8695,18 @@
             return;
         }
 
+        if (data.type === 'improved-scrollbars-request') {
+            const respond = function () {
+                syncImprovedScrollbarsState();
+            };
+            if (!state.bar && AES.loadSettings) {
+                void AES.loadSettings().then(respond).catch(respond);
+            } else {
+                respond();
+            }
+            return;
+        }
+
         if (data.type === 'feature-enabled-request') {
             broadcastFeatureEnabledState();
             return;
@@ -7356,10 +8770,19 @@
             return;
         }
 
+        if (data.type === 'frame-interaction') {
+            const tab = findTabFromWindow(event.source);
+            closeTabContextMenu();
+            if (!tab || state.activeId === tab.id) return;
+            activateTab(tab.id, { recordPrevious: false });
+            return;
+        }
+
         if (data.type === 'nav') {
             const tab = findTabFromWindow(event.source);
             if (!tab) return;
-            if (data.url) tab.url = data.url;
+            const isDirectTabFrame = !!(tab.iframeEl && event.source === tab.iframeEl.contentWindow);
+            if (data.url && isDirectTabFrame) tab.url = data.url;
             const preserveSparse = shouldPreserveSparseNavMetadata(tab.url);
             const normalizedPurchaseOrderNav = normalizePurchaseOrderNavData(tab, data);
             const navTitle = normalizedPurchaseOrderNav && normalizedPurchaseOrderNav.title !== null
@@ -7383,6 +8806,7 @@
             if (data.priority !== undefined) tab.priority = data.priority || '';
             if (data.status !== undefined) tab.status = data.status || '';
             if (data.lastActivity !== undefined) tab.lastActivity = data.lastActivity || '';
+            if (data.pageWarning !== undefined) tab.pageWarning = !!data.pageWarning;
             if (data.hoverFields !== undefined) tab.hoverFields = normalizeHoverFields(data.hoverFields);
             if (data.metadataFields !== undefined) tab.metadataFields = normalizeMetadataFields(data.metadataFields);
             updateTabEl(tab);
@@ -7520,9 +8944,6 @@
     }
 
     function effectiveDarkMode() {
-        const pref = state.themePreference;
-        if (pref === 'light') return false;
-        if (pref === 'dark') return true;
         return detectAutotaskDarkMode();
     }
 
@@ -7545,6 +8966,39 @@
         document.documentElement.classList.toggle('aes-safari-webkit', IS_SAFARI_WEBKIT);
     }
 
+    function applyPageFrameClass() {
+        const enabled = !!state.roundedPageFramesEnabled;
+        document.documentElement.classList.toggle('aes-rounded-pages', enabled);
+        if (state.viewport) state.viewport.classList.toggle('rounded-pages', enabled);
+    }
+
+    function improvedScrollbarsActive() {
+        return featuresEnabled() && !!state.improvedScrollbarsEnabled;
+    }
+
+    function applyImprovedScrollbarsClass() {
+        document.documentElement.classList.toggle('aes-improved-scrollbars', improvedScrollbarsActive());
+    }
+
+    function broadcastImprovedScrollbarsState() {
+        const payload = { __ns: AES.MSG_NS, type: 'improved-scrollbars', enabled: improvedScrollbarsActive() };
+        function postToFrames(win) {
+            try {
+                for (let i = 0; i < win.frames.length; i++) {
+                    const child = win.frames[i];
+                    try { child.postMessage(payload, '*'); } catch (e) {}
+                    try { postToFrames(child); } catch (e) {}
+                }
+            } catch (e) {}
+        }
+        postToFrames(window);
+    }
+
+    function syncImprovedScrollbarsState() {
+        applyImprovedScrollbarsClass();
+        broadcastImprovedScrollbarsState();
+    }
+
     // Broadcast the current dark mode enhancer state to every same-origin
     // iframe (native and tab). The iframe bridge applies/removes its color
     // overrides based on this signal. Recursively descends into nested
@@ -7552,6 +9006,7 @@
     function broadcastDarkModeEnhancerState() {
         const enabled = featuresEnabled() && !!state.darkModeEnhancerEnabled;
         const dark = effectiveDarkMode();
+        document.documentElement.classList.toggle('aes-ui-enhancer-enabled', enabled);
         const payload = { __ns: AES.MSG_NS, type: 'dark-enhancer', enabled: enabled, dark: dark };
         function postToFrames(win) {
             try {
@@ -8035,7 +9490,7 @@
         item.setAttribute('data-aes-native-settings-item', 'true');
         item.setAttribute('tabindex', '0');
         item.className = referenceItem && referenceItem.className
-            ? referenceItem.className
+            ? sanitizeNativeSettingsMenuItemClass(referenceItem.className)
             : 'relative min-h-8 w-full grid items-center gap-col-2 px-2 py-1 select-none outline-none grid-cols-[auto_1fr] cursor-pointer color-text-primary bg-background-primary';
         item.style.cssText = referenceItem && referenceItem.getAttribute('style')
             ? referenceItem.getAttribute('style')
@@ -8051,7 +9506,7 @@
         title.className = 'break-words text-menu-header fw-normal';
 
         const text = document.createElement('span');
-        text.textContent = 'AES Settings';
+        text.textContent = 'Autotask Enhancement Suite';
 
         const spacer = document.createElement('div');
         spacer.className = 'flex-grow flex items-center justify-end gap-2';
@@ -8090,6 +9545,23 @@
         return item;
     }
 
+    function sanitizeNativeSettingsMenuItemClass(className) {
+        return String(className || '')
+            .split(/\s+/)
+            .filter(function (name) {
+                return name &&
+                    name !== 'bg-$brand-primary-color/15' &&
+                    name !== 'before:content-empty' &&
+                    name !== 'before:absolute' &&
+                    name !== 'before:h-full' &&
+                    name !== 'before:left-0' &&
+                    name !== 'before:border-l-4' &&
+                    name !== 'before:border-l-solid' &&
+                    name !== 'before:border-$brand-primary-color';
+            })
+            .join(' ');
+    }
+
     function ensureNativeSettingsMenuItem() {
         const menu = findNativeAutotaskMenu();
         if (!menu) {
@@ -8126,6 +9598,7 @@
             menu.appendChild(item);
         }
 
+        item.className = sanitizeNativeSettingsMenuItemClass(item.className);
         state.nativeSettingsMenuItem = item;
         state.nativeSettingsAvailable = true;
         updateSettingsEntryVisibility();
@@ -8184,6 +9657,8 @@
         if (state.bar) return;
         state.mountTime = Date.now();
         applyBrowserCompatibilityClasses();
+        applyPageFrameClass();
+        applyImprovedScrollbarsClass();
         injectStyles();
 
         const bar = document.createElement('div');
@@ -8201,6 +9676,26 @@
         const viewport = document.createElement('div');
         viewport.className = 'at-tabs-viewport empty';
 
+        const splitResizeHandles = [];
+        for (let i = 0; i < 3; i++) {
+            const splitResizeHandle = document.createElement('div');
+            splitResizeHandle.className = 'at-tabs-split-resize-handle';
+            splitResizeHandle.dataset.splitHandle = String(i);
+            const splitResizeGrip = document.createElement('div');
+            splitResizeGrip.className = 'at-tabs-split-resize-grip';
+            splitResizeGrip.dataset.splitHandle = String(i);
+            splitResizeGrip.title = 'Drag to resize split tabs';
+            splitResizeGrip.addEventListener('pointerdown', startSplitResize);
+            splitResizeGrip.addEventListener('contextmenu', function (event) {
+                event.preventDefault();
+                event.stopPropagation();
+                openSplitHandleContextMenu(event.clientX, event.clientY);
+            });
+            splitResizeHandle.appendChild(splitResizeGrip);
+            viewport.appendChild(splitResizeHandle);
+            splitResizeHandles.push(splitResizeHandle);
+        }
+
         const homeCover = document.createElement('div');
         homeCover.className = 'at-tabs-home-cover';
 
@@ -8211,7 +9706,7 @@
         const settingsButton = document.createElement('button');
         settingsButton.type = 'button';
         settingsButton.className = 'at-tabs-settings-button';
-        settingsButton.title = 'Settings';
+        settingsButton.title = 'Autotask Enhancement Suite';
         settingsButton.innerHTML = ICONS.settings;
         settingsButton.addEventListener('click', function (event) {
             event.stopPropagation();
@@ -8226,7 +9721,10 @@
         state.viewport = viewport;
         state.homeCover = homeCover;
         state.loader = loader;
+        state.splitResizeHandle = splitResizeHandles[0];
+        state.splitResizeHandles = splitResizeHandles;
         state.settingsButton = settingsButton;
+        applySplitRatio();
 
         renderHomeTab();
         // Show the spinner on the Home tab until the native iframe reports
@@ -8240,9 +9738,8 @@
         if (['horizontal', 'vertical'].includes(AES.state.barOrientation)) {
             state.barOrientation = AES.state.barOrientation;
         }
-        if (['auto', 'light', 'dark'].includes(AES.state.themePreference)) {
-            state.themePreference = AES.state.themePreference;
-        }
+        state.themePreference = 'auto';
+        AES.state.themePreference = 'auto';
         if (typeof AES.state.extensionEnabled === 'boolean') {
             state.extensionEnabled = AES.state.extensionEnabled;
         }
@@ -8264,6 +9761,17 @@
         if (typeof AES.state.resizableTabBarEnabled === 'boolean') {
             state.resizableTabBarEnabled = AES.state.resizableTabBarEnabled;
         }
+        if (typeof AES.state.horizontalCompactTabsEnabled === 'boolean') {
+            state.horizontalCompactTabsEnabled = AES.state.horizontalCompactTabsEnabled;
+        }
+        if (typeof AES.state.roundedPageFramesEnabled === 'boolean') {
+            state.roundedPageFramesEnabled = AES.state.roundedPageFramesEnabled;
+        }
+        if (typeof AES.state.improvedScrollbarsEnabled === 'boolean') {
+            state.improvedScrollbarsEnabled = AES.state.improvedScrollbarsEnabled;
+        }
+        applyPageFrameClass();
+        syncImprovedScrollbarsState();
         if (!SHOW_PAGE_REDESIGN_EXPERIMENTS) {
             state.timesheetUiEnhancementEnabled = false;
             state.preferencesUiEnhancementEnabled = false;
@@ -8290,6 +9798,7 @@
         window.setTimeout(maybeCheckGithubReleaseUpdate, 3000);
         if (featuresEnabled()) {
             await restoreTabs();
+            installTabsMetadataSyncWatcher();
             if (state.tabs.length) clearHomeLoading();
             if (!state.tabs.length) activateHome();
         }

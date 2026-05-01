@@ -22,6 +22,7 @@
         '/mvc/administrationsetup/resource.mvc/resourcedetail',
         '/mvc/administrationsetup/persondetail.mvc',
         '/autotask35/grapevine/profile.aspx',
+        '/opportunity/contacts/contact.asp',
         '/autotask35/crm/salesorder/salesorderdetail.aspx',
         '/autotask/inventory/inventory_edit_order.aspx',
         '/opportunity/quotes/quote.asp',
@@ -274,12 +275,26 @@
             if ((path === '/mvc/inventory/receipthistory.mvc' ||
                 path === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder') &&
                 parsed.searchParams.has('purchaseOrderId')) return true;
+            if (path === '/autotask/column_chooser.aspx') return true;
+            if (path.includes('contract') && (
+                path.includes('service') ||
+                path.includes('discount') ||
+                path.includes('exclusion') ||
+                path.includes('selector') ||
+                path.includes('installedproduct') ||
+                path.includes('contract_products')
+            )) return true;
             return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
                 path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
                 path === '/servicedesk/popups/forward/svcforward.asp' ||
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
-                path === '/popups/work/svcdetail.asp';
+                path === '/popups/work/svcdetail.asp' ||
+                path === '/mvc/contracts/contract.mvc/edit' ||
+                path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
+                path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
+                path === '/mvc/contracts/contracthistory.mvc/entitychangehistory' ||
+                (path === '/popups/journals/jrnpop.asp' && parsed.searchParams.get('action') === 'showCompliance');
         } catch (e) {
             return false;
         }
@@ -331,6 +346,11 @@
     function extractHandledNavigationUrlFromEventTarget(target) {
         const anchor = target && target.closest ? target.closest('a[href]') : null;
         if (anchor) {
+            const href = anchor.getAttribute('href') || '';
+            const contactMatch = href.match(/OpenContactDetail\s*\(\s*(\d+)\s*\)/i);
+            if (contactMatch) {
+                return absoluteUrl('/opportunity/contacts/Contact.asp?contactID=' + encodeURIComponent(contactMatch[1]));
+            }
             const hrefUrl = absoluteUrl(anchor.href || anchor.getAttribute('href') || '');
             if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
         }

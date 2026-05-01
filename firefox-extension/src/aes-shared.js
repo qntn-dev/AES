@@ -21,6 +21,7 @@
         '/mvc/administrationsetup/resource.mvc/resourcedetail',
         '/mvc/administrationsetup/persondetail.mvc',
         '/autotask35/grapevine/profile.aspx',
+        '/opportunity/contacts/contact.asp',
         '/autotask35/crm/salesorder/salesorderdetail.aspx',
         '/opportunity/quotes/quote.asp',
         '/opportunity/quotes/newquote.asp',

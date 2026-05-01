@@ -10,7 +10,7 @@
         AES.state.extensionEnabled = true;
     }
     if (typeof AES.state.rememberTabsAfterClose !== 'boolean') {
-        AES.state.rememberTabsAfterClose = false;
+        AES.state.rememberTabsAfterClose = true;
     }
     if (typeof AES.state.openNewTabsAtStart !== 'boolean') {
         AES.state.openNewTabsAtStart = false;
@@ -40,6 +40,15 @@
     }
     if (typeof AES.state.resizableTabBarEnabled !== 'boolean') {
         AES.state.resizableTabBarEnabled = true;
+    }
+    if (typeof AES.state.horizontalCompactTabsEnabled !== 'boolean') {
+        AES.state.horizontalCompactTabsEnabled = false;
+    }
+    if (typeof AES.state.roundedPageFramesEnabled !== 'boolean') {
+        AES.state.roundedPageFramesEnabled = false;
+    }
+    if (typeof AES.state.improvedScrollbarsEnabled !== 'boolean') {
+        AES.state.improvedScrollbarsEnabled = true;
     }
     if (typeof AES.state.timesheetUiEnhancementEnabled !== 'boolean') {
         AES.state.timesheetUiEnhancementEnabled = false;
@@ -184,14 +193,18 @@
             AES.state.extensionEnabled = settings && typeof settings.extensionEnabled === 'boolean'
                 ? settings.extensionEnabled
                 : true;
-            AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
+            AES.state.rememberTabsAfterClose = settings && typeof settings.rememberTabsAfterClose === 'boolean'
+                ? settings.rememberTabsAfterClose
+                : true;
             AES.state.openNewTabsAtStart = !!(settings && settings.openNewTabsAtStart);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
+            AES.state.darkModeEnhancerEnabled = settings && typeof settings.darkModeEnhancerEnabled === 'boolean'
+                ? settings.darkModeEnhancerEnabled
+                : false;
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
@@ -200,10 +213,17 @@
             AES.state.resizableTabBarEnabled = settings && typeof settings.resizableTabBarEnabled === 'boolean'
                 ? settings.resizableTabBarEnabled
                 : true;
+            AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
+            AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
+                ? settings.improvedScrollbarsEnabled
+                : true;
             AES.state.timesheetUiEnhancementEnabled = false;
             AES.state.preferencesUiEnhancementEnabled = false;
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
-            AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
+            AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
+                ? settings.skipPeekBackdropCloseWarning
+                : false;
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
@@ -223,14 +243,18 @@
             AES.state.extensionEnabled = settings && typeof settings.extensionEnabled === 'boolean'
                 ? settings.extensionEnabled
                 : true;
-            AES.state.rememberTabsAfterClose = !!(settings && settings.rememberTabsAfterClose);
+            AES.state.rememberTabsAfterClose = settings && typeof settings.rememberTabsAfterClose === 'boolean'
+                ? settings.rememberTabsAfterClose
+                : true;
             AES.state.openNewTabsAtStart = !!(settings && settings.openNewTabsAtStart);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.darkModeEnhancerEnabled = !!(settings && settings.darkModeEnhancerEnabled);
+            AES.state.darkModeEnhancerEnabled = settings && typeof settings.darkModeEnhancerEnabled === 'boolean'
+                ? settings.darkModeEnhancerEnabled
+                : false;
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
@@ -239,10 +263,17 @@
             AES.state.resizableTabBarEnabled = settings && typeof settings.resizableTabBarEnabled === 'boolean'
                 ? settings.resizableTabBarEnabled
                 : true;
+            AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
+            AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
+                ? settings.improvedScrollbarsEnabled
+                : true;
             AES.state.timesheetUiEnhancementEnabled = false;
             AES.state.preferencesUiEnhancementEnabled = false;
             AES.state.workspaceQueuesUiEnhancementEnabled = false;
-            AES.state.skipPeekBackdropCloseWarning = !!(settings && settings.skipPeekBackdropCloseWarning);
+            AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
+                ? settings.skipPeekBackdropCloseWarning
+                : false;
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
@@ -272,6 +303,9 @@
             replaceCalendarWithResourcePlanner: !!AES.state.replaceCalendarWithResourcePlanner,
             showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
+            horizontalCompactTabsEnabled: !!AES.state.horizontalCompactTabsEnabled,
+            roundedPageFramesEnabled: !!AES.state.roundedPageFramesEnabled,
+            improvedScrollbarsEnabled: !!AES.state.improvedScrollbarsEnabled,
             timesheetUiEnhancementEnabled: false,
             preferencesUiEnhancementEnabled: false,
             workspaceQueuesUiEnhancementEnabled: false,
@@ -297,24 +331,21 @@
     };
 
     AES.readTabsPayload = async function readTabsPayload() {
-        if (AES.state.rememberTabsAfterClose && AES.hasChromeStorage()) {
+        if (AES.hasChromeStorage()) {
             const stored = await AES.getChromeLocal(AES.STORAGE_KEY);
-            return stored ? stored[AES.STORAGE_KEY] || null : null;
+            if (stored && stored[AES.STORAGE_KEY]) return stored[AES.STORAGE_KEY];
         }
         return AES.readSessionTabsPayload();
     };
 
     AES.writeTabsPayload = async function writeTabsPayload(payload) {
-        if (AES.state.rememberTabsAfterClose && AES.hasChromeStorage()) {
+        if (AES.hasChromeStorage()) {
             await AES.setChromeLocal({ [AES.STORAGE_KEY]: payload });
             AES.clearSessionTabsPayload();
             return;
         }
 
         AES.writeSessionTabsPayload(payload);
-        if (AES.hasChromeStorage()) {
-            await AES.removeChromeLocal(AES.STORAGE_KEY);
-        }
     };
 
     AES.clearPersistedTabs = async function clearPersistedTabs() {

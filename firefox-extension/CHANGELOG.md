@@ -1,5 +1,93 @@
 # Changelog
 
+## v0.7.0
+
+### Highlights:
+
+- Workspace tab sync
+- Resizable split view
+- Slimmer Autotask scrollbars
+- Rounded page frames
+- Better contract tabs
+
+### New features:
+
+#### Tabs
+
+- AES tabs now sync across multiple Autotask browser tabs, so your workspace is no longer tied to one browser tab.
+- Synced tabs only load when opened, helping keep Autotask lighter when working with larger tab sets.
+- Remember tabs after closing the browser is now enabled by default, including saved tab titles, metadata, colors, warnings, and split groups.
+- Added a compact horizontal tab layout from the Tab bar position menu.
+
+#### Split view
+
+- Split view now supports up to four pages side by side.
+- Split view can now be resized with a dedicated drag handle, so you can give important pages more space.
+- Split tabs now have right-click actions for swapping pages and detaching pages from a split.
+- Split groups now remain available when switching to other tabs or Home.
+
+#### Contracts
+
+- Contract tabs now show richer hover-card details, including account manager, contact, SLA, opportunity, contract type, category, start date, end date, and period.
+- Contract tabs can now show a red warning badge when Autotask displays an important page warning, such as an expired contract.
+- More legacy contract actions can now open through Peek or directly in AES tabs.
+
+#### Visual enhancements
+
+- Added a new visual option for rounded page frames with extra spacing around Autotask pages.
+- Added an Improved scrollbars setting under Enhancements, making Autotask scrollbars slimmer across supported pages and frames.
+
+### Improvements:
+
+#### Tabs
+
+- Separators between tabs are cleaner, including hiding the separator between pages inside the same split.
+- Compact horizontal tabs hide Line 3, shorten the tab bar, and disable the Line 3 customization column while selected.
+
+#### Split view
+
+- Tab colors now work consistently across split groups.
+- Split layouts are remembered when switching between tabs.
+- Restored normal tabs stay unloaded until needed, while restored split views load all pages in the active split group right away.
+
+#### Visual enhancements
+
+- Rounded and split page frames now look better in dark mode, including borders and scrollbars.
+- Improved scrollbar styling now applies across the main Autotask page and nested Autotask frames.
+
+#### Settings
+
+- AES now follows Autotask's light or dark mode automatically.
+- The settings entry is now named Autotask Enhancement Suite.
+- Experimental visual settings have been reorganized.
+
+### Fixes:
+
+#### Legacy pages
+
+- Fixed some legacy Autotask pages opening incomplete after syncing or refreshing.
+
+#### Split view
+
+- Fixed several split-view layout issues around spacing, right-click menus, loading indicators, and accidental resize dragging.
+- Fixed split view sometimes showing an unloaded pane after refreshing or reopening the browser.
+
+#### Tabs
+
+- Fixed the Home tab sometimes showing a loading spinner for too long.
+- Fixed a small visual alignment issue between the AES tab bar and the native Autotask header.
+
+#### Visual enhancements
+
+- Fixed some experimental visual changes applying even when the experimental UI enhancement setting was turned off.
+- Fixed a dark-mode contrast issue that could make text hard to read on some light legacy pages.
+- Fixed the map button visual treatment so it now follows the experimental UI enhancement setting.
+
+#### Settings
+
+- Fixed the AES settings menu item sometimes looking selected when it should not be.
+- Fixed the experimental Autotask UI Enhancement setting not staying enabled after reloading Autotask.
+
 ## 0.6.5
 
 ### New features:
