@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Autotask Enhancement Suite",
   "description": "Enhancements for Autotask, including the custom tab shell for tickets, accounts, contracts, and clickable phone numbers.",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "browser_specific_settings": {
     "gecko": {
       "id": "autotask-enhancement-suite@quintenvannoorloos.nl",

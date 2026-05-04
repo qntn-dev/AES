@@ -51,6 +51,7 @@
 
     function postToTop(payload) {
         if (!featureEnabled
+            && payload.type !== 'all-state-request'
             && payload.type !== 'dark-enhancer-request'
             && payload.type !== 'feature-enabled-request'
             && payload.type !== 'timesheet-ui-enhancement-request'
@@ -1887,13 +1888,30 @@
         for (let i = 0; i < all.length; i++) enhanceElement(all[i]);
     }
 
-    function scheduleEnhanceTree() {
+    let enhancerPendingRoots = [];
+
+    function scheduleEnhanceTree(root) {
+        if (root && root.nodeType === 1) enhancerPendingRoots.push(root);
+        else if (!enhancerPendingRoots.length) enhancerPendingRoots.push(document.body || document.documentElement);
         if (enhancerScheduled) return;
         enhancerScheduled = true;
         const run = function () {
             enhancerScheduled = false;
-            try { enhanceTree(document.body || document.documentElement); }
-            catch (e) {}
+            if (!darkEnhancerEnabled || !darkEnhancerActiveTheme) {
+                enhancerPendingRoots = [];
+                return;
+            }
+            const roots = enhancerPendingRoots.splice(0, enhancerPendingRoots.length);
+            const processed = [];
+            try {
+                for (let i = 0; i < roots.length; i += 1) {
+                    const root = roots[i];
+                    if (!root || !root.isConnected) continue;
+                    if (processed.some(function (existing) { return existing === root || existing.contains(root); })) continue;
+                    enhanceTree(root);
+                    processed.push(root);
+                }
+            } catch (e) {}
         };
         if (typeof window.requestIdleCallback === 'function') {
             window.requestIdleCallback(run, { timeout: 200 });
@@ -1907,6 +1925,8 @@
             try { enhancerObserver.disconnect(); } catch (e) {}
             enhancerObserver = null;
         }
+        enhancerPendingRoots = [];
+        enhancerScheduled = false;
         removeRootDarkBackground();
         const tagged = document.querySelectorAll('[data-aes-enhancer-bg], [data-aes-enhancer-fg]');
         for (let i = 0; i < tagged.length; i++) {
@@ -1917,16 +1937,17 @@
     function applyDarkEnhancerStyle() {
         if (!document.body) return;
         ensureRootDarkBackground();
-        scheduleEnhanceTree();
+        scheduleEnhanceTree(document.body || document.documentElement);
         if (enhancerObserver) return;
         // Re-enhance only when new nodes are added (grid rows, dialogs, etc.).
         // Watching attribute changes too would create a feedback loop, since
         // our own inline-style writes count as attribute mutations.
         enhancerObserver = new MutationObserver(function (mutations) {
             for (const m of mutations) {
-                if (m.addedNodes && m.addedNodes.length) {
-                    scheduleEnhanceTree();
-                    return;
+                if (!m.addedNodes || !m.addedNodes.length) continue;
+                for (let i = 0; i < m.addedNodes.length; i += 1) {
+                    const node = m.addedNodes[i];
+                    if (node && node.nodeType === 1) scheduleEnhanceTree(node);
                 }
             }
         });
@@ -3605,33 +3626,19 @@
             }
         }, true);
 
+        function requestAllShellStates() {
+            postToTop({ type: 'all-state-request' });
+        }
+
         injectPageBridge();
         applyShellBarBodyPadding();
         injectScrollbarStyles();
         // injectModernButtonStyles() and injectLegacyChromeOverrides() are
         // gated by the "Autotask UI Enhancement" toggle and applied via
         // syncDarkEnhancer() when the shell broadcasts the current state.
-        requestDarkEnhancerState();
-        requestTimesheetUiEnhancementState();
-        requestPreferencesUiEnhancementState();
-        requestWorkspaceQueuesUiEnhancementState();
-        requestImprovedScrollbarsState();
-        postToTop({ type: 'feature-enabled-request' });
-        window.setTimeout(requestDarkEnhancerState, 250);
-        window.setTimeout(requestDarkEnhancerState, 1000);
-        window.setTimeout(requestDarkEnhancerState, 2500);
-        window.setTimeout(requestTimesheetUiEnhancementState, 250);
-        window.setTimeout(requestTimesheetUiEnhancementState, 1000);
-        window.setTimeout(requestTimesheetUiEnhancementState, 2500);
-        window.setTimeout(requestPreferencesUiEnhancementState, 250);
-        window.setTimeout(requestPreferencesUiEnhancementState, 1000);
-        window.setTimeout(requestPreferencesUiEnhancementState, 2500);
-        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 250);
-        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 1000);
-        window.setTimeout(requestWorkspaceQueuesUiEnhancementState, 2500);
-        window.setTimeout(requestImprovedScrollbarsState, 250);
-        window.setTimeout(requestImprovedScrollbarsState, 1000);
-        window.setTimeout(requestImprovedScrollbarsState, 2500);
+        requestAllShellStates();
+        window.setTimeout(requestAllShellStates, 500);
+        window.setTimeout(requestAllShellStates, 1500);
         if (darkEnhancerEnabled) startMapButtonEnhancement();
 
         function armMapOpenFromEvent(event) {

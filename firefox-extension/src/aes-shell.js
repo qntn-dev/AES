@@ -4,7 +4,7 @@
     const AES = window.__AES__;
     if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
-    const AES_RUNTIME_BUILD_ID = '0.7.0-stable-1';
+    const AES_RUNTIME_BUILD_ID = '0.7.1-stable-1';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
 
@@ -328,138 +328,23 @@
     });
     const SHOW_PAGE_REDESIGN_EXPERIMENTS = false;
     const METADATA_REFRESH_INTERVAL_MS = 7000;
+    const METADATA_BACKGROUND_REFRESH_INTERVAL_MS = 60000;
     const IS_SAFARI_WEBKIT = navigator.vendor === 'Apple Computer, Inc.' &&
         /Safari/i.test(navigator.userAgent || '') &&
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
+    const FEEDBACK_URL = 'https://github.com/qntn-dev/AES/issues/new';
     const GITHUB_LATEST_RELEASE_URL = 'https://github.com/qntn-dev/AES/releases/latest';
     const GITHUB_RELEASE_CHECK_STORAGE_KEY = 'aes-github-release-check-at';
     const GITHUB_RELEASE_DISMISS_STORAGE_KEY = 'aes-github-release-dismissed-version';
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const RELEASE_NOTES = {
-        version: '0.7.0',
+        version: '0.7.1',
         sections: [
             {
-                title: 'Highlights:',
+                title: 'Important hotfix:',
                 items: [
-                    'Workspace tab sync',
-                    'Resizable split view',
-                    'Slimmer Autotask scrollbars',
-                    'Rounded page frames',
-                    'Better contract tabs',
-                ],
-            },
-            {
-                title: 'New features:',
-                subsections: [
-                    {
-                        title: 'Tabs',
-                        items: [
-                            'AES tabs now sync across multiple Autotask browser tabs, so your workspace is no longer tied to one browser tab.',
-                            'Synced tabs only load when opened, helping keep Autotask lighter when working with larger tab sets.',
-                            'Remember tabs after closing the browser is now enabled by default, including saved tab titles, metadata, colors, warnings, and split groups.',
-                            'Added a compact horizontal tab layout from the Tab bar position menu.',
-                        ],
-                    },
-                    {
-                        title: 'Split view',
-                        items: [
-                            'Split view now supports up to four pages side by side.',
-                            'Split view can now be resized with a dedicated drag handle, so you can give important pages more space.',
-                            'Split tabs now have right-click actions for swapping pages and detaching pages from a split.',
-                            'Split groups now remain available when switching to other tabs or Home.',
-                        ],
-                    },
-                    {
-                        title: 'Contracts',
-                        items: [
-                            'Contract tabs now show richer hover-card details, including account manager, contact, SLA, opportunity, contract type, category, start date, end date, and period.',
-                            'Contract tabs can now show a red warning badge when Autotask displays an important page warning, such as an expired contract.',
-                            'More legacy contract actions can now open through Peek or directly in AES tabs.',
-                        ],
-                    },
-                    {
-                        title: 'Visual enhancements',
-                        items: [
-                            'Added a new visual option for rounded page frames with extra spacing around Autotask pages.',
-                            'Added an Improved scrollbars setting under Enhancements, making Autotask scrollbars slimmer across supported pages and frames.',
-                        ],
-                    },
-                ],
-            },
-            {
-                title: 'Improvements:',
-                subsections: [
-                    {
-                        title: 'Tabs',
-                        items: [
-                            'Separators between tabs are cleaner, including hiding the separator between pages inside the same split.',
-                            'Compact horizontal tabs hide Line 3, shorten the tab bar, and disable the Line 3 customization column while selected.',
-                        ],
-                    },
-                    {
-                        title: 'Split view',
-                        items: [
-                            'Tab colors now work consistently across split groups.',
-                            'Split layouts are remembered when switching between tabs.',
-                            'Restored normal tabs stay unloaded until needed, while restored split views load all pages in the active split group right away.',
-                        ],
-                    },
-                    {
-                        title: 'Visual enhancements',
-                        items: [
-                            'Rounded and split page frames now look better in dark mode, including borders and scrollbars.',
-                            'Improved scrollbar styling now applies across the main Autotask page and nested Autotask frames.',
-                        ],
-                    },
-                    {
-                        title: 'Settings',
-                        items: [
-                            'AES now follows Autotask\'s light or dark mode automatically.',
-                            'The settings entry is now named Autotask Enhancement Suite.',
-                            'Experimental visual settings have been reorganized.',
-                        ],
-                    },
-                ],
-            },
-            {
-                title: 'Fixes:',
-                subsections: [
-                    {
-                        title: 'Legacy pages',
-                        items: [
-                            'Fixed some legacy Autotask pages opening incomplete after syncing or refreshing.',
-                        ],
-                    },
-                    {
-                        title: 'Split view',
-                        items: [
-                            'Fixed several split-view layout issues around spacing, right-click menus, loading indicators, and accidental resize dragging.',
-                            'Fixed split view sometimes showing an unloaded pane after refreshing or reopening the browser.',
-                        ],
-                    },
-                    {
-                        title: 'Tabs',
-                        items: [
-                            'Fixed the Home tab sometimes showing a loading spinner for too long.',
-                            'Fixed a small visual alignment issue between the AES tab bar and the native Autotask header.',
-                        ],
-                    },
-                    {
-                        title: 'Visual enhancements',
-                        items: [
-                            'Fixed some experimental visual changes applying even when the experimental UI enhancement setting was turned off.',
-                            'Fixed a dark-mode contrast issue that could make text hard to read on some light legacy pages.',
-                            'Fixed the map button visual treatment so it now follows the experimental UI enhancement setting.',
-                        ],
-                    },
-                    {
-                        title: 'Settings',
-                        items: [
-                            'Fixed the AES settings menu item sometimes looking selected when it should not be.',
-                            'Fixed the experimental Autotask UI Enhancement setting not staying enabled after reloading Autotask.',
-                        ],
-                    },
+                    'Fixed an issue where the tab bar may go corrupted after visiting an Autotask Onyx page.',
                 ],
             },
         ],
@@ -627,8 +512,13 @@
 
     function requestAllTabMetadataRefresh() {
         if (!featuresEnabled()) return;
+        const now = Date.now();
+        const refreshBackgroundTabs = now - (state.lastBackgroundMetadataRefreshAt || 0) >= METADATA_BACKGROUND_REFRESH_INTERVAL_MS;
+        if (refreshBackgroundTabs) state.lastBackgroundMetadataRefreshAt = now;
         for (const tab of state.tabs) {
-            if (!tab || tab.loading) continue;
+            if (!tab || tab.loading || !tab.iframeEl) continue;
+            const isVisiblePane = !tab.iframeEl.classList.contains('hidden');
+            if (!isVisiblePane && !refreshBackgroundTabs) continue;
             requestTabMetadataRefresh(tab);
         }
     }
@@ -2459,6 +2349,14 @@
                 color: #64748b;
                 text-align: left;
             }
+            .at-tabs-settings-footer-actions {
+                display: flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 10px;
+                flex: 0 0 auto;
+                flex-wrap: wrap;
+            }
             .at-tabs-settings-reset {
                 appearance: none;
                 border: 1px solid #cbd5e1;
@@ -2826,21 +2724,6 @@
             }
             html.aes-dark.aes-ui-enhancer-enabled .at-tabs-viewport.rounded-pages:not(.split) > iframe:not(.hidden) {
                 color-scheme: dark;
-            }
-            .aes-non-iframe-rounded-frame > :not([class^="at-tabs-"]):not([class*=" at-tabs-"]):not([class^="aes-"]):not([class*=" aes-"]) {
-                border-radius: 10px !important;
-                box-sizing: border-box !important;
-                clip-path: inset(0 round 10px) !important;
-                overflow: hidden !important;
-            }
-            .aes-non-iframe-rounded-frame,
-            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="h-full"][class~="flex"],
-            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="flex-grow"][class~="h-full"],
-            .aes-non-iframe-rounded-frame [class~="bg-background-primary"][class~="height:100%"],
-            .aes-non-iframe-rounded-frame .o-view-layout {
-                border-radius: 10px !important;
-                clip-path: inset(0 round 10px) !important;
-                overflow: hidden !important;
             }
             html.aes-dark .at-tabs-split-resize-grip::before {
                 background: rgba(125, 167, 201, 0.78);
@@ -4226,6 +4109,7 @@
 
     function applyNonIframeRoundedSurfaceStyles() {
         if (!state.roundedPageFramesEnabled || !state.nonIframeReservedContainer || state.activeId !== null) return;
+        const clippingEnabled = state.roundedPageFramesEnabled;
         const selectors = [
             '[class~="bg-background-primary"][class~="h-full"][class~="flex"]',
             '[class~="bg-background-primary"][class~="flex-grow"][class~="h-full"]',
@@ -4246,8 +4130,12 @@
             const rect = surface.getBoundingClientRect();
             if (rect.width < 200 || rect.height < 200) return;
             surface.style.setProperty('border-radius', '10px', 'important');
-            surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
-            surface.style.setProperty('overflow', 'hidden', 'important');
+            if (clippingEnabled) {
+                surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
+                surface.style.setProperty('overflow', 'hidden', 'important');
+            } else {
+                surface.style.removeProperty('clip-path');
+            }
         });
     }
 
@@ -4367,7 +4255,9 @@
         restoreInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
         restoreInlineStyle(container, 'overflow', 'aesPrevNonIframeOverflow');
         restoreInlineStyle(container, 'background', 'aesPrevNonIframeBackground');
+        restoreInlineStyle(container, 'border', 'aesPrevNonIframeBorder');
         restoreInlineStyle(container, 'border-radius', 'aesPrevNonIframeBorderRadius');
+        restoreInlineStyle(container, 'box-shadow', 'aesPrevNonIframeBoxShadow');
         restoreInlineStyle(container, 'clip-path', 'aesPrevNonIframeClipPath');
         restoreInlineStyle(container, 'position', 'aesPrevNonIframePosition');
         container.classList.remove('aes-non-iframe-rounded-frame');
@@ -4399,6 +4289,7 @@
         if (state.nonIframeReservedSurface && state.nonIframeReservedSurface !== surface) {
             clearNonIframeReservation();
         }
+        const roundedFramesEnabled = state.roundedPageFramesEnabled;
 
         rememberInlineStyle(container, 'padding-top', 'aesPrevNonIframePaddingTop');
         rememberInlineStyle(container, 'padding-left', 'aesPrevNonIframePaddingLeft');
@@ -4407,27 +4298,33 @@
         rememberInlineStyle(container, 'box-sizing', 'aesPrevNonIframeBoxSizing');
         rememberInlineStyle(container, 'overflow', 'aesPrevNonIframeOverflow');
         rememberInlineStyle(container, 'background', 'aesPrevNonIframeBackground');
+        rememberInlineStyle(container, 'border', 'aesPrevNonIframeBorder');
         rememberInlineStyle(container, 'border-radius', 'aesPrevNonIframeBorderRadius');
+        rememberInlineStyle(container, 'box-shadow', 'aesPrevNonIframeBoxShadow');
         rememberInlineStyle(container, 'clip-path', 'aesPrevNonIframeClipPath');
         rememberInlineStyle(container, 'position', 'aesPrevNonIframePosition');
         container.style.setProperty('box-sizing', 'border-box', 'important');
-        container.style.setProperty('overflow', 'hidden', 'important');
+            container.style.setProperty('overflow', 'hidden', 'important');
         if (getComputedStyle(container).position === 'static') {
             container.style.setProperty('position', 'relative', 'important');
         }
-        if (state.roundedPageFramesEnabled) {
+        if (roundedFramesEnabled) {
             container.classList.add('aes-non-iframe-rounded-frame');
             container.style.setProperty('background', effectiveDarkMode() ? '#11161c' : '#f6f7f8', 'important');
             container.style.setProperty('padding-right', '8px', 'important');
             container.style.setProperty('padding-bottom', '8px', 'important');
+            container.style.setProperty('border', '1px solid rgba(55, 106, 148, 0.24)', 'important');
             container.style.setProperty('border-radius', '10px', 'important');
+            container.style.setProperty('box-shadow', effectiveDarkMode() ? '0 10px 28px rgba(0, 0, 0, 0.34)' : '0 14px 34px rgba(15, 23, 42, 0.22)', 'important');
             container.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
         } else {
             container.classList.remove('aes-non-iframe-rounded-frame');
             container.style.removeProperty('background');
             container.style.removeProperty('padding-right');
             container.style.removeProperty('padding-bottom');
+            container.style.removeProperty('border');
             container.style.removeProperty('border-radius');
+            container.style.removeProperty('box-shadow');
             container.style.removeProperty('clip-path');
         }
 
@@ -4438,8 +4335,10 @@
             rememberInlineStyle(surface, 'box-sizing', 'aesPrevNonIframeSurfaceBoxSizing');
             rememberInlineStyle(surface, 'overflow', 'aesPrevNonIframeSurfaceOverflow');
             rememberInlineStyle(surface, 'clip-path', 'aesPrevNonIframeSurfaceClipPath');
-            if (state.roundedPageFramesEnabled) {
+            if (roundedFramesEnabled) {
                 surface.style.setProperty('border-radius', '10px', 'important');
+                surface.style.setProperty('border', '1px solid rgba(55, 106, 148, 0.24)', 'important');
+                surface.style.setProperty('box-shadow', effectiveDarkMode() ? '0 10px 28px rgba(0, 0, 0, 0.34)' : '0 14px 34px rgba(15, 23, 42, 0.22)', 'important');
                 surface.style.setProperty('box-sizing', 'border-box', 'important');
                 surface.style.setProperty('overflow', 'hidden', 'important');
                 surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
@@ -4455,11 +4354,11 @@
         }
 
         if (targetAxis === 'vertical') {
-            container.style.setProperty('padding-top', state.roundedPageFramesEnabled ? '8px' : '0', 'important');
-            container.style.setProperty('padding-left', (currentVerticalBarWidth() + (state.roundedPageFramesEnabled ? 8 : 0)) + 'px', 'important');
+            container.style.setProperty('padding-top', roundedFramesEnabled ? '8px' : '0', 'important');
+            container.style.setProperty('padding-left', (currentVerticalBarWidth() + (roundedFramesEnabled ? 8 : 0)) + 'px', 'important');
         } else {
-            container.style.setProperty('padding-left', state.roundedPageFramesEnabled ? '8px' : '0', 'important');
-            container.style.setProperty('padding-top', (currentHorizontalBarHeight() + (state.roundedPageFramesEnabled ? 8 : 0)) + 'px', 'important');
+            container.style.setProperty('padding-left', roundedFramesEnabled ? '8px' : '0', 'important');
+            container.style.setProperty('padding-top', (currentHorizontalBarHeight() + (roundedFramesEnabled ? 8 : 0)) + 'px', 'important');
         }
 
         container.dataset.aesNonIframeReserved = 'true';
@@ -4470,6 +4369,7 @@
 
     function applyNativeChromeReservation(frame) {
         if (!frame) return;
+        clearNonIframeReservation();
         if (state.shellHidden || state.activeId !== null) {
             clearNativeChromeReservation(frame);
             return;
@@ -4491,6 +4391,7 @@
         if (state.nativeReservedContainer && state.nativeReservedContainer !== container) {
             clearNativeChromeReservation(frame);
         }
+        const roundedFramesEnabled = state.roundedPageFramesEnabled;
 
         clearLegacyNativeFrameOffset(frame);
 
@@ -4514,7 +4415,7 @@
 
         container.style.setProperty('box-sizing', 'border-box', 'important');
         container.style.setProperty('overflow', 'hidden', 'important');
-        if (state.roundedPageFramesEnabled) {
+        if (roundedFramesEnabled) {
             container.style.setProperty('background', effectiveDarkMode() ? '#11161c' : '#f6f7f8', 'important');
         } else {
             container.style.removeProperty('background');
@@ -4534,7 +4435,7 @@
 
         container.style.removeProperty('width');
 
-        if (state.roundedPageFramesEnabled) {
+        if (roundedFramesEnabled) {
             frame.style.setProperty('margin-top', '8px', 'important');
             frame.style.setProperty('margin-left', '8px', 'important');
             frame.style.setProperty('width', 'calc(100% - 16px)', 'important');
@@ -4750,6 +4651,14 @@
         if (!state.rootMutationObserver) {
             state.rootMutationObserver = new MutationObserver(function (mutations) {
                 const noIframeTestMode = state.showTabBarOnNonIframePages && !state.lastGeometryHadNativeFrame;
+                function nodeContainsFrame(node) {
+                    return !!(node && (
+                        node.nodeName === 'IFRAME' ||
+                        node.nodeName === 'FRAME' ||
+                        (node.querySelector && node.querySelector('iframe, frame'))
+                    ));
+                }
+
                 for (const mutation of mutations) {
                     if (isShellOwnedMutationTarget(mutation.target)) continue;
                     if (mutation.type === 'childList') {
@@ -4757,23 +4666,23 @@
                             scheduleNonIframeRoundedSurfaceStyles();
                         }
                         const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
-                        if (nodes.some(node => node && (
-                            node.nodeName === 'IFRAME' ||
-                            (node.querySelector && node.querySelector('iframe'))
-                        ))) {
+                        if (nodes.some(nodeContainsFrame)) {
                             if (state.activeId === null) startNativeHomeLoading();
                             startGeometryBurst(300);
                             return;
                         }
+                        continue;
                     }
                     if (mutation.type === 'attributes') {
                         if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && state.activeId === null) {
                             scheduleNonIframeRoundedSurfaceStyles();
                         }
-                        if (noIframeTestMode) {
-                            continue;
-                        }
-                        if (state.nonIframeReservedContainer && mutation.target === state.nonIframeReservedContainer) continue;
+                        if (noIframeTestMode) continue;
+                        const target = mutation.target;
+                        const targetIsFrame = target && (target.nodeName === 'IFRAME' || target.nodeName === 'FRAME');
+                        const targetIsRoot = target === document.body || target === document.documentElement;
+                        const targetIsReservedSurface = state.nonIframeReservedContainer && target === state.nonIframeReservedContainer;
+                        if (!targetIsFrame && !targetIsRoot && !targetIsReservedSurface) continue;
                         startGeometryBurst(300);
                         return;
                     }
@@ -4788,7 +4697,7 @@
         }
 
         if (!state.geometryPollId) {
-            state.geometryPollId = window.setInterval(requestSyncGeometry, 1500);
+            state.geometryPollId = window.setInterval(requestSyncGeometry, 5000);
         }
     }
 
@@ -7882,9 +7791,18 @@
             closeSettingsModal(true);
             openReleaseNotesModal();
         });
+        const feedbackButton = document.createElement('button');
+        feedbackButton.type = 'button';
+        feedbackButton.className = 'at-tabs-settings-reset';
+        feedbackButton.textContent = 'Provide feedback';
+        feedbackButton.title = 'Create a GitHub issue for AES feedback';
+        feedbackButton.addEventListener('click', function () {
+            window.open(FEEDBACK_URL, '_blank', 'noopener,noreferrer');
+        });
         const footerActions = document.createElement('span');
         footerActions.className = 'at-tabs-settings-footer-actions';
         footerActions.appendChild(releaseNotesButton);
+        footerActions.appendChild(feedbackButton);
         footerActions.appendChild(resetButton);
         footer.appendChild(footerText);
         footer.appendChild(footerActions);
@@ -8683,6 +8601,11 @@
         const data = event.data;
         if (!data || data.__ns !== AES.MSG_NS) return;
 
+        if (data.type === 'all-state-request') {
+            broadcastAllFrameState();
+            return;
+        }
+
         if (data.type === 'dark-enhancer-request') {
             const respond = function () {
                 broadcastDarkModeEnhancerState();
@@ -8947,14 +8870,26 @@
         return detectAutotaskDarkMode();
     }
 
-    function applyAutotaskTheme() {
-        document.documentElement.classList.toggle('aes-dark', effectiveDarkMode());
+    function applyAutotaskTheme(force) {
+        const dark = effectiveDarkMode();
+        if (!force && state.lastAppliedDarkMode === dark) return;
+        state.lastAppliedDarkMode = dark;
+        document.documentElement.classList.toggle('aes-dark', dark);
         for (const tab of state.tabs) applyTabColorStyle(tab);
         // Iframes need to know the effective theme so the dark mode enhancer
         // can decide whether to apply its overrides.
         broadcastDarkModeEnhancerState();
         broadcastTimesheetUiEnhancementState();
         broadcastPreferencesUiEnhancementState();
+        broadcastWorkspaceQueuesUiEnhancementState();
+    }
+
+    function scheduleAutotaskThemeApply() {
+        if (state.themeRaf) return;
+        state.themeRaf = window.requestAnimationFrame(function () {
+            state.themeRaf = 0;
+            applyAutotaskTheme(false);
+        });
     }
 
     function applyBarOrientationClass() {
@@ -9075,6 +9010,16 @@
             } catch (e) {}
         }
         postToFrames(window);
+    }
+
+    function broadcastAllFrameState() {
+        broadcastFeatureEnabledState();
+        applyImprovedScrollbarsClass();
+        broadcastImprovedScrollbarsState();
+        broadcastDarkModeEnhancerState();
+        broadcastTimesheetUiEnhancementState();
+        broadcastPreferencesUiEnhancementState();
+        broadcastWorkspaceQueuesUiEnhancementState();
     }
 
     function setBarOrientation(value) {
@@ -9618,9 +9563,9 @@
     }
 
     function installThemeWatcher() {
-        applyAutotaskTheme();
+        applyAutotaskTheme(true);
         if (state.themeObserver || !document.body) return;
-        state.themeObserver = new MutationObserver(applyAutotaskTheme);
+        state.themeObserver = new MutationObserver(scheduleAutotaskThemeApply);
         state.themeObserver.observe(document.body, {
             attributes: true,
             attributeFilter: ['style', 'class'],
