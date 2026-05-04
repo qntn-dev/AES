@@ -4,7 +4,7 @@
     const AES = window.__AES__;
     if (!AES || !AES.isTop) return;
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
-    const AES_RUNTIME_BUILD_ID = '0.7.1-stable-1';
+    const AES_RUNTIME_BUILD_ID = '0.7.1-stable-2';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
 
@@ -345,6 +345,7 @@
                 title: 'Important hotfix:',
                 items: [
                     'Fixed an issue where the tab bar may go corrupted after visiting an Autotask Onyx page.',
+                    'Fixed an issue where opening a Peek window could make the background page or Peek content jump around.',
                 ],
             },
         ],
@@ -3318,6 +3319,8 @@
         let bestArea = 0;
         for (const f of document.querySelectorAll('iframe')) {
             if (state.viewport && state.viewport.contains(f)) continue;
+            if (f.classList && f.classList.contains('at-tabs-peek-frame')) continue;
+            if (f.closest && f.closest('.at-tabs-peek-wrapper')) continue;
             const src = f.getAttribute('src') || '';
             if (/dialogiframeoverlay/i.test(src)) continue;
             const r = f.getBoundingClientRect();
@@ -8156,7 +8159,7 @@
         loader.className = 'at-tabs-peek-loader';
         loader.setAttribute('aria-label', 'Loading');
 
-        const reusedLiveIframe = startPeekLiveReuse(tab, modal);
+        const reusedLiveIframe = opts.reuseLiveIframe === true && startPeekLiveReuse(tab, modal);
         if (reusedLiveIframe) {
             modal.classList.add('live-reuse');
             loader.classList.add('hidden');

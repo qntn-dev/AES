@@ -9,6 +9,18 @@
     let improvedScrollbarsEnabled = false;
     let mapButtonEnhancementStarted = false;
 
+    function isAesPeekFrame() {
+        try {
+            const fe = window.frameElement;
+            return !!(fe && fe.classList && (
+                fe.classList.contains('at-tabs-peek-frame') ||
+                (fe.closest && fe.closest('.at-tabs-peek-wrapper'))
+            ));
+        } catch (e) {
+            return false;
+        }
+    }
+
     function decodeUrl(url) {
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
     }
@@ -372,6 +384,7 @@
     // Skipped when: this iframe lives inside the shell's tab viewport, or
     // is nested more than one level deep (outer wrapper already pushed).
     function applyShellBarBodyPadding() {
+        if (isAesPeekFrame()) return;
         try {
             const fe = window.frameElement;
             if (fe && fe.closest && fe.closest('.at-tabs-viewport')) return;
@@ -3524,7 +3537,7 @@
     //      - Surgical/threshold dark color swap (applyDarkEnhancerStyle)
     // When the toggle flips off, every override is removed cleanly.
     function syncDarkEnhancer() {
-        const skipGlobalUiEnhancement = isWorkspaceQueuesFrame();
+        const skipGlobalUiEnhancement = isWorkspaceQueuesFrame() || isAesPeekFrame();
         if (darkEnhancerEnabled && !skipGlobalUiEnhancement) {
             injectModernButtonStyles();
             injectLegacyChromeOverrides();
