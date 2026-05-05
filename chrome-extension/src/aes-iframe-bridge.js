@@ -75,6 +75,9 @@
     }
 
     function isPeekPopupUrl(url) {
+        // Second Peek routing gate. aes-page-bridge.js can prevent the native
+        // popup and post "open-peek", but this iframe bridge must also allow
+        // the URL or the request is intentionally dropped before reaching shell.
         const targetUrl = AES.toAbsoluteUrl(url || '');
         if (!targetUrl) return false;
         try {
@@ -98,6 +101,9 @@
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
                 path === '/popups/work/svcdetail.asp' ||
+                path === '/administrator/roles/tabroleview.asp' ||
+                path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
+                path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties' ||
                 path === '/mvc/contracts/contract.mvc/edit' ||
                 path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
                 path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
@@ -1199,6 +1205,135 @@
         };
     }
 
+    function cleanSecondaryTitleText(text) {
+        return cleanText(text)
+            .replace(/^[-–]\s*/, '')
+            .replace(/\s*\([^)]*\)\s*$/, '')
+            .trim();
+    }
+
+    function firstVisibleTextFallback() {
+        const candidates = document.querySelectorAll('h1, h2, h3, [role="heading"], header, div, span');
+        for (const el of candidates) {
+            const tagName = String(el.tagName || '').toLowerCase();
+            if (tagName === 'script' || tagName === 'style' || tagName === 'noscript') continue;
+            const text = cleanText(el.textContent);
+            if (!text || text.length < 2) continue;
+            const style = window.getComputedStyle ? window.getComputedStyle(el) : null;
+            if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) continue;
+            const rects = typeof el.getClientRects === 'function' ? el.getClientRects() : [];
+            if (!rects || rects.length === 0) continue;
+            return text.slice(0, 120);
+        }
+        return '';
+    }
+
+    function extractInvoiceTemplateInfo() {
+        const titleEl = document.querySelector('.TitleBarItem.Title .Text, .Title .Text');
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText');
+        const section = cleanText(titleEl && titleEl.textContent) ||
+            cleanText(document.title).replace(/^Autotask\s*[-–]\s*/i, '') ||
+            'Invoice Template';
+        const entityName = cleanSecondaryTitleText(secondaryEl && secondaryEl.textContent);
+        const params = new URLSearchParams(location.search);
+        const templateId = params.get('invoiceTemplateId') ||
+            params.get('invoiceTemplateID') ||
+            params.get('invoicetemplateid') ||
+            '';
+        const fallbackId = templateId ? ('ID ' + templateId).slice(0, 40) : '';
+
+        return {
+            title: entityName.slice(0, 120) || fallbackId || 'Invoice Template',
+            number: section.slice(0, 120) || 'Invoice Template',
+            contact: '',
+            metadataFields: {
+                type: 'Administration',
+                id: section.slice(0, 120) || 'Invoice Template',
+                secondaryTitle: section.slice(0, 120) || 'Invoice Template',
+            },
+        };
+    }
+
+    function extractAdminTitlebarPageInfo(entityFallback, sectionFallback) {
+        const titleEl = document.querySelector('.TitleBarItem.Title .Text, .Title .Text');
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText, .SecondaryTitle');
+        const section = cleanText(titleEl && titleEl.textContent) || sectionFallback || 'Administration';
+        const entityName = cleanSecondaryTitleText(secondaryEl && secondaryEl.textContent) || entityFallback || section;
+
+        return {
+            title: entityName.slice(0, 120),
+            number: section.slice(0, 120),
+            contact: '',
+            metadataFields: {
+                type: 'Administration',
+                id: section.slice(0, 120),
+                secondaryTitle: section.slice(0, 120),
+            },
+        };
+    }
+
+    function extractAdminNamePageInfo(newTitle, editTitle, inputSelector) {
+        const params = new URLSearchParams(location.search);
+        const objectId = params.get('objectid') || params.get('objectId') || params.get('ObjectId') || '';
+        const isEdit = !!objectId && objectId !== '0';
+        const input = document.querySelector(inputSelector);
+        const name = cleanText(input && input.value).slice(0, 120);
+
+        return {
+            title: isEdit ? editTitle : newTitle,
+            number: isEdit ? name : '',
+            contact: '',
+            metadataFields: {
+                type: 'Administration',
+                id: isEdit ? name : '',
+                secondaryTitle: isEdit ? name : '',
+            },
+        };
+    }
+
+    function extractResourceManagementInfo() {
+        const params = new URLSearchParams(location.search);
+        const webId = params.get('webID') || params.get('webId') || params.get('webid') || '';
+        const secondary = cleanSecondaryTitleText(document.querySelector('.SecondaryTitle') && document.querySelector('.SecondaryTitle').textContent);
+        const primary = webId ? secondary.slice(0, 120) : 'New User';
+
+        return {
+            title: primary,
+            number: 'Resource Management',
+            contact: '',
+            metadataFields: {
+                type: 'Administration',
+                id: 'Resource Management',
+                secondaryTitle: 'Resource Management',
+            },
+        };
+    }
+
+    function extractApiUserInfo() {
+        const p = AES.normalizeHandledPath(AES.pathOf(location.href));
+        const isEdit = p === '/mvc/administrationsetup/apiuser.mvc/editapiuser';
+        const titleBar = document.querySelector('.TitleBarItem.Title, .Title');
+        const titleEl = titleBar && titleBar.querySelector('.Text');
+        const secondaryEl = titleBar && titleBar.querySelector('.SecondaryText');
+        let secondary = cleanSecondaryTitleText(secondaryEl && secondaryEl.textContent);
+        if (!secondary && titleBar) {
+            const titleText = cleanText(titleEl && titleEl.textContent);
+            secondary = cleanSecondaryTitleText(cleanText(titleBar.textContent).replace(titleText, ''));
+        }
+        const primary = isEdit ? (secondary.slice(0, 120) || 'API User') : 'New API User';
+
+        return {
+            title: primary,
+            number: 'Resource Management',
+            contact: '',
+            metadataFields: {
+                type: 'Administration',
+                id: 'Resource Management',
+                secondaryTitle: 'Resource Management',
+            },
+        };
+    }
+
     function extractOpportunityInfo() {
         const heading = document.querySelector('.EntityHeadingContainer, .PageHeadingContainer');
         let title = findOpportunityTitle();
@@ -1398,15 +1533,21 @@
     }
 
     function extractGenericInfo(fallbackTitle) {
-        const heading = document.querySelector('.EntityHeadingContainer .Title > .Text, .PageHeadingContainer .Title .Text, h1, .Title');
+        const heading = document.querySelector('.TitleBarItem.Title > .Text, .EntityHeadingContainer .Title > .Text, .PageHeadingContainer .Title .Text, h1, .Title');
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText, .SecondaryTitle');
         const title = cleanText(heading && heading.textContent) ||
             cleanText(document.title).replace(/^Autotask\s*[-–]\s*/i, '');
+        const secondaryTitle = cleanSecondaryTitleText(secondaryEl && secondaryEl.textContent);
+        const visibleFallback = title || secondaryTitle ? '' : firstVisibleTextFallback();
         return {
-            title: title || fallbackTitle || 'Autotask page',
-            number: fallbackTitle || '',
+            title: title || visibleFallback || fallbackTitle || 'Autotask page',
+            number: secondaryTitle || fallbackTitle || '',
             contact: '',
             primaryResource: null,
-            metadataFields: { type: fallbackTitle || 'Tab' },
+            metadataFields: {
+                type: fallbackTitle || 'Unknown',
+                secondaryTitle: secondaryTitle.slice(0, 120),
+            },
         };
     }
 
@@ -1477,6 +1618,27 @@
         if (p === '/mvc/crm/note.mvc/view') {
             return extractNoteInfo();
         }
+        if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate') {
+            return extractInvoiceTemplateInfo();
+        }
+        if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties') {
+            return extractAdminTitlebarPageInfo('Invoice Template', 'Invoice Template Properties');
+        }
+        if (p === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') {
+            return extractAdminTitlebarPageInfo('Invoice Email Template', 'Invoice Email Template');
+        }
+        if (p === '/autotask/views/administration/companysetup/location_new_edit.aspx') {
+            return extractAdminNamePageInfo('New Internal Location', 'Edit Internal Location', '#_ctl17_txt_location_name_ATTextEdit');
+        }
+        if (p === '/autotask/popups/administration/departmentdetails.aspx') {
+            return extractAdminNamePageInfo('New Department', 'Edit Department', '#Summary_txtName_ATTextEdit');
+        }
+        if (p === '/autotask/views/administration/resources/resource.aspx') {
+            return extractResourceManagementInfo();
+        }
+        if (p === '/mvc/administrationsetup/apiuser.mvc/newapiuser' || p === '/mvc/administrationsetup/apiuser.mvc/editapiuser') {
+            return extractApiUserInfo();
+        }
         if (p === '/mvc/crm/opportunitydetail.mvc') {
             return extractOpportunityInfo();
         }
@@ -1509,7 +1671,7 @@
         if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') {
             return extractPersonInfo();
         }
-        return extractTicketInfo();
+        return extractGenericInfo('');
     }
 
     let lastSent = '';
@@ -3636,6 +3798,9 @@
             }
             if (data.type === 'map' && data.url) {
                 postToTop({ type: 'map', url: data.url });
+            }
+            if (data.type === 'close-frame' || data.type === 'close-peek') {
+                postToTop({ type: 'close-frame', target: data.target || '' });
             }
         }, true);
 

@@ -93,6 +93,18 @@
         '/servicedesk/reports/togoreportframe.asp',
         '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
         '/popups/work/svcdetail.asp',
+        '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx',
+        '/autotask/views/administration/companysetup/neweditallocationcode.aspx',
+        '/autotask/views/administration/companysetup/location_new_edit.aspx',
+        '/autotask/popups/administration/departmentdetails.aspx',
+        '/autotask/views/administration/resources/resource.aspx',
+        '/mvc/administrationsetup/apiuser.mvc/newapiuser',
+        '/mvc/administrationsetup/apiuser.mvc/editapiuser',
+        '/administrator/roles/tabroleview.asp',
+        '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
+        '/mvc/administrationsetup/invoicetemplate.mvc/editproperties',
+        '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
+        '/autotask/views/administration/products/product.aspx',
     ];
     const NATIVE_HOME_PATHS = [
         '/mvc/inventory/costitem.mvc/shipping',

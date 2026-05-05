@@ -9,6 +9,161 @@
     let pendingDuplicateOpenUntil = 0;
     let pendingUserNavigationUntil = 0;
     let featureEnabled = true;
+    let syntheticOpenerInstalled = false;
+    let nativeOpenerValue = null;
+    let syntheticOpenerProxy = null;
+
+    function aesFrameCloseTarget() {
+        try {
+            let current = window;
+            while (current && current !== current.top) {
+                const fe = current.frameElement;
+                if (fe && fe.classList && (
+                    fe.classList.contains('at-tabs-peek-frame') ||
+                    (fe.closest && fe.closest('.at-tabs-peek-wrapper'))
+                )) return 'peek';
+                if (fe && fe.classList && (
+                    fe.classList.contains('at-tab-frame') ||
+                    (fe.closest && fe.closest('.at-tabs-viewport'))
+                )) return 'tab';
+                current = current.parent;
+            }
+        } catch (e) {
+            return '';
+        }
+        return '';
+    }
+
+    function isVisibleFrame(frame) {
+        try {
+            const style = frame.ownerDocument.defaultView.getComputedStyle(frame);
+            return style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                frame.offsetWidth > 0 &&
+                frame.offsetHeight > 0;
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function sameOriginWindowWithAutotask(win) {
+        try {
+            return win && win !== window && win.autotask ? win : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function findAesSyntheticOpenerWindow() {
+        if (!aesFrameCloseTarget()) return null;
+
+        try {
+            const topDoc = window.top && window.top.document;
+            if (topDoc) {
+                const frames = Array.prototype.slice.call(topDoc.querySelectorAll('iframe'));
+                const preferred = frames.filter(function (frame) {
+                    return frame.contentWindow !== window &&
+                        frame.classList &&
+                        frame.classList.contains('at-tab-frame') &&
+                        !frame.classList.contains('at-tabs-peek-frame') &&
+                        isVisibleFrame(frame);
+                });
+                const candidates = preferred.concat(frames.filter(function (frame) {
+                    return frame.contentWindow !== window &&
+                        (!frame.classList || !frame.classList.contains('at-tabs-peek-frame'));
+                }));
+                for (const frame of candidates) {
+                    const candidate = sameOriginWindowWithAutotask(frame.contentWindow);
+                    if (candidate) return candidate;
+                }
+            }
+        } catch (e) {}
+
+        const fallbackWindows = [window.parent, window.top, window];
+        for (const candidate of fallbackWindows) {
+            const opener = sameOriginWindowWithAutotask(candidate);
+            if (opener) return opener;
+        }
+
+        try {
+            return window.parent && window.parent !== window ? window.parent : null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function getSyntheticOpenerFallback(prop) {
+        const fallbackWindows = [window.parent, window.top, window];
+        for (const candidate of fallbackWindows) {
+            try {
+                if (candidate && candidate[prop]) return candidate[prop];
+            } catch (e) {}
+        }
+        return undefined;
+    }
+
+    function getAesSyntheticOpener() {
+        if (!syntheticOpenerProxy) {
+            syntheticOpenerProxy = new Proxy({ closed: false }, {
+                get: function (_target, prop) {
+                    if (prop === 'closed') return false;
+                    if (prop === 'focus') {
+                        return function () {
+                            const target = findAesSyntheticOpenerWindow();
+                            try {
+                                if (target && typeof target.focus === 'function') target.focus();
+                            } catch (e) {}
+                        };
+                    }
+                    if (prop === 'close') return function () {};
+                    const target = findAesSyntheticOpenerWindow();
+                    if (target) {
+                        try {
+                            const value = target[prop];
+                            return typeof value === 'function' ? value.bind(target) : value;
+                        } catch (e) {}
+                    }
+                    return getSyntheticOpenerFallback(prop);
+                },
+                set: function (_target, prop, value) {
+                    const target = findAesSyntheticOpenerWindow();
+                    try {
+                        if (target) target[prop] = value;
+                    } catch (e) {}
+                    return true;
+                },
+            });
+        }
+        return syntheticOpenerProxy;
+    }
+
+    function installAesSyntheticOpener() {
+        if (syntheticOpenerInstalled || !featureEnabled || !aesFrameCloseTarget()) return;
+        try {
+            nativeOpenerValue = window.opener || null;
+        } catch (e) {
+            nativeOpenerValue = null;
+        }
+        if (nativeOpenerValue) return;
+
+        try {
+            Object.defineProperty(window, 'opener', {
+                configurable: true,
+                get: function () {
+                    return nativeOpenerValue || getAesSyntheticOpener();
+                },
+                set: function (value) {
+                    nativeOpenerValue = value;
+                },
+            });
+            syntheticOpenerInstalled = true;
+        } catch (e) {
+            try {
+                window.opener = getAesSyntheticOpener();
+                syntheticOpenerInstalled = true;
+            } catch (_e) {}
+        }
+    }
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
         '/mvc/servicedesk/ticketnew.mvc',
@@ -48,6 +203,18 @@
         '/servicedesk/reports/togoreportframe.asp',
         '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
         '/popups/work/svcdetail.asp',
+        '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx',
+        '/autotask/views/administration/companysetup/neweditallocationcode.aspx',
+        '/autotask/views/administration/companysetup/location_new_edit.aspx',
+        '/autotask/popups/administration/departmentdetails.aspx',
+        '/autotask/views/administration/resources/resource.aspx',
+        '/mvc/administrationsetup/apiuser.mvc/newapiuser',
+        '/mvc/administrationsetup/apiuser.mvc/editapiuser',
+        '/administrator/roles/tabroleview.asp',
+        '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
+        '/mvc/administrationsetup/invoicetemplate.mvc/editproperties',
+        '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
+        '/autotask/views/administration/products/product.aspx',
     ];
     const NATIVE_HOME_PATHS = [
         '/mvc/inventory/costitem.mvc/shipping',
@@ -267,6 +434,9 @@
     }
 
     function isPeekPopupUrl(url) {
+        // Peek routing has two gates: this page-context bridge posts the request,
+        // then aes-iframe-bridge.js validates and forwards it to the top shell.
+        // When adding a programmatic Peek URL, update both isPeekPopupUrl copies.
         const targetUrl = absoluteUrl(url);
         if (!targetUrl) return false;
         try {
@@ -290,6 +460,9 @@
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
                 path === '/popups/work/svcdetail.asp' ||
+                path === '/administrator/roles/tabroleview.asp' ||
+                path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
+                path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties' ||
                 path === '/mvc/contracts/contract.mvc/edit' ||
                 path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
                 path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
@@ -305,6 +478,13 @@
         const targetUrl = absoluteUrl(url);
         if (!targetUrl || !isPeekPopupUrl(targetUrl)) return false;
         window.postMessage({ __ns: MSG_NS, type: 'open-peek', url: targetUrl }, location.origin);
+        return true;
+    }
+
+    function postCloseFrame() {
+        const target = aesFrameCloseTarget();
+        if (!featureEnabled || !target) return false;
+        window.postMessage({ __ns: MSG_NS, type: 'close-frame', target: target }, location.origin);
         return true;
     }
 
@@ -330,7 +510,10 @@
                 if (targetUrl) window.postMessage({ __ns: MSG_NS, type: 'open-peek', url: targetUrl }, location.origin);
             },
             blur: function () {},
-            close: function () { this.closed = true; },
+            close: function () {
+                this.closed = true;
+                window.postMessage({ __ns: MSG_NS, type: 'close-frame', target: 'peek' }, location.origin);
+            },
         };
     }
 
@@ -451,6 +634,17 @@
         if (postOpen(url)) return null;
         return originalOpen.apply(window, arguments);
     };
+
+    const originalClose = window.close;
+    window.close = function () {
+        if (postCloseFrame()) return;
+        return originalClose.apply(window, arguments);
+    };
+
+    installAesSyntheticOpener();
+    setTimeout(installAesSyntheticOpener, 0);
+    setTimeout(installAesSyntheticOpener, 1000);
+    window.addEventListener('pageshow', installAesSyntheticOpener, true);
 
     const originalAnchorClick = HTMLAnchorElement.prototype.click;
     HTMLAnchorElement.prototype.click = function () {

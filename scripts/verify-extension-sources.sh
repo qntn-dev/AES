@@ -79,6 +79,7 @@ check_manifest chrome-extension/manifest.json
 check_manifest firefox-extension/manifest.json
 check_manifest_paths chrome-extension
 check_manifest_paths firefox-extension
+node "$ROOT_DIR/scripts/check-route-allowlists.js"
 
 for file in "${runtime_files[@]}"; do
   if ! cmp -s "$ROOT_DIR/chrome-extension/$file" "$ROOT_DIR/firefox-extension/$file"; then

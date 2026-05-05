@@ -49,10 +49,11 @@
     const CUSTOMIZABLE_TAB_TYPES = [
         'ticket', 'account', 'person', 'device', 'note', 'opportunity',
         'salesorder', 'quote', 'contract', 'project', 'timesheet',
-        'inventory', 'purchaseorder', 'charge', 'group',
+        'inventory', 'purchaseorder', 'charge', 'group', 'unknown',
     ];
     const CUSTOM_FIELD_OPTIONS = [
         { value: 'type', label: 'Type' },
+        { value: 'secondaryTitle', label: 'Secondary title' },
         { value: 'id', label: 'ID' },
         { value: 'number', label: 'Number' },
         { value: 'organization', label: 'Organization' },
@@ -95,6 +96,9 @@
         quote: ['type', 'id', 'quoteName', 'organization', 'none'],
         contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
         project: ['type', 'id', 'organization', 'none'],
+        calendar: ['type', 'none'],
+        administration: ['type', 'id', 'none'],
+        unknown: ['type', 'secondaryTitle', 'none'],
         timesheet: ['type', 'date', 'contact', 'none'],
         inventory: ['type', 'number', 'id', 'organization', 'none'],
         charge: ['type', 'id', 'number', 'organization', 'contact', 'primaryResource', 'none'],
@@ -112,6 +116,9 @@
         quote: { line2: 'id', line3: 'quoteName' },
         contract: { line2: 'contractType', line3: 'organization' },
         project: { line2: 'id', line3: 'organization' },
+        calendar: { line2: 'none', line3: 'none' },
+        administration: { line2: 'id', line3: 'type' },
+        unknown: { line2: 'secondaryTitle', line3: 'type' },
         timesheet: { line2: 'date', line3: 'contact' },
         inventory: { line2: 'id', line3: 'organization' },
         charge: { line2: 'id', line3: 'organization' },
@@ -129,6 +136,9 @@
         quote: { line2: 'id', line3: 'quoteName' },
         contract: { line2: 'contractType', line3: 'organization' },
         project: { line2: 'id', line3: 'organization' },
+        calendar: { line2: 'none', line3: 'none' },
+        administration: { line2: 'id', line3: 'type' },
+        unknown: { line2: 'secondaryTitle', line3: 'type' },
         timesheet: { line2: 'date', line3: 'contact' },
         inventory: { line2: 'id', line3: 'organization' },
         charge: { line2: 'id', line3: 'organization' },
@@ -146,6 +156,9 @@
         quote: 'Quote',
         contract: 'Contract',
         project: 'Project',
+        calendar: 'Calendar',
+        administration: 'Admin',
+        unknown: 'Unknown',
         timesheet: 'Timesheet',
         inventory: 'Inventory',
         charge: 'Charge',
@@ -163,6 +176,8 @@
         quote: '<span class="fa-file-invoice-dollar fa-regular" aria-hidden="true"></span>',
         contract: '<span class="fa-file-contract fa-regular" aria-hidden="true"></span>',
         project: '<span class="fa-folder fa-regular" aria-hidden="true"></span>',
+        calendar: '<span class="fa-calendar-lines fa-regular" aria-hidden="true"></span>',
+        administration: '<span class="fa-gear fa-regular" aria-hidden="true"></span>',
         timesheet: '<span class="fa-clock-five fa-regular" aria-hidden="true"></span>',
         inventory: '<span class="fa-boxes-stacked fa-regular" aria-hidden="true"></span>',
         charge: '<span class="fa-file-plus-minus fa-regular" aria-hidden="true"></span>',
@@ -264,6 +279,8 @@
         homeTabEl: null,
         nativeFrame: null,
         nativeLastUrl: '',
+        homePersistedUrl: '',
+        homePersistedTitle: '',
         lastObservedTopHref: '',
         lastObservedTopHandledUrl: '',
         homeLoadingAwaitingNativeLoad: false,
@@ -447,6 +464,9 @@
         group: faIcon('fa-users fa-regular'),
         project: faIcon('fa-folder fa-regular'),
         projectTask: faIcon('fa-folder-tree fa-regular'),
+        calendar: faIcon('fa-calendar-lines fa-regular'),
+        administration: faIcon('fa-gear fa-regular'),
+        resourceManagement: faIcon('fa-user-gear fa-regular'),
         pin: faIcon('fa-thumbtack fa-regular'),
         settings: faIcon('fa-puzzle-piece fa-regular'),
         refresh: faIcon('fa-arrows-rotate fa-regular'),
@@ -3490,6 +3510,12 @@
             splitPairColor: TAB_COLOR_PRESETS.includes(state.splitPairColor) ? state.splitPairColor : '',
             splitRatio: normalizeSplitRatio(state.splitRatio),
             splitRatios: normalizeSplitRatios(state.splitRatios, getSplitGroupIds().length),
+            home: {
+                url: getPersistableHomeUrl(),
+                title: state.activeId === null && hasResolvedHomeTitle()
+                    ? state.homeTitle
+                    : (state.homePersistedTitle || ''),
+            },
         };
     }
 
@@ -3539,6 +3565,12 @@
         }
     }
 
+    function getPersistableHomeUrl() {
+        const url = state.activeId === null ? currentNativeFrameUrl() : state.homePersistedUrl;
+        if (!url || url === 'about:blank') return '';
+        return url;
+    }
+
     function handleNativeFrameLoad(event) {
         const frame = event.currentTarget;
         // New native page finished loading — clear the Home-tab spinner.
@@ -3560,6 +3592,9 @@
 
         if (state.activeId === null) {
             state.nativeLastUrl = url;
+            state.homePersistedUrl = url;
+            if (hasResolvedHomeTitle()) state.homePersistedTitle = state.homeTitle;
+            saveTabs();
             return;
         }
 
@@ -3665,7 +3700,7 @@
 
     function saveTabs() {
         if (state.tabsSyncApplyingRemote) return;
-        if (!state.tabs.length && !state.tabsSyncHasOwnedTabs) return;
+        if (!state.tabs.length && !state.tabsSyncHasOwnedTabs && !getPersistableHomeUrl()) return;
         const payload = buildTabsPayload();
         state.tabsSyncLastSeenAt = payload.updatedAt || Date.now();
         void AES.writeTabsPayload(payload);
@@ -3692,7 +3727,15 @@
         try {
             payload = await AES.readTabsPayload();
         } catch (e) { return; }
-        if (!payload || !Array.isArray(payload.tabs) || payload.tabs.length === 0) return;
+        if (!payload || !Array.isArray(payload.tabs)) return;
+
+        const savedHome = payload.home && typeof payload.home === 'object' ? payload.home : null;
+        if (savedHome && savedHome.url) {
+            state.nativeLastUrl = savedHome.url;
+            state.homePersistedUrl = savedHome.url;
+            state.homePersistedTitle = savedHome.title || '';
+            if (savedHome.title) setHomeTitle(savedHome.title);
+        }
 
         for (const saved of payload.tabs) {
             if (!saved.url) continue;
@@ -3756,11 +3799,22 @@
             state.splitId = null;
         }
         if (typeof idx === 'number' && idx >= 0 && state.tabs[idx]) {
-            const shouldLoadRestoredSplit = Boolean(state.splitPairIds && state.splitPairIds.includes(state.tabs[idx].id));
-            activateTab(state.tabs[idx].id, { load: shouldLoadRestoredSplit, recordPrevious: false });
+            // Browser refresh should restore the selected tab as a live page, not
+            // just a selected deferred iframe. `activateTab()` defaults to loading
+            // the active tab, and if it belongs to a split group it also loads the
+            // visible split partner(s). Background restored tabs remain lazy.
+            activateTab(state.tabs[idx].id, { recordPrevious: false });
             clearHomeLoading();
         } else {
             activateHome();
+            if (savedHome && savedHome.url) {
+                const frame = state.nativeFrame || findContentIframe();
+                if (frame) {
+                    try {
+                        if ((frame.getAttribute('src') || '') !== savedHome.url) frame.src = savedHome.url;
+                    } catch (e) {}
+                }
+            }
         }
     }
 
@@ -5187,6 +5241,15 @@
         return false;
     }
 
+    function windowBelongsToPeek(win) {
+        if (!state.peekWrapper) return false;
+        const frames = state.peekWrapper.querySelectorAll('iframe');
+        for (const frame of frames) {
+            if (windowBelongsToIframe(win, frame)) return true;
+        }
+        return false;
+    }
+
     function findNativeFrameFromWindow(win) {
         if (windowBelongsToIframe(win, state.nativeFrame)) return state.nativeFrame;
         const currentNativeFrame = findContentIframe();
@@ -5233,7 +5296,19 @@
             p.includes('/billingruleassociation')) return 'charge';
         if (p.startsWith('/contracts/views/contract')) return 'contract';
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail' || p === '/mvc/projects/taskdetail.mvc') return 'project';
-        return 'ticket';
+        if (p === '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx') return 'calendar';
+        if (p === '/autotask/views/administration/companysetup/neweditallocationcode.aspx') return 'administration';
+        if (p === '/autotask/views/administration/companysetup/location_new_edit.aspx') return 'administration';
+        if (p === '/autotask/popups/administration/departmentdetails.aspx') return 'administration';
+        if (p === '/autotask/views/administration/resources/resource.aspx') return 'administration';
+        if (p === '/mvc/administrationsetup/apiuser.mvc/newapiuser') return 'administration';
+        if (p === '/mvc/administrationsetup/apiuser.mvc/editapiuser') return 'administration';
+        if (p === '/administrator/roles/tabroleview.asp') return 'administration';
+        if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate') return 'administration';
+        if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties') return 'administration';
+        if (p === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') return 'administration';
+        if (p === '/autotask/views/administration/products/product.aspx') return 'inventory';
+        return 'unknown';
     }
 
     function tabTypeLabel(tabOrType) {
@@ -5244,7 +5319,8 @@
     function tabMetadataFields(tab) {
         const type = tabTypeForUrl(tab && tab.url || '');
         const fields = Object.assign({}, normalizeMetadataFields(tab && tab.metadataFields));
-        fields.type = fields.type || tabTypeLabel(type);
+        fields.type = tabTypeLabel(type);
+        fields.secondaryTitle = fields.secondaryTitle || '';
         fields.number = fields.number || String(tab && tab.number || '').trim();
         fields.id = fields.id || (/^ID\b/i.test(fields.number) ? fields.number : '');
         fields.organization = fields.organization || String(tab && tab.contact || '').trim();
@@ -5260,11 +5336,21 @@
         const options = getLineOptionsForType(type);
         let key = settings && settings[type] || (line === 2 ? 'organization' : 'contact');
         if (!options.includes(key)) key = getDefaultLineField(type, line);
-        if (key === 'none') return '';
         const fields = tabMetadataFields(tab);
+        if (type === 'administration' && line === 3 && (key === 'none' || key === 'type')) {
+            const line2Settings = state.tabLine2Fields;
+            const line2Options = getLineOptionsForType(type);
+            let line2Key = line2Settings && line2Settings[type] || 'id';
+            if (!line2Options.includes(line2Key)) line2Key = getDefaultLineField(type, 2);
+            const line2Value = line2Key !== 'none' && line2Key !== 'type'
+                ? String(fields[line2Key] || '').trim()
+                : '';
+            return line2Value ? fields.type : '';
+        }
+        if (key === 'none') return '';
         const value = String(fields[key] || '').trim();
         if (value) return value;
-        return line === 2 ? fields.type : '';
+        return line === 2 && type !== 'unknown' ? fields.type : '';
     }
 
     function tabLineFieldKey(tab, line) {
@@ -5293,6 +5379,7 @@
     function fallbackMetadataFields(type, fallback) {
         return {
             type: tabTypeLabel(type),
+            secondaryTitle: fallback.secondaryTitle || '',
             id: /^ID\b/i.test(fallback.number || '') ? fallback.number : '',
             number: fallback.number || '',
             organization: fallback.contact || '',
@@ -5315,6 +5402,61 @@
             return {
                 title: 'New Ticket',
                 number: typeLabel,
+                contact: '',
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/autotask/views/administration/companysetup/neweditallocationcode.aspx') {
+            const allocationCodeId = params.get('allocationCodeID') || params.get('allocationCodeId') || params.get('allocationcodeid');
+            return {
+                title: 'Allocation Code',
+                number: allocationCodeId ? `ID ${allocationCodeId}` : 'Administration',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/administrator/roles/tabroleview.asp') {
+            const roleId = params.get('ObjectId') || params.get('objectId') || params.get('objectid');
+            return {
+                title: 'Role',
+                number: roleId ? `ID ${roleId}` : 'Administration',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate') {
+            const templateId = params.get('invoiceTemplateId') || params.get('invoiceTemplateID') || params.get('invoicetemplateid');
+            return {
+                title: 'Invoice Template',
+                number: templateId ? `ID ${templateId}` : 'Design Invoice Template',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties') {
+            const templateId = params.get('invoiceTemplateId') || params.get('invoiceTemplateID') || params.get('invoicetemplateid');
+            return {
+                title: 'Invoice Template Properties',
+                number: templateId ? `ID ${templateId}` : 'Administration',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') {
+            const templateId = params.get('invoiceEmailTemplateId') || params.get('invoiceEmailTemplateID') || params.get('invoiceemailtemplateid');
+            return {
+                title: 'Invoice Email Template',
+                number: templateId ? `ID ${templateId}` : 'Invoice Email Template',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/autotask/views/administration/products/product.aspx') {
+            const productMode = String(params.get('cmd') || '').toLowerCase();
+            return {
+                title: productMode === 'new' ? 'New Product' : 'Product',
+                number: 'Inventory',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx') {
+            return {
+                title: 'Dispatcher Workshop',
+                number: 'Calendar',
                 contact: '',
             };
         }
@@ -5536,7 +5678,11 @@
     function tabIconKey(tab) {
         const title = typeof tab?.title === 'string' ? tab.title.toLowerCase() : '';
         if (title.includes('livelink')) return 'livelink';
-        if (AES.normalizeHandledPath(AES.pathOf(tab?.url || '')) === '/mvc/projects/taskdetail.mvc') return 'projectTask';
+        const path = AES.normalizeHandledPath(AES.pathOf(tab?.url || ''));
+        if (path === '/mvc/projects/taskdetail.mvc') return 'projectTask';
+        if (path === '/autotask/views/administration/resources/resource.aspx' ||
+            path === '/mvc/administrationsetup/apiuser.mvc/newapiuser' ||
+            path === '/mvc/administrationsetup/apiuser.mvc/editapiuser') return 'resourceManagement';
         return tabTypeForUrl(tab?.url || '');
     }
 
@@ -5603,6 +5749,11 @@
         // A real native title means the Home tab has meaningful metadata again.
         // Let that win over late/stale nav-start messages so the tab cannot
         // get stuck showing only the spinner.
+        if (state.activeId === null) {
+            state.homePersistedTitle = next;
+            if (!state.homePersistedUrl) state.homePersistedUrl = getPersistableHomeUrl();
+            if (state.homePersistedUrl) saveTabs();
+        }
         clearHomeLoading();
     }
 
@@ -6012,7 +6163,7 @@
             ICONS.peek,
             function () {
                 closeTabContextMenu();
-                openPeekModal(tab);
+                openPeekModal(tab, { allowOpenInTab: true });
             }
         );
         menu.appendChild(peekButton);
@@ -8139,9 +8290,20 @@
         closeButton.focus();
     }
 
+    function assignPeekOpener(iframe, openerWindow) {
+        if (!iframe || !openerWindow) return;
+        try {
+            if (iframe.contentWindow && iframe.contentWindow !== openerWindow) {
+                iframe.contentWindow.opener = openerWindow;
+            }
+        } catch (e) {}
+    }
+
     function openPeekModal(tab, options) {
         if (!tab || !tab.url) return;
         const opts = options || {};
+        const canOpenPeekAsTab = opts.allowOpenInTab === true;
+        const openerWindow = opts.openerWindow || null;
         closePeekModal(true);
         hideHoverCard(true);
 
@@ -8181,9 +8343,15 @@
                     loader.classList.add('hidden');
                 }, { once: true });
             }
+            if (openerWindow) {
+                iframe.addEventListener('load', function () {
+                    assignPeekOpener(iframe, openerWindow);
+                });
+            }
             const frameWrap = document.createElement('div');
             frameWrap.className = 'at-tabs-peek-frame-wrap';
             frameWrap.appendChild(iframe);
+            assignPeekOpener(iframe, openerWindow);
             frameWrap.appendChild(loader);
             modal.appendChild(frameWrap);
             state.peekPrewarm = null;
@@ -8225,10 +8393,12 @@
         const openInTabBtn = document.createElement('button');
         openInTabBtn.type = 'button';
         openInTabBtn.className = 'at-tabs-peek-action open-tab-action';
-        openInTabBtn.title = 'Open Peek in tab';
+        openInTabBtn.disabled = !canOpenPeekAsTab;
+        openInTabBtn.title = canOpenPeekAsTab ? 'Open Peek in tab' : 'Only manually peeked tabs can be opened as tabs';
         openInTabBtn.setAttribute('aria-label', 'Open Peek in tab');
         openInTabBtn.innerHTML = '<span class="fa-up-right-from-square fa-regular" aria-hidden="true"></span>';
         openInTabBtn.addEventListener('click', function () {
+            if (!canOpenPeekAsTab) return;
             const targetUrl = tab.url;
             closePeekModal();
             openTab(targetUrl);
@@ -8253,11 +8423,12 @@
         }
     }
 
-    function openUrlInPeek(url) {
+    function openUrlInPeek(url, options) {
         if (!featuresEnabled() || !url) return;
+        const opts = options || {};
         const existing = state.tabs.find(t => t.url === url);
         if (existing) {
-            openPeekModal(existing);
+            openPeekModal(existing, opts);
             return;
         }
         const fallback = fallbackTabMetadataForUrl(url);
@@ -8274,7 +8445,7 @@
             pageWarning: false,
             iframeEl: null,
             tabEl: null,
-        }, { allowSplit: false });
+        }, Object.assign({ allowSplit: false }, opts));
     }
 
     // --- Tab hover preview card ---------------------------------------------
@@ -8480,12 +8651,22 @@
 
     function openTab(url) {
         if (!featuresEnabled()) return;
+        if (shouldOpenUrlInPeek(url)) {
+            openUrlInPeek(url);
+            return;
+        }
         const existing = state.tabs.find(t => t.url === url);
         if (existing) {
             activateTab(existing.id);
             return;
         }
         createAndAddTab(url);
+    }
+
+    function shouldOpenUrlInPeek(url) {
+        const path = AES.normalizeHandledPath(AES.pathOf(url)).toLowerCase();
+        return path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
+            path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties';
     }
 
     // Create a fresh tab for `url` and activate it. Bypasses the URL-dedup
@@ -8676,13 +8857,26 @@
 
         if (!featuresEnabled()) return;
 
+        if (data.type === 'close-frame' || data.type === 'close-peek') {
+            if (windowBelongsToPeek(event.source)) {
+                closePeekModal();
+                return;
+            }
+            const tab = findTabFromWindow(event.source);
+            if (tab) {
+                closeTab(tab.id);
+                return;
+            }
+            return;
+        }
+
         if (data.type === 'open' && data.url) {
             openTab(data.url);
             return;
         }
 
         if (data.type === 'open-peek' && data.url) {
-            openUrlInPeek(data.url);
+            openUrlInPeek(data.url, { openerWindow: event.source });
             return;
         }
 
