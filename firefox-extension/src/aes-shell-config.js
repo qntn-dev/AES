@@ -1,0 +1,169 @@
+(function () {
+    'use strict';
+
+    const AES = window.__AES__;
+    if (!AES) return;
+
+    /**
+     * Purpose: tab metadata customization constants for the AES shell.
+     * Owns: customizable tab types, line field options, defaults, labels, and icons.
+     * Must not own: extraction logic, settings modal layout, storage, or rendering.
+     * Companion files: aes-shell.js and aes-iframe-bridge.js when adding tab metadata.
+     * Verify: scripts/verify-extension-sources.sh after changing tab types or metadata fields.
+     */
+    const runtime = AES.ShellRuntime || (AES.ShellRuntime = {});
+
+const CUSTOMIZABLE_TAB_TYPES = [
+    'ticket', 'account', 'person', 'device', 'note', 'opportunity',
+    'salesorder', 'quote', 'contract', 'project', 'projecttask', 'timesheet',
+    'inventory', 'purchaseorder', 'charge', 'group', 'unknown',
+];
+const CUSTOM_FIELD_OPTIONS = [
+    { value: 'type', label: 'Type' },
+    { value: 'secondaryTitle', label: 'Secondary title' },
+    { value: 'id', label: 'ID' },
+    { value: 'number', label: 'Number' },
+    { value: 'organization', label: 'Organization' },
+    { value: 'vendor', label: 'Vendor' },
+    { value: 'externalPoNumber', label: 'External P.O. #' },
+    { value: 'contact', label: 'Contact' },
+    { value: 'status', label: 'Status' },
+    { value: 'priority', label: 'Priority' },
+    { value: 'lastActivity', label: 'Last activity' },
+    { value: 'serialNumber', label: 'Serial number' },
+    { value: 'opportunity', label: 'Opportunity' },
+    { value: 'quoteName', label: 'Quote name' },
+    { value: 'date', label: 'Date' },
+    { value: 'primaryResource', label: 'Primary resource' },
+    { value: 'contractType', label: 'Contract Type' },
+    { value: 'contractCategory', label: 'Contract Category' },
+    { value: 'purchaseOrderNumber', label: 'Purchase Order Number' },
+    { value: 'deviceType', label: 'Device type' },
+    { value: 'manufacturer', label: 'Manufacturer' },
+    { value: 'model', label: 'Model' },
+    { value: 'internalIp', label: 'Internal IP' },
+    { value: 'antivirusStatus', label: 'Antivirus status' },
+    { value: 'patchStatus', label: 'Patch status' },
+    { value: 'none', label: 'Nothing' },
+];
+function getCustomizationFieldOptionLabel(type, value) {
+    if (type === 'account' && value === 'organization') return 'Classification';
+    const option = CUSTOM_FIELD_OPTIONS.find(function (fieldOption) { return fieldOption.value === value; });
+    return option ? option.label : value;
+}
+const TAB_LINE_OPTIONS_BY_TYPE = {
+    ticket: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
+    account: ['type', 'id', 'organization', 'none'],
+    person: ['type', 'id', 'organization', 'none'],
+    device: ['type', 'organization', 'serialNumber', 'deviceType', 'manufacturer', 'model', 'internalIp', 'antivirusStatus', 'patchStatus', 'none'],
+    note: ['type', 'opportunity', 'organization', 'none'],
+    opportunity: ['type', 'id', 'organization', 'primaryResource', 'none'],
+    salesorder: ['type', 'id', 'organization', 'none'],
+    purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
+    quote: ['type', 'id', 'quoteName', 'organization', 'none'],
+    contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
+    project: ['type', 'id', 'organization', 'none'],
+    projecttask: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
+    calendar: ['type', 'none'],
+    administration: ['type', 'id', 'none'],
+    unknown: ['type', 'secondaryTitle', 'none'],
+    timesheet: ['type', 'date', 'contact', 'none'],
+    inventory: ['type', 'number', 'id', 'organization', 'none'],
+    charge: ['type', 'id', 'number', 'organization', 'contact', 'primaryResource', 'none'],
+    group: ['type', 'id', 'none'],
+};
+const TAB_LINE_DEFAULT_BY_TYPE = {
+    ticket: { line2: 'organization', line3: 'contact' },
+    account: { line2: 'organization', line3: 'none' },
+    person: { line2: 'id', line3: 'organization' },
+    device: { line2: 'model', line3: 'organization' },
+    note: { line2: 'organization', line3: 'none' },
+    opportunity: { line2: 'id', line3: 'organization' },
+    salesorder: { line2: 'id', line3: 'organization' },
+    purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
+    quote: { line2: 'id', line3: 'quoteName' },
+    contract: { line2: 'contractType', line3: 'organization' },
+    project: { line2: 'id', line3: 'organization' },
+    projecttask: { line2: 'organization', line3: 'contact' },
+    calendar: { line2: 'none', line3: 'none' },
+    administration: { line2: 'id', line3: 'type' },
+    unknown: { line2: 'secondaryTitle', line3: 'type' },
+    timesheet: { line2: 'date', line3: 'contact' },
+    inventory: { line2: 'id', line3: 'organization' },
+    charge: { line2: 'id', line3: 'organization' },
+    group: { line2: 'none', line3: 'none' },
+};
+const TAB_LINE_RECOMMENDED_BY_TYPE = {
+    ticket: { line2: 'organization', line3: 'contact' },
+    account: { line2: 'organization', line3: 'none' },
+    person: { line2: 'id', line3: 'organization' },
+    device: { line2: 'model', line3: 'organization' },
+    note: { line2: 'organization', line3: 'none' },
+    opportunity: { line2: 'id', line3: 'organization' },
+    salesorder: { line2: 'id', line3: 'organization' },
+    purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
+    quote: { line2: 'id', line3: 'quoteName' },
+    contract: { line2: 'contractType', line3: 'organization' },
+    project: { line2: 'id', line3: 'organization' },
+    projecttask: { line2: 'organization', line3: 'contact' },
+    calendar: { line2: 'none', line3: 'none' },
+    administration: { line2: 'id', line3: 'type' },
+    unknown: { line2: 'secondaryTitle', line3: 'type' },
+    timesheet: { line2: 'date', line3: 'contact' },
+    inventory: { line2: 'id', line3: 'organization' },
+    charge: { line2: 'id', line3: 'organization' },
+    group: { line2: 'none', line3: 'none' },
+};
+const TAB_TYPE_LABELS = {
+    ticket: 'Ticket',
+    account: 'Organization',
+    person: 'Person',
+    device: 'Device',
+    note: 'Note',
+    opportunity: 'Opportunity',
+    salesorder: 'Sales Order',
+    purchaseorder: 'Purchase Order',
+    quote: 'Quote',
+    contract: 'Contract',
+    project: 'Project',
+    projecttask: 'Task',
+    calendar: 'Calendar',
+    administration: 'Admin',
+    unknown: 'Unknown',
+    timesheet: 'Timesheet',
+    inventory: 'Inventory',
+    charge: 'Charge',
+    group: 'Group',
+};
+const CUSTOMIZATION_TAB_TYPE_ICONS = {
+    ticket: '<span class="fa-ticket fa-regular" aria-hidden="true"></span>',
+    account: '<span class="fa-user-group fa-regular" aria-hidden="true"></span>',
+    person: '<span class="fa-address-book fa-regular" aria-hidden="true"></span>',
+    device: '<span class="fa-laptop-mobile fa-regular" aria-hidden="true"></span>',
+    note: '<span class="fa-laptop-mobile fa-regular" aria-hidden="true"></span>',
+    opportunity: '<span class="fa-lightbulb fa-regular" aria-hidden="true"></span>',
+    salesorder: '<span class="fa-cash-register fa-regular" aria-hidden="true"></span>',
+    purchaseorder: '<span class="fa-receipt fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>',
+    quote: '<span class="fa-file-invoice-dollar fa-regular" aria-hidden="true"></span>',
+    contract: '<span class="fa-file-contract fa-regular" aria-hidden="true"></span>',
+    project: '<span class="fa-folder fa-regular" aria-hidden="true"></span>',
+    projecttask: '<span class="fa-folder-tree fa-regular" aria-hidden="true"></span>',
+    calendar: '<span class="fa-calendar-lines fa-regular" aria-hidden="true"></span>',
+    administration: '<span class="fa-gear fa-regular" aria-hidden="true"></span>',
+    timesheet: '<span class="fa-clock-five fa-regular" aria-hidden="true"></span>',
+    inventory: '<span class="fa-boxes-stacked fa-regular" aria-hidden="true"></span>',
+    charge: '<span class="fa-file-plus-minus fa-regular" aria-hidden="true"></span>',
+    group: '<span class="fa-users fa-regular" aria-hidden="true"></span>',
+};
+
+    runtime.config = {
+        CUSTOMIZABLE_TAB_TYPES,
+        CUSTOM_FIELD_OPTIONS,
+        getCustomizationFieldOptionLabel,
+        TAB_LINE_OPTIONS_BY_TYPE,
+        TAB_LINE_DEFAULT_BY_TYPE,
+        TAB_LINE_RECOMMENDED_BY_TYPE,
+        TAB_TYPE_LABELS,
+        CUSTOMIZATION_TAB_TYPE_ICONS,
+    };
+})();

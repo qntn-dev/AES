@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Autotask Enhancement Suite",
   "description": "Enhancements for Autotask, including the custom tab shell for tickets, accounts, and contracts.",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "minimum_chrome_version": "116",
   "icons": {
     "16": "icons/icon16.png",
@@ -16,14 +16,22 @@
         "https://*.autotask.net/*"
       ],
       "exclude_matches": [
+        "https://*.autotask.net/help/Content/*",
+        "https://*.autotask.net/help/content/*",
         "https://www.autotask.net/*"
       ],
       "all_frames": true,
       "js": [
+        "src/aes-routes.js",
         "src/aes-shared.js",
         "src/aes-storage.js",
         "src/aes-phone-links.js",
+        "src/aes-shell-runtime.js",
+        "src/aes-shell-config.js",
+        "src/aes-shell-styles.js",
+        "src/aes-iframe-runtime.js",
         "src/aes-iframe-bridge.js",
+        "src/aes-shell-settings-ui.js",
         "src/aes-shell.js",
         "src/content-tabs.js"
       ],
@@ -44,6 +52,7 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "src/aes-routes.js",
         "src/aes-page-bridge.js"
       ],
       "matches": [

@@ -39,9 +39,15 @@ Autotask Enhancement Suite is currently awaiting approval from Google and Mozill
 
 ### Firefox
 
-1. Open `about:debugging#/runtime/this-firefox`
-2. Click `Load Temporary Add-on...`
-3. Select `firefox-extension/manifest.json`
+1. Use Firefox Developer Edition, Firefox Nightly, or Firefox ESR. Standard Firefox Release does not allow persistent unsigned extensions.
+2. Open `about:config`
+3. Set `xpinstall.signatures.required` to `false`
+4. Open `about:addons`
+5. Click the gear icon
+6. Choose `Install Add-on From File...`
+7. Select the packaged Firefox `.xpi` from `dist/`
+
+For quick temporary testing, you can still use `about:debugging#/runtime/this-firefox`, click `Load Temporary Add-on...`, and select `firefox-extension/manifest.json`. Temporary add-ons are removed when Firefox restarts.
 
 ## Updating
 

@@ -54,11 +54,17 @@ check_manifest_paths() {
 }
 
 runtime_files=(
+  "src/aes-routes.js"
+  "src/aes-shell-settings-ui.js"
   src/aes-background.js
+  src/aes-iframe-runtime.js
   src/aes-iframe-bridge.js
   src/aes-page-bridge.js
   src/aes-phone-links.js
   src/aes-shared.js
+  src/aes-shell-runtime.js
+  src/aes-shell-config.js
+  src/aes-shell-styles.js
   src/aes-shell.js
   src/aes-storage.js
   src/content-tabs.js
@@ -66,6 +72,11 @@ runtime_files=(
 
 check_js chrome-extension "${runtime_files[@]}"
 check_js firefox-extension "${runtime_files[@]}"
+
+safari_runtime_dir="dist/safari/Autotask Enhancement Suite/Autotask Enhancement Suite Extension/Resources"
+if [[ -d "$ROOT_DIR/$safari_runtime_dir/src" ]]; then
+  check_js "$safari_runtime_dir" "${runtime_files[@]}"
+fi
 
 chrome_version="$(node -e 'console.log(require(process.argv[1]).version)' "$ROOT_DIR/chrome-extension/manifest.json")"
 firefox_version="$(node -e 'console.log(require(process.argv[1]).version)' "$ROOT_DIR/firefox-extension/manifest.json")"
@@ -79,11 +90,20 @@ check_manifest chrome-extension/manifest.json
 check_manifest firefox-extension/manifest.json
 check_manifest_paths chrome-extension
 check_manifest_paths firefox-extension
+if [[ -f "$ROOT_DIR/$safari_runtime_dir/manifest.json" ]]; then
+  check_manifest "$safari_runtime_dir/manifest.json"
+  check_manifest_paths "$safari_runtime_dir"
+fi
 node "$ROOT_DIR/scripts/check-route-allowlists.js"
 
 for file in "${runtime_files[@]}"; do
   if ! cmp -s "$ROOT_DIR/chrome-extension/$file" "$ROOT_DIR/firefox-extension/$file"; then
     echo "Chrome/Firefox runtime files differ: $file" >&2
+    exit 1
+  fi
+  if [[ -d "$ROOT_DIR/$safari_runtime_dir/src" ]] && ! cmp -s "$ROOT_DIR/chrome-extension/$file" "$ROOT_DIR/$safari_runtime_dir/$file"; then
+    echo "Chrome/Safari runtime files differ: $file" >&2
+    echo "Run scripts/sync-runtime-sources.sh before building Safari." >&2
     exit 1
   fi
 done

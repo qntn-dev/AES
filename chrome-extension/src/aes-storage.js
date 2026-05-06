@@ -26,9 +26,6 @@
         || !['horizontal', 'vertical'].includes(AES.state.barOrientation)) {
         AES.state.barOrientation = 'horizontal';
     }
-    if (typeof AES.state.darkModeEnhancerEnabled !== 'boolean') {
-        AES.state.darkModeEnhancerEnabled = false;
-    }
     if (typeof AES.state.hideEarlyAccessLabels !== 'boolean') {
         AES.state.hideEarlyAccessLabels = false;
     }
@@ -49,15 +46,6 @@
     }
     if (typeof AES.state.improvedScrollbarsEnabled !== 'boolean') {
         AES.state.improvedScrollbarsEnabled = true;
-    }
-    if (typeof AES.state.timesheetUiEnhancementEnabled !== 'boolean') {
-        AES.state.timesheetUiEnhancementEnabled = false;
-    }
-    if (typeof AES.state.preferencesUiEnhancementEnabled !== 'boolean') {
-        AES.state.preferencesUiEnhancementEnabled = false;
-    }
-    if (typeof AES.state.workspaceQueuesUiEnhancementEnabled !== 'boolean') {
-        AES.state.workspaceQueuesUiEnhancementEnabled = false;
     }
     if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
         AES.state.skipPeekBackdropCloseWarning = false;
@@ -202,9 +190,6 @@
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.darkModeEnhancerEnabled = settings && typeof settings.darkModeEnhancerEnabled === 'boolean'
-                ? settings.darkModeEnhancerEnabled
-                : false;
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
@@ -218,9 +203,6 @@
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
-            AES.state.timesheetUiEnhancementEnabled = false;
-            AES.state.preferencesUiEnhancementEnabled = false;
-            AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
@@ -252,9 +234,6 @@
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.darkModeEnhancerEnabled = settings && typeof settings.darkModeEnhancerEnabled === 'boolean'
-                ? settings.darkModeEnhancerEnabled
-                : false;
             AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
@@ -268,9 +247,6 @@
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
-            AES.state.timesheetUiEnhancementEnabled = false;
-            AES.state.preferencesUiEnhancementEnabled = false;
-            AES.state.workspaceQueuesUiEnhancementEnabled = false;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
@@ -298,7 +274,6 @@
             phoneLinksEnabled: !!AES.state.phoneLinksEnabled,
             themePreference: readThemePreference(AES.state),
             barOrientation: readBarOrientation(AES.state),
-            darkModeEnhancerEnabled: !!AES.state.darkModeEnhancerEnabled,
             hideEarlyAccessLabels: !!AES.state.hideEarlyAccessLabels,
             replaceCalendarWithResourcePlanner: !!AES.state.replaceCalendarWithResourcePlanner,
             showTabBarOnNonIframePages: !!AES.state.showTabBarOnNonIframePages,
@@ -306,9 +281,6 @@
             horizontalCompactTabsEnabled: !!AES.state.horizontalCompactTabsEnabled,
             roundedPageFramesEnabled: !!AES.state.roundedPageFramesEnabled,
             improvedScrollbarsEnabled: !!AES.state.improvedScrollbarsEnabled,
-            timesheetUiEnhancementEnabled: false,
-            preferencesUiEnhancementEnabled: false,
-            workspaceQueuesUiEnhancementEnabled: false,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             releaseNotesLastSeenVersion: typeof AES.state.releaseNotesLastSeenVersion === 'string'
                 ? AES.state.releaseNotesLastSeenVersion

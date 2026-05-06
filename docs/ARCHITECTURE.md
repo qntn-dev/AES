@@ -32,23 +32,34 @@ The active runtime files live in both browser folders under `src/`:
 - `aes-storage.js`: settings, persistence, and tab/session restore.
 - `aes-phone-links.js`: optional phone-number detection and `tel:` link wrapping.
 - `aes-page-bridge.js`: page-context interception for Autotask script-driven navigation.
+- `aes-shell-runtime.js`: shell module registry and shared runtime container.
+- `aes-shell-config.js`: tab metadata customization options, labels, defaults, and icons.
+- `aes-shell-styles.js`: top-level shell CSS payload.
+- `aes-iframe-runtime.js`: iframe module registry and shared runtime container.
 - `aes-iframe-bridge.js`: iframe metadata extraction, map-button interception, and iframe-side navigation handling.
 - `aes-shell.js`: top-level tab shell, settings UI, tab behavior, split view, Peek, map modal, and layout sync.
 - `content-tabs.js`: bootstrap entrypoint for top-frame and iframe contexts.
 - `aes-background.js`: browser toolbar action handler.
 
-Chrome and Firefox runtime files should stay identical. If you change one, make the same change in the other and run:
+Chrome and Firefox runtime files must stay identical. The Safari runtime copy in `dist/safari/.../Resources/src/` should also match Chrome when present. Change Chrome first, then run:
+
+```bash
+scripts/sync-runtime-sources.sh
+```
+
+Then run:
 
 ```bash
 scripts/verify-extension-sources.sh
 ```
 
 Browser-specific differences should normally be limited to `manifest.json`, packaging notes, or store metadata.
+For task-specific guidance, see `docs/LLM_CHANGE_GUIDE.md`.
 
 ## Development Notes
 
 - Load `chrome-extension/` in Chrome for day-to-day testing.
-- Keep `firefox-extension/src/` mirrored with `chrome-extension/src/`.
+- Keep `firefox-extension/src/` mirrored with `chrome-extension/src/` by using `scripts/sync-runtime-sources.sh`.
 - Keep release artifacts in `dist/` or local ignored files, not tracked source folders.
 - Keep local-only helpers out of Git unless they are useful to other contributors.
 

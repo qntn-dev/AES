@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.8.0
+
+Autotask Enhancement Suite is now available in the Chrome Web Store, note that updates will be delayed compared to Github, but if you prefer automatic updates please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh
+
+### Highlights
+
+- More AES Supported entities
+- Many bug fixes & improvements
+- Major code refactor
+
+### New features
+
+- AES support for more Autotask components: Organization Settings & Users subsettings, Finance/Accounting/Invoicing subsettings, Legacy Dispatch Calendar, Notification Templates, and Workflow Rules.
+- Added a Provide feedback button in settings that opens GitHub issue creation.
+
+### Improvements
+
+- Admin tabs now use clearer metadata: name first, section second, type third.
+- Resource Management, API User, Notification Template, and Workflow Rule tabs now use more specific icons and titles.
+- AES now handles more legacy close and Save & Close actions inside tabs and Peek windows.
+- Autotask help and knowledge base pages are now excluded from AES.
+- Reduced background work on busy Autotask pages.
+- Improved Firefox setup instructions and privacy policy details.
+
+### Fixes
+
+- Fixed Home and active AES tabs not always restoring correctly after a browser refresh.
+- Fixed Peek windows causing page or Peek content jumps.
+- Fixed tab bar corruption after visiting some Autotask Onyx pages.
+- Fixed ticket, API User, Invoice Template, and Notification Template metadata issues.
+- Reduced Firefox add-on validation warnings for generated UI icons.
+
+### Behind the scenes
+
+- Major project cleanup for easier maintenance: runtime sync, smaller focused modules, and safer settings internals.
+
 ## v0.7.0
 
 ### Highlights:

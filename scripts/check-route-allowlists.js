@@ -1,143 +1,93 @@
 #!/usr/bin/env node
-'use strict';
-
 const fs = require('fs');
 const path = require('path');
 
-const rootDir = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '..');
+const routeFile = path.join(root, 'chrome-extension/src/aes-routes.js');
+const routeSource = fs.readFileSync(routeFile, 'utf8');
 
-const runtimes = [
-  {
-    name: 'chrome',
-    srcDir: path.join(rootDir, 'chrome-extension', 'src'),
-  },
-  {
-    name: 'firefox',
-    srcDir: path.join(rootDir, 'firefox-extension', 'src'),
-  },
-  {
-    name: 'safari',
-    srcDir: path.join(rootDir, 'dist', 'safari', 'Autotask Enhancement Suite', 'Autotask Enhancement Suite Extension', 'Resources', 'src'),
-  },
+const routeArrayNames = [
+    'HANDLED_PATHS',
+    'NATIVE_HOME_PATHS',
+    'HANDLED_PATH_INCLUDES',
+    'EXCLUDED_PATHS',
+    'EXCLUDED_PATH_INCLUDES',
+    'DYNAMIC_PATH_FRAGMENTS',
+    'DYNAMIC_EXACT_PATHS'
 ];
 
-// These routes are intentionally handled by specialized Peek/native paths
-// instead of the normal tab forwarding path. Keep this list small and explain
-// additions in the surrounding code when possible.
-const ROUTE_SYNC_EXCEPTIONS = new Set([
-  '/mvc/inventory/receipthistory.mvc',
-  '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder',
+function extractArray(source, name) {
+    const match = source.match(new RegExp('const\\s+' + name + '\\s*=\\s*\\[([\\s\\S]*?)\\];'));
+    if (!match) {
+        throw new Error('Missing route array ' + name + ' in aes-routes.js');
+    }
+    return [...match[1].matchAll(/['"]([^'"]+)['"]/g)].map((entry) => entry[1].toLowerCase().replace(/\/index$/, ''));
+}
+
+const routes = Object.fromEntries(routeArrayNames.map((name) => [name, extractArray(routeSource, name)]));
+const handled = new Set([
+    ...routes.HANDLED_PATHS,
+    ...routes.NATIVE_HOME_PATHS,
+    ...routes.HANDLED_PATH_INCLUDES,
+    ...routes.DYNAMIC_PATH_FRAGMENTS,
+    ...routes.DYNAMIC_EXACT_PATHS
 ]);
 
-function read(file) {
-  return fs.readFileSync(file, 'utf8');
+const requiredRoutes = [
+    '/mvc/servicedesk/ticketdetail.mvc',
+    '/mvc/servicedesk/ticketnew.mvc',
+    '/mvc/crm/accountdetail.mvc',
+    '/mvc/projects/taskdetail.mvc',
+    '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx',
+    '/autotask/views/administration/companysetup/neweditallocationcode.aspx',
+    '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
+    '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
+    '/autotask/views/template/customizenotificationtemplate.aspx',
+    '/autotask/inventory/inventory_edit_order.aspx',
+    '/mvc/inventory/receipthistory.mvc',
+    '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder'
+];
+
+const missing = requiredRoutes.filter((route) => !handled.has(route));
+if (missing.length) {
+    throw new Error('Missing required AES route(s): ' + missing.join(', '));
 }
 
-function normalizeRoute(route) {
-  return String(route || '').toLowerCase().replace(/\/index$/, '');
-}
+const consumers = [
+    'chrome-extension/src/aes-shared.js',
+    'chrome-extension/src/aes-page-bridge.js',
+    'chrome-extension/src/aes-background.js'
+];
 
-function extractArrayStrings(source, arrayName) {
-  const pattern = new RegExp(`${arrayName}\\s*=\\s*\\[([\\s\\S]*?)\\];`);
-  const match = source.match(pattern);
-  if (!match) return [];
-  const body = match[1];
-  const values = [];
-  const stringPattern = /'([^']+)'|"([^"]+)"/g;
-  let stringMatch;
-  while ((stringMatch = stringPattern.exec(body))) {
-    values.push(normalizeRoute(stringMatch[1] || stringMatch[2]));
-  }
-  return values;
-}
-
-function extractShellExactRoutes(source) {
-  const routes = new Set();
-  const pattern = /if\s*\(\s*p\s*===\s*'([^']+)'\s*\)\s*return\s*'([^']+)'/g;
-  let match;
-  while ((match = pattern.exec(source))) {
-    const route = normalizeRoute(match[1]);
-    const type = String(match[2] || '').toLowerCase();
-    if (type && type !== 'unknown') routes.add(route);
-  }
-  return routes;
-}
-
-function extractIframeExtractorRoutes(source) {
-  const routes = new Set();
-  const pattern = /if\s*\(\s*p\s*===\s*'([^']+)'\s*\)\s*\{\s*return\s+extract[A-Za-z0-9_]+Info\s*\(/g;
-  let match;
-  while ((match = pattern.exec(source))) {
-    routes.add(normalizeRoute(match[1]));
-  }
-  return routes;
-}
-
-function routeCovered(route, exactRoutes, includeFragments) {
-  if (exactRoutes.has(route)) return true;
-  for (const fragment of includeFragments) {
-    if (fragment && route.includes(fragment)) return true;
-  }
-  return false;
-}
-
-function readGate(srcDir, fileName, exactArrayName, includeArrayName) {
-  const source = read(path.join(srcDir, fileName));
-  return {
-    exact: new Set([
-      ...extractArrayStrings(source, exactArrayName),
-      ...extractArrayStrings(source, 'NATIVE_HOME_PATHS'),
-      ...extractArrayStrings(source, 'AES.NATIVE_HOME_PATHS'),
-    ]),
-    includes: [
-      ...extractArrayStrings(source, includeArrayName),
-      ...extractArrayStrings(source, 'AES.HANDLED_PATH_INCLUDES'),
-    ],
-  };
-}
-
-let hasError = false;
-
-for (const runtime of runtimes) {
-  const shell = read(path.join(runtime.srcDir, 'aes-shell.js'));
-  const iframe = read(path.join(runtime.srcDir, 'aes-iframe-bridge.js'));
-
-  const requiredRoutes = new Set([
-    ...extractShellExactRoutes(shell),
-    ...extractIframeExtractorRoutes(iframe),
-  ]);
-
-  const gates = [
-    {
-      name: 'shared',
-      ...readGate(runtime.srcDir, 'aes-shared.js', 'AES.HANDLED_PATHS', 'AES.HANDLED_PATH_INCLUDES'),
-    },
-    {
-      name: 'page bridge',
-      ...readGate(runtime.srcDir, 'aes-page-bridge.js', 'HANDLED_PATHS', 'HANDLED_PATH_INCLUDES'),
-    },
-    {
-      name: 'background',
-      ...readGate(runtime.srcDir, 'aes-background.js', 'HANDLED_PATHS', 'HANDLED_PATH_INCLUDES'),
-    },
-  ];
-
-  for (const route of [...requiredRoutes].sort()) {
-    if (ROUTE_SYNC_EXCEPTIONS.has(route)) continue;
-    for (const gate of gates) {
-      if (routeCovered(route, gate.exact, gate.includes)) continue;
-      hasError = true;
-      console.error(
-        `[${runtime.name}] Route ${route} is classified/extracted but missing from ${gate.name} handled routes.`
-      );
+for (const rel of consumers) {
+    const source = fs.readFileSync(path.join(root, rel), 'utf8');
+    if (!source.includes('__AES_ROUTE_REGISTRY__')) {
+        throw new Error(rel + ' does not consume the central route registry');
     }
-  }
+    if (/const\s+HANDLED_PATHS\s*=\s*\[/.test(source) || /AES\.HANDLED_PATHS\s*=\s*\[/.test(source)) {
+        throw new Error(rel + ' still owns a duplicated HANDLED_PATHS array');
+    }
 }
 
-if (hasError) {
-  console.error('\nRoute allowlist verification failed.');
-  console.error('When adding AES tab compatibility, update shared, page bridge, background, shell type, and iframe metadata together.');
-  process.exit(1);
+const runtimeRoots = [
+    'chrome-extension/src',
+    'firefox-extension/src',
+    'dist/safari/Autotask Enhancement Suite/Autotask Enhancement Suite Extension/Resources/src'
+].filter((rel) => fs.existsSync(path.join(root, rel)));
+
+for (const rel of runtimeRoots) {
+    const candidate = path.join(root, rel, 'aes-routes.js');
+    if (!fs.existsSync(candidate)) {
+        throw new Error(rel + ' is missing aes-routes.js');
+    }
+    const candidateSource = fs.readFileSync(candidate, 'utf8');
+    for (const name of routeArrayNames) {
+        const expected = extractArray(routeSource, name).join('\n');
+        const actual = extractArray(candidateSource, name).join('\n');
+        if (actual !== expected) {
+            throw new Error(rel + '/aes-routes.js has a divergent ' + name + ' array');
+        }
+    }
 }
 
-console.log('Route allowlist verification passed.');
+console.log('route_allowlists_ok');

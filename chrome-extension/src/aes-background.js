@@ -14,6 +14,20 @@
     if (!api || !api.action || !api.action.onClicked || !api.tabs) return;
     const GITHUB_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/qntn-dev/AES/releases/latest';
 
+    if (!globalThis.__AES_ROUTE_REGISTRY__ && typeof importScripts === 'function') {
+        try {
+            importScripts('aes-routes.js');
+        } catch (error) {
+            try {
+                importScripts('/src/aes-routes.js');
+            } catch (_error) {
+                // The manifest-driven Firefox background loads this file separately.
+            }
+        }
+    }
+
+    const ROUTES = globalThis.__AES_ROUTE_REGISTRY__ || {};
+
     function fetchLatestGithubRelease(sendResponse) {
         if (typeof fetch !== 'function') {
             sendResponse({ ok: false, reason: 'fetch-unavailable' });
@@ -58,88 +72,20 @@
         return /^ww\d+\.autotask\.net$/i.test(String(hostname || ''));
     }
 
-    const HANDLED_PATHS = [
-        '/mvc/servicedesk/ticketdetail.mvc',
-        '/mvc/servicedesk/ticketnew.mvc',
-        '/mvc/crm/accountdetail.mvc',
-        '/mvc/crm/contactdetail.mvc',
-        '/mvc/crm/installedproductdetail.mvc',
-        '/mvc/crm/note.mvc/view',
-        '/mvc/crm/opportunitydetail.mvc',
-        '/mvc/administrationsetup/resourcedetail.mvc',
-        '/mvc/administration/resourcedetail.mvc',
-        '/mvc/administrationsetup/resource.mvc/resourcedetail',
-        '/mvc/administrationsetup/persondetail.mvc',
-        '/autotask35/grapevine/profile.aspx',
-        '/autotask35/crm/salesorder/salesorderdetail.aspx',
-        '/opportunity/quotes/quote.asp',
-        '/opportunity/quotes/newquote.asp',
-        '/mvc/crm/quotetemplate.mvc/editproperties',
-        '/autotask/popups/tickets/recurring_ticket.aspx',
-        '/autotask/autotaskextend/livelinks/livelinkeditor.aspx',
-        '/autotask/autotaskextend/directory_view.aspx',
-        '/autotask/views/crm/contact_group_management.aspx',
-        '/autotask35/crm/contactgroupmanager.aspx',
-        '/timesheets/views/readonly/tmsreadonly_100.asp',
-        '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx',
-        '/mvc/crm/contractbillingruleassociation.mvc/editcontact',
-        '/mvc/projects/projectdetail.mvc/projectdetail',
-        '/mvc/projects/taskdetail.mvc',
-        '/contracts/views/contractview.asp',
-        '/contracts/views/contractsummary.asp',
-        '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx',
-        '/mvc/projects/importticket.mvc/copytickettoproject',
-        '/servicedesk/popups/forward/svcforward.asp',
-        '/servicedesk/reports/togoreportframe.asp',
-        '/mvc/servicedesk/tickethistory.mvc/servicetickethistory',
-        '/popups/work/svcdetail.asp',
-        '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx',
-        '/autotask/views/administration/companysetup/neweditallocationcode.aspx',
-        '/autotask/views/administration/companysetup/location_new_edit.aspx',
-        '/autotask/popups/administration/departmentdetails.aspx',
-        '/autotask/views/administration/resources/resource.aspx',
-        '/mvc/administrationsetup/apiuser.mvc/newapiuser',
-        '/mvc/administrationsetup/apiuser.mvc/editapiuser',
-        '/administrator/roles/tabroleview.asp',
-        '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
-        '/mvc/administrationsetup/invoicetemplate.mvc/editproperties',
-        '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
-        '/autotask/views/administration/products/product.aspx',
-    ];
-    const NATIVE_HOME_PATHS = [
-        '/mvc/inventory/costitem.mvc/shipping',
-    ];
-    const HANDLED_PATH_INCLUDES = [
-        '/ticketprintview.mvc',
-        '/picklistdetailforshippinggrid',
-        '/packinglistdetailforshippinggrid',
-        '/inventory/inventory_edit_order.aspx',
-        '/billingproduct',
-        '/billingproducts',
-        '/billing_product',
-        '/billing_products',
-        '/billingrule',
-        '/billingrules',
-        '/billing_rule',
-        '/billing_rules',
-        '/billingassociation',
-        '/billingassociations',
-        '/billingproductassociation',
-        '/billingruleassociation',
-    ];
-
+    
     function normalizePath(pathname) {
+        if (ROUTES.normalizePath) {
+            return ROUTES.normalizePath(pathname);
+        }
         return String(pathname || '').toLowerCase().replace(/\/index$/, '');
     }
 
     function isHandledAutotaskPath(path) {
-        if (NATIVE_HOME_PATHS.includes(path)) return false;
-        return HANDLED_PATHS.includes(path) ||
-            HANDLED_PATH_INCLUDES.some(function (fragment) { return path.includes(fragment); }) ||
-            path.includes('/contactdetail') ||
-            path.includes('/resourcedetail') ||
-            path.includes('/persondetail') ||
-            path === '/autotask35/grapevine/profile.aspx';
+        const normalizedPath = normalizePath(path);
+        if (ROUTES.isHandledPath) {
+            return ROUTES.isHandledPath(normalizedPath);
+        }
+        return false;
     }
 
     function normalizeExternalAutotaskUrl(url) {
