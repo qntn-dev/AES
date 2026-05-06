@@ -1436,15 +1436,18 @@
             return extractAdminTitlebarPageInfo('Invoice Email Template', 'Invoice Email Template');
         }
         if (p === '/autotask/views/template/customizenotificationtemplate.aspx') {
-            const info = extractAdminTitlebarPageInfo('Notification Template', 'Customize Notification Template');
+            const info = extractAdminTitlebarPageInfo('Notification Template', 'Notification Templates');
             const legacyTitleContainer = document.querySelector('.TitleContainer');
-            const legacySection = cleanText(legacyTitleContainer && Array.prototype.reduce.call(
+            const legacySectionRaw = cleanText(legacyTitleContainer && Array.prototype.reduce.call(
                 legacyTitleContainer.childNodes || [],
                 function (text, node) {
                     return node && node.nodeType === Node.TEXT_NODE ? text + ' ' + node.textContent : text;
                 },
                 ''
-            )) || info.number || 'Notification Template';
+            ));
+            const legacySection = /^customize\s+notification\s+template$/i.test(legacySectionRaw)
+                ? 'Notification Template'
+                : legacySectionRaw || 'Notification Template';
             const nameInput = document.querySelector('#EmailTemplateHeaderUserControl_NameTextBox_ATTextEdit');
             const initialName = cleanText(nameInput && (
                 nameInput.getAttribute('value') ||
@@ -1456,12 +1459,14 @@
                 id: info.number,
                 secondaryTitle: info.number,
             });
-            if (initialName) {
-                info.title = initialName.slice(0, 120);
-                info.metadataFields = Object.assign({}, info.metadataFields || {}, {
-                    entityName: info.title,
-                });
-            }
+            const extractedTitle = cleanText(info.title);
+            const normalizedTitle = /^customize\s+notification\s+template$/i.test(extractedTitle)
+                ? 'Notification Templates'
+                : extractedTitle;
+            info.title = (initialName || normalizedTitle || 'Notification Templates').slice(0, 120);
+            info.metadataFields = Object.assign({}, info.metadataFields || {}, {
+                entityName: info.title,
+            });
             return info;
         }
         if (p === '/autotask/views/administration/companysetup/location_new_edit.aspx') {
