@@ -237,6 +237,7 @@
                 title: 'v0.8.1',
                 items: [
                     'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout, and now floats cleanly above the AES tab bar instead.',
+                    'Added Invoice Viewer support. Opening an invoice from a contract or anywhere else now uses an AES tab with its own Invoice icon and the invoice ID surfaced as metadata.',
                 ],
             },
             {
@@ -451,6 +452,7 @@
         home: faIcon('fa-house fa-regular'),
         ticket: faIcon('fa-ticket fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
+        invoice: faIcon('fa-file-invoice fa-regular'),
         account: faIcon('fa-user-group fa-regular'),
         device: faIcon('fa-laptop-mobile fa-regular'),
         note: faIcon('fa-laptop-mobile fa-regular'),
@@ -2555,6 +2557,7 @@
             p.includes('/billingproductassociation') ||
             p.includes('/billingruleassociation')) return 'charge';
         if (p.startsWith('/contracts/views/contract')) return 'contract';
+        if (p === '/mvc/contracts/invoiceviewer.mvc') return 'invoice';
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail') return 'project';
         if (p === '/mvc/projects/taskdetail.mvc') return 'projecttask';
         if (p === '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx') return 'calendar';
@@ -2716,6 +2719,14 @@
             return {
                 title: 'Invoice Email Template',
                 number: templateId ? `ID ${templateId}` : 'Invoice Email Template',
+                contact: ''
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceviewer.mvc') {
+            const invoiceId = params.get('invoiceId') || params.get('invoiceID') || params.get('invoiceid');
+            return {
+                title: invoiceId ? `Invoice ${invoiceId}` : 'Invoice',
+                number: invoiceId ? `ID ${invoiceId}` : 'Invoice',
                 contact: ''
             };
         }

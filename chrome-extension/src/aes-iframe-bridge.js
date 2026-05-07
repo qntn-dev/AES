@@ -1059,6 +1059,23 @@
         };
     }
 
+    function extractInvoiceViewerInfo() {
+        const params = new URLSearchParams(location.search);
+        const invoiceId = params.get('invoiceId') || params.get('invoiceID') || params.get('invoiceid') || '';
+        const titleEl = document.querySelector('.TitleBarItem.Title .Text, .Title .Text');
+        const titleFromPage = cleanText(titleEl && titleEl.textContent);
+        const title = titleFromPage || (invoiceId ? 'Invoice ' + invoiceId : 'Invoice');
+        return {
+            title: title.slice(0, 120),
+            number: invoiceId ? 'ID ' + invoiceId : 'Invoice',
+            contact: '',
+            metadataFields: {
+                type: 'Invoice',
+                id: invoiceId ? 'ID ' + invoiceId : '',
+            },
+        };
+    }
+
     function extractAdminTitlebarPageInfo(entityFallback, sectionFallback) {
         const titleEl = document.querySelector('.TitleBarItem.Title .Text, .Title .Text');
         const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText, .SecondaryTitle');
@@ -1434,6 +1451,9 @@
         }
         if (p === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') {
             return extractAdminTitlebarPageInfo('Invoice Email Template', 'Invoice Email Template');
+        }
+        if (p === '/mvc/contracts/invoiceviewer.mvc') {
+            return extractInvoiceViewerInfo();
         }
         if (p === '/autotask/views/template/customizenotificationtemplate.aspx') {
             const info = extractAdminTitlebarPageInfo('Notification Template', 'Notification Templates');

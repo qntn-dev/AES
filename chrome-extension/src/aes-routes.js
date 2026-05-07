@@ -61,6 +61,7 @@
         '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
         '/mvc/administrationsetup/invoicetemplate.mvc/editproperties',
         '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
+        '/mvc/contracts/invoiceviewer.mvc',
         '/autotask/views/template/customizenotificationtemplate.aspx',
         '/autotask/views/administration/products/product.aspx',
         '/autotask/inventory/inventory_edit_order.aspx',

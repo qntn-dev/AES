@@ -15,7 +15,7 @@
 
 const CUSTOMIZABLE_TAB_TYPES = [
     'ticket', 'account', 'person', 'device', 'note', 'opportunity',
-    'salesorder', 'quote', 'contract', 'project', 'projecttask', 'timesheet',
+    'salesorder', 'quote', 'contract', 'invoice', 'project', 'projecttask', 'timesheet',
     'inventory', 'purchaseorder', 'charge', 'group', 'unknown',
 ];
 const CUSTOM_FIELD_OPTIONS = [
@@ -62,6 +62,7 @@ const TAB_LINE_OPTIONS_BY_TYPE = {
     purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
     quote: ['type', 'id', 'quoteName', 'organization', 'none'],
     contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
+    invoice: ['type', 'id', 'organization', 'none'],
     project: ['type', 'id', 'organization', 'none'],
     projecttask: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
     calendar: ['type', 'none'],
@@ -83,6 +84,7 @@ const TAB_LINE_DEFAULT_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
+    invoice: { line2: 'id', line3: 'none' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
     calendar: { line2: 'none', line3: 'none' },
@@ -104,6 +106,7 @@ const TAB_LINE_RECOMMENDED_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
+    invoice: { line2: 'id', line3: 'none' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
     calendar: { line2: 'none', line3: 'none' },
@@ -125,6 +128,7 @@ const TAB_TYPE_LABELS = {
     purchaseorder: 'Purchase Order',
     quote: 'Quote',
     contract: 'Contract',
+    invoice: 'Invoice',
     project: 'Project',
     projecttask: 'Task',
     calendar: 'Calendar',
@@ -146,6 +150,7 @@ const CUSTOMIZATION_TAB_TYPE_ICONS = {
     purchaseorder: '<span class="fa-receipt fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>',
     quote: '<span class="fa-file-invoice-dollar fa-regular" aria-hidden="true"></span>',
     contract: '<span class="fa-file-contract fa-regular" aria-hidden="true"></span>',
+    invoice: '<span class="fa-file-invoice fa-regular" aria-hidden="true"></span>',
     project: '<span class="fa-folder fa-regular" aria-hidden="true"></span>',
     projecttask: '<span class="fa-folder-tree fa-regular" aria-hidden="true"></span>',
     calendar: '<span class="fa-calendar-lines fa-regular" aria-hidden="true"></span>',
