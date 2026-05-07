@@ -19,7 +19,7 @@ It is built for people who spend a lot of time in Autotask and want a smoother, 
 
 All Chromium- and Gecko-based browsers are supported. Note that some features may be limited on niche browsers like Arc or Helium. For example, in an upcoming update the Sidebar API will be utilized which is not available on Arc.
 
-![Chromium](https://img.shields.io/badge/Chromium-supported-4285F4?logo=googlechrome&logoColor=white)
+[![Chromium](https://img.shields.io/badge/Chromium-supported-4285F4?logo=googlechrome&logoColor=white)](https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh)
 ![Firefox](https://img.shields.io/badge/Firefox-supported-FF7139?logo=firefoxbrowser&logoColor=white)
 ![Safari](https://img.shields.io/badge/Safari-not%20yet%20supported-999999?logo=safari&logoColor=white)
 
