@@ -2093,8 +2093,22 @@
                 text-align: center;
                 flex: 0 0 auto;
             }
+            /* Autotask's absolutely-positioned back-chevron button. Restored,
+               but lifted above the AES tab bar (z-index 220) so it floats over
+               the shell instead of being obscured by it. The side-panel
+               wrapper has 'position: relative; z-index: 1', which forms a
+               stacking context that traps the button below the tab bar — so
+               we also drop that wrapper's stacking context, but only on the
+               wrappers that actually host the chevron button. */
+            div.relative.z-1:has(button.absolute.border-border-primary > span.fa-chevron-left) {
+                z-index: auto !important;
+            }
+            div.relative:has(> button.absolute.border-border-primary > span.fa-chevron-left) {
+                isolation: auto !important;
+            }
             button.absolute.border-border-primary:has(> span.fa-chevron-left) {
-                display: none !important;
+                z-index: 230 !important;
+                transform: translate(-15px, -4px) !important;
             }
             .o-dropdown-container,
             .o-dropdown-panel,

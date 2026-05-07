@@ -231,54 +231,68 @@
     const GITHUB_RELEASE_DISMISS_STORAGE_KEY = 'aes-github-release-dismissed-version';
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const RELEASE_NOTES = {
-        version: '0.8.0',
+        version: '0.8.1',
         sections: [
             {
-                title: 'Chrome Web Store',
+                title: 'v0.8.1',
                 items: [
-                    'Autotask Enhancement Suite is now available in the Chrome Web Store. Updates there may be delayed compared to GitHub, but if you prefer automatic updates, please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh',
+                    'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout, and now floats cleanly above the AES tab bar instead.',
                 ],
             },
             {
-                title: 'Highlights',
+                title: 'v0.8.0',
                 items: [
-                    'More AES Supported entities.',
-                    'Many bug fixes & improvements.',
-                    'Major code refactor.',
+                    'Released shortly before v0.8.1 — notes kept here for visibility:',
                 ],
-            },
-            {
-                title: 'New features',
-                items: [
-                    'AES support for more Autotask components: Organization Settings & Users subsettings, Finance, Accounting & Invoicing subsettings, Legacy Dispatch Calendar, Notification Templates, and Workflow Rules.',
-                    'Added a Provide feedback button in settings that opens GitHub issue creation.',
-                ],
-            },
-            {
-                title: 'Improvements',
-                items: [
-                    'Admin tabs now use clearer metadata: name first, section second, type third.',
-                    'Resource Management, API User, Notification Template, and Workflow Rule tabs now use more specific icons and titles.',
-                    'AES now handles more legacy close and Save & Close actions inside tabs and Peek windows.',
-                    'Autotask help and knowledge base pages are now excluded from AES.',
-                    'Reduced background work on busy Autotask pages.',
-                    'Improved Firefox setup instructions and privacy policy details.',
-                ],
-            },
-            {
-                title: 'Fixes',
-                items: [
-                    'Fixed Home and active AES tabs not always restoring correctly after a browser refresh.',
-                    'Fixed Peek windows causing page or Peek content jumps.',
-                    'Fixed tab bar corruption after visiting some Autotask Onyx pages.',
-                    'Fixed ticket, API User, Invoice Template, and Notification Template metadata issues.',
-                    'Reduced Firefox add-on validation warnings for generated UI icons.',
-                ],
-            },
-            {
-                title: 'Behind the scenes',
-                items: [
-                    'Major project cleanup for easier maintenance: runtime sync, smaller focused modules, and safer settings internals.',
+                subsections: [
+                    {
+                        title: 'Chrome Web Store',
+                        items: [
+                            'Autotask Enhancement Suite is now available in the Chrome Web Store. Updates there may be delayed compared to GitHub, but if you prefer automatic updates, please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh',
+                        ],
+                    },
+                    {
+                        title: 'Highlights',
+                        items: [
+                            'More AES Supported entities.',
+                            'Many bug fixes & improvements.',
+                            'Major code refactor.',
+                        ],
+                    },
+                    {
+                        title: 'New features',
+                        items: [
+                            'AES support for more Autotask components: Organization Settings & Users subsettings, Finance, Accounting & Invoicing subsettings, Legacy Dispatch Calendar, Notification Templates, and Workflow Rules.',
+                            'Added a Provide feedback button in settings that opens GitHub issue creation.',
+                        ],
+                    },
+                    {
+                        title: 'Improvements',
+                        items: [
+                            'Admin tabs now use clearer metadata: name first, section second, type third.',
+                            'Resource Management, API User, Notification Template, and Workflow Rule tabs now use more specific icons and titles.',
+                            'AES now handles more legacy close and Save & Close actions inside tabs and Peek windows.',
+                            'Autotask help and knowledge base pages are now excluded from AES.',
+                            'Reduced background work on busy Autotask pages.',
+                            'Improved Firefox setup instructions and privacy policy details.',
+                        ],
+                    },
+                    {
+                        title: 'Fixes',
+                        items: [
+                            'Fixed Home and active AES tabs not always restoring correctly after a browser refresh.',
+                            'Fixed Peek windows causing page or Peek content jumps.',
+                            'Fixed tab bar corruption after visiting some Autotask Onyx pages.',
+                            'Fixed ticket, API User, Invoice Template, and Notification Template metadata issues.',
+                            'Reduced Firefox add-on validation warnings for generated UI icons.',
+                        ],
+                    },
+                    {
+                        title: 'Behind the scenes',
+                        items: [
+                            'Major project cleanup for easier maintenance: runtime sync, smaller focused modules, and safer settings internals.',
+                        ],
+                    },
                 ],
             },
         ],

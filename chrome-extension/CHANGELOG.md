@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.8.1
+
+Quick follow-up to v0.8.0.
+
+### Fixes
+
+- Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout; it now floats cleanly above the AES tab bar instead.
+
 ## v0.8.0
 
 Autotask Enhancement Suite is now available in the Chrome Web Store, note that updates will be delayed compared to Github, but if you prefer automatic updates please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh
