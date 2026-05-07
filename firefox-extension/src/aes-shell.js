@@ -4154,6 +4154,11 @@
         intro.textContent = 'Version ' + release.version + ' is available on GitHub. You are running ' + (installedVersion || 'an older version') + '.';
         body.appendChild(intro);
 
+        const storeDelayNote = document.createElement('p');
+        storeDelayNote.className = 'at-tabs-release-notes-intro';
+        storeDelayNote.textContent = 'Note that if you installed the extension via the Chrome Web Store it can take up to 48 hours to update automatically. You can bypass this by installing the extension via Git; for instructions, view the README.';
+        body.appendChild(storeDelayNote);
+
         const actions = document.createElement('div');
         actions.className = 'at-tabs-release-notes-actions';
 

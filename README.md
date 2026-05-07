@@ -26,9 +26,9 @@ All Chromium- and Gecko-based browsers are supported. Note that some features ma
 - `chrome-extension/`: Chromium-based browser build
 - `firefox-extension/`: Gecko-based browser build
 
-## Installation
+## Manual Installation
 
-Autotask Enhancement Suite is currently awaiting approval from Google and Mozilla for release in the Chrome Web Store and Firefox Add-ons store. Until then, install it manually with the steps below.
+Autotask Enhancement Suite is currently awaiting approval from Mozilla for release in the Firefox Add-ons store. Until then, install it manually with the steps below.
 
 ### Chrome
 
