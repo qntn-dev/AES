@@ -237,7 +237,7 @@
                 title: 'v0.8.1',
                 items: [
                     'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout, and now floats cleanly above the AES tab bar instead.',
-                    'Added Invoice Viewer support. Opening an invoice from a contract or anywhere else now uses an AES tab with its own Invoice icon and the invoice ID surfaced as metadata.',
+                    'Fixed invoices not generating AES tabs when opened from places other than invoice history.',
                 ],
             },
             {
