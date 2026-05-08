@@ -70,6 +70,20 @@
         }
     };
 
+    AES.isNativeOnyxUrl = function isNativeOnyxUrl(url) {
+        try {
+            const onyxUrl = new URL(url, location.origin);
+            const path = onyxUrl.pathname.toLowerCase();
+            if (path !== '/autotaskonyx' && !path.startsWith('/autotaskonyx/')) return false;
+            if (path === '/autotaskonyx/landingpage' && AES.extractInnerUrlFromLandingPageUrl(url)) {
+                return false;
+            }
+            return true;
+        } catch (e) {
+            return false;
+        }
+    };
+
     AES.isExcludedUrl = function isExcludedUrl(url) {
         const path = AES.normalizeHandledPath(AES.pathOf(url));
         if (ROUTES.isExcludedPath && ROUTES.isExcludedPath(path)) return true;
@@ -83,6 +97,8 @@
     };
 
     AES.isNativeHomeUrl = function isNativeHomeUrl(url) {
+        if (AES.isNativeOnyxUrl(url)) return true;
+
         const path = AES.normalizeHandledPath(AES.pathOf(url));
         if (ROUTES.isNativeHomePath && ROUTES.isNativeHomePath(path)) return true;
         if (!ROUTES.isNativeHomePath && AES.NATIVE_HOME_PATHS.includes(path)) return true;
@@ -110,6 +126,7 @@
     };
 
     AES.extractHandledUrlFromLandingPageUrl = function extractHandledUrlFromLandingPageUrl(url) {
+        if (AES.isNativeOnyxUrl(url)) return null;
         const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
         return innerUrl && AES.isHandledUrl(innerUrl) ? innerUrl : null;
     };

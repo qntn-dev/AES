@@ -14,7 +14,7 @@
     const runtime = AES.ShellRuntime || (AES.ShellRuntime = {});
 
 const CUSTOMIZABLE_TAB_TYPES = [
-    'ticket', 'account', 'person', 'device', 'note', 'opportunity',
+    'ticket', 'ticketactivity', 'account', 'person', 'device', 'note', 'opportunity',
     'salesorder', 'quote', 'contract', 'invoice', 'project', 'projecttask', 'timesheet',
     'inventory', 'purchaseorder', 'charge', 'group', 'unknown',
 ];
@@ -23,6 +23,7 @@ const CUSTOM_FIELD_OPTIONS = [
     { value: 'secondaryTitle', label: 'Secondary title' },
     { value: 'id', label: 'ID' },
     { value: 'number', label: 'Number' },
+    { value: 'ticketTitle', label: 'Ticket title' },
     { value: 'organization', label: 'Organization' },
     { value: 'vendor', label: 'Vendor' },
     { value: 'externalPoNumber', label: 'External P.O. #' },
@@ -38,6 +39,7 @@ const CUSTOM_FIELD_OPTIONS = [
     { value: 'contractType', label: 'Contract Type' },
     { value: 'contractCategory', label: 'Contract Category' },
     { value: 'purchaseOrderNumber', label: 'Purchase Order Number' },
+    { value: 'purchaseOrder', label: 'Purchase Order' },
     { value: 'deviceType', label: 'Device type' },
     { value: 'manufacturer', label: 'Manufacturer' },
     { value: 'model', label: 'Model' },
@@ -53,6 +55,7 @@ function getCustomizationFieldOptionLabel(type, value) {
 }
 const TAB_LINE_OPTIONS_BY_TYPE = {
     ticket: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
+    ticketactivity: ['type', 'number', 'ticketTitle', 'organization', 'none'],
     account: ['type', 'id', 'organization', 'none'],
     person: ['type', 'id', 'organization', 'none'],
     device: ['type', 'organization', 'serialNumber', 'deviceType', 'manufacturer', 'model', 'internalIp', 'antivirusStatus', 'patchStatus', 'none'],
@@ -62,7 +65,7 @@ const TAB_LINE_OPTIONS_BY_TYPE = {
     purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
     quote: ['type', 'id', 'quoteName', 'organization', 'none'],
     contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
-    invoice: ['type', 'id', 'organization', 'none'],
+    invoice: ['type', 'id', 'purchaseOrder', 'organization', 'none'],
     project: ['type', 'id', 'organization', 'none'],
     projecttask: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
     calendar: ['type', 'none'],
@@ -75,6 +78,7 @@ const TAB_LINE_OPTIONS_BY_TYPE = {
 };
 const TAB_LINE_DEFAULT_BY_TYPE = {
     ticket: { line2: 'organization', line3: 'contact' },
+    ticketactivity: { line2: 'ticketTitle', line3: 'organization' },
     account: { line2: 'organization', line3: 'none' },
     person: { line2: 'id', line3: 'organization' },
     device: { line2: 'model', line3: 'organization' },
@@ -84,7 +88,7 @@ const TAB_LINE_DEFAULT_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
-    invoice: { line2: 'id', line3: 'none' },
+    invoice: { line2: 'purchaseOrder', line3: 'organization' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
     calendar: { line2: 'none', line3: 'none' },
@@ -97,6 +101,7 @@ const TAB_LINE_DEFAULT_BY_TYPE = {
 };
 const TAB_LINE_RECOMMENDED_BY_TYPE = {
     ticket: { line2: 'organization', line3: 'contact' },
+    ticketactivity: { line2: 'ticketTitle', line3: 'organization' },
     account: { line2: 'organization', line3: 'none' },
     person: { line2: 'id', line3: 'organization' },
     device: { line2: 'model', line3: 'organization' },
@@ -106,7 +111,7 @@ const TAB_LINE_RECOMMENDED_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
-    invoice: { line2: 'id', line3: 'none' },
+    invoice: { line2: 'purchaseOrder', line3: 'organization' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
     calendar: { line2: 'none', line3: 'none' },
@@ -119,6 +124,7 @@ const TAB_LINE_RECOMMENDED_BY_TYPE = {
 };
 const TAB_TYPE_LABELS = {
     ticket: 'Ticket',
+    ticketactivity: 'Notes and Time Entries',
     account: 'Organization',
     person: 'Person',
     device: 'Device',
@@ -141,6 +147,7 @@ const TAB_TYPE_LABELS = {
 };
 const CUSTOMIZATION_TAB_TYPE_ICONS = {
     ticket: '<span class="fa-ticket fa-regular" aria-hidden="true"></span>',
+    ticketactivity: '<span class="fa-note-sticky fa-regular" aria-hidden="true"></span>',
     account: '<span class="fa-user-group fa-regular" aria-hidden="true"></span>',
     person: '<span class="fa-address-book fa-regular" aria-hidden="true"></span>',
     device: '<span class="fa-laptop-mobile fa-regular" aria-hidden="true"></span>',

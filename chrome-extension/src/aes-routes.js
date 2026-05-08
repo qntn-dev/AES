@@ -16,6 +16,17 @@
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
         '/mvc/servicedesk/ticketnew.mvc',
+        '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog',
+        '/mvc/servicedesk/note.mvc/notepopoutfromdialog',
+        '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage',
+        '/mvc/servicedesk/note.mvc/newticketnotepage',
+        '/mvc/projects/projectnote.mvc/newprojectnote',
+        '/projects/calendar/prjcalendar.asp',
+        '/mvc/file/attachment.mvc/projectattachment',
+        '/mvc/projects/teammember.mvc/add',
+        '/autotask/views/projects/project_cost.aspx',
+        '/mvc/timesheets/expense.mvc/createnewprojectexpense',
+        '/projects/wizards/transformations/copyattributes/popwiz_frames.asp',
         '/mvc/crm/accountdetail.mvc',
         '/mvc/crm/contactdetail.mvc',
         '/mvc/crm/installedproductdetail.mvc',
@@ -58,10 +69,13 @@
         '/mvc/administrationsetup/apiuser.mvc/newapiuser',
         '/mvc/administrationsetup/apiuser.mvc/editapiuser',
         '/administrator/roles/tabroleview.asp',
+        '/mvc/administrationsetup/formtemplates.mvc/newformtemplatepage',
         '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate',
         '/mvc/administrationsetup/invoicetemplate.mvc/editproperties',
         '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate',
         '/mvc/contracts/invoiceviewer.mvc',
+        '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer',
+        '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer',
         '/autotask/views/template/customizenotificationtemplate.aspx',
         '/autotask/views/administration/products/product.aspx',
         '/autotask/inventory/inventory_edit_order.aspx',
@@ -72,6 +86,9 @@
     // Native home surfaces are allowed to load, but AES should not intercept
     // their navigation into its own tab model.
     const NATIVE_HOME_PATHS = [
+        '/mvc/user/preferences.mvc/index',
+        '/mvc/contracts/billingproductmapping.mvc/installedproductmapping',
+        '/mvc/contracts/billingproductmapping.mvc/contactmapping',
         '/mvc/inventory/costitem.mvc/shipping'
     ];
 
@@ -80,6 +97,7 @@
         '/picklistdetailforshippinggrid',
         '/packinglistdetailforshippinggrid',
         '/inventory/inventory_edit_order.aspx',
+        '/projects/reports/',
         '/billingproduct',
         '/billingproducts',
         '/billing_product',

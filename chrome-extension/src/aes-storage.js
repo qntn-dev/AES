@@ -44,17 +44,35 @@
     if (typeof AES.state.roundedPageFramesEnabled !== 'boolean') {
         AES.state.roundedPageFramesEnabled = false;
     }
+    if (typeof AES.state.autotaskBrandColorEnabled !== 'boolean') {
+        AES.state.autotaskBrandColorEnabled = false;
+    }
+    if (typeof AES.state.autotaskBrandColor !== 'string') {
+        AES.state.autotaskBrandColor = '#376A94';
+    }
+    if (typeof AES.state.autotaskLogoOverrideEnabled !== 'boolean') {
+        AES.state.autotaskLogoOverrideEnabled = false;
+    }
+    if (typeof AES.state.autotaskLogoDataUrl !== 'string') {
+        AES.state.autotaskLogoDataUrl = '';
+    }
     if (typeof AES.state.improvedScrollbarsEnabled !== 'boolean') {
         AES.state.improvedScrollbarsEnabled = true;
     }
     if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
         AES.state.skipPeekBackdropCloseWarning = false;
     }
+    if (typeof AES.state.peekMoveResizeEnabled !== 'boolean') {
+        AES.state.peekMoveResizeEnabled = false;
+    }
     if (typeof AES.state.releaseNotesLastSeenVersion !== 'string') {
         AES.state.releaseNotesLastSeenVersion = '';
     }
     if (typeof AES.state.releaseNotesSnoozeVersion !== 'string') {
         AES.state.releaseNotesSnoozeVersion = '';
+    }
+    if (typeof AES.state.welcomeNoticeLastSeenVersion !== 'string') {
+        AES.state.welcomeNoticeLastSeenVersion = '';
     }
     if (typeof AES.state.tabBarWidth !== 'number') {
         AES.state.tabBarWidth = AES.BAR_W || 240;
@@ -167,6 +185,20 @@
         return Math.max(min, Math.min(max, Math.round(value)));
     }
 
+    function readAutotaskBrandColor(settings) {
+        const value = String((settings && settings.autotaskBrandColor) || '').trim();
+        const short = value.match(/^#([0-9a-f]{3})$/i);
+        if (short) {
+            return '#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase();
+        }
+        return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : '#376a94';
+    }
+
+    function readAutotaskLogoDataUrl(settings) {
+        const value = String((settings && settings.autotaskLogoDataUrl) || '');
+        return value.startsWith('data:image/svg+xml') ? value : '';
+    }
+
     AES.loadSettings = async function loadSettings() {
         AES.settingsLoaded = false;
         AES.settingsLoadFailed = false;
@@ -200,17 +232,27 @@
                 : true;
             AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
             AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
+            AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
+            AES.state.autotaskLogoDataUrl = readAutotaskLogoDataUrl(settings);
+            AES.state.autotaskLogoOverrideEnabled = !!(settings && settings.autotaskLogoOverrideEnabled && AES.state.autotaskLogoDataUrl);
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
+            AES.state.peekMoveResizeEnabled = settings && typeof settings.peekMoveResizeEnabled === 'boolean'
+                ? settings.peekMoveResizeEnabled
+                : false;
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
             AES.state.releaseNotesSnoozeVersion = typeof (settings && settings.releaseNotesSnoozeVersion) === 'string'
                 ? settings.releaseNotesSnoozeVersion
+                : '';
+            AES.state.welcomeNoticeLastSeenVersion = typeof (settings && settings.welcomeNoticeLastSeenVersion) === 'string'
+                ? settings.welcomeNoticeLastSeenVersion
                 : '';
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
@@ -244,17 +286,27 @@
                 : true;
             AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
             AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
+            AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
+            AES.state.autotaskLogoDataUrl = readAutotaskLogoDataUrl(settings);
+            AES.state.autotaskLogoOverrideEnabled = !!(settings && settings.autotaskLogoOverrideEnabled && AES.state.autotaskLogoDataUrl);
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
+            AES.state.peekMoveResizeEnabled = settings && typeof settings.peekMoveResizeEnabled === 'boolean'
+                ? settings.peekMoveResizeEnabled
+                : false;
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
             AES.state.releaseNotesSnoozeVersion = typeof (settings && settings.releaseNotesSnoozeVersion) === 'string'
                 ? settings.releaseNotesSnoozeVersion
+                : '';
+            AES.state.welcomeNoticeLastSeenVersion = typeof (settings && settings.welcomeNoticeLastSeenVersion) === 'string'
+                ? settings.welcomeNoticeLastSeenVersion
                 : '';
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
@@ -280,13 +332,21 @@
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
             horizontalCompactTabsEnabled: !!AES.state.horizontalCompactTabsEnabled,
             roundedPageFramesEnabled: !!AES.state.roundedPageFramesEnabled,
+            autotaskBrandColorEnabled: !!AES.state.autotaskBrandColorEnabled,
+            autotaskBrandColor: readAutotaskBrandColor(AES.state),
+            autotaskLogoOverrideEnabled: !!(AES.state.autotaskLogoOverrideEnabled && readAutotaskLogoDataUrl(AES.state)),
+            autotaskLogoDataUrl: readAutotaskLogoDataUrl(AES.state),
             improvedScrollbarsEnabled: !!AES.state.improvedScrollbarsEnabled,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
+            peekMoveResizeEnabled: !!AES.state.peekMoveResizeEnabled,
             releaseNotesLastSeenVersion: typeof AES.state.releaseNotesLastSeenVersion === 'string'
                 ? AES.state.releaseNotesLastSeenVersion
                 : '',
             releaseNotesSnoozeVersion: typeof AES.state.releaseNotesSnoozeVersion === 'string'
                 ? AES.state.releaseNotesSnoozeVersion
+                : '',
+            welcomeNoticeLastSeenVersion: typeof AES.state.welcomeNoticeLastSeenVersion === 'string'
+                ? AES.state.welcomeNoticeLastSeenVersion
                 : '',
             tabBarWidth: readTabBarWidth(AES.state),
             tabLine2Fields: AES.state.tabLine2Fields || {},
@@ -302,7 +362,14 @@
         } catch (e) {}
     };
 
+    AES.shouldPersistTabs = function shouldPersistTabs() {
+        return AES.state && AES.state.rememberTabsAfterClose !== false;
+    };
+
     AES.readTabsPayload = async function readTabsPayload() {
+        if (!AES.shouldPersistTabs()) {
+            return AES.readSessionTabsPayload();
+        }
         if (AES.hasChromeStorage()) {
             const stored = await AES.getChromeLocal(AES.STORAGE_KEY);
             if (stored && stored[AES.STORAGE_KEY]) return stored[AES.STORAGE_KEY];
@@ -311,13 +378,28 @@
     };
 
     AES.writeTabsPayload = async function writeTabsPayload(payload) {
-        if (AES.hasChromeStorage()) {
+        if (AES.hasChromeStorage() && AES.shouldPersistTabs()) {
             await AES.setChromeLocal({ [AES.STORAGE_KEY]: payload });
             AES.clearSessionTabsPayload();
             return;
         }
 
         AES.writeSessionTabsPayload(payload);
+        if (AES.hasChromeStorage()) {
+            await AES.removeChromeLocal(AES.STORAGE_KEY);
+        }
+    };
+
+    AES.syncTabsPersistenceMode = async function syncTabsPersistenceMode(payload) {
+        if (AES.shouldPersistTabs()) {
+            await AES.writeTabsPayload(payload);
+            return;
+        }
+
+        AES.writeSessionTabsPayload(payload);
+        if (AES.hasChromeStorage()) {
+            await AES.removeChromeLocal(AES.STORAGE_KEY);
+        }
     };
 
     AES.clearPersistedTabs = async function clearPersistedTabs() {

@@ -390,15 +390,28 @@
                 path.includes('installedproduct') ||
                 path.includes('contract_products')
             )) return true;
-            return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
+            return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+                path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
+                path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+                path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
+                path === '/mvc/projects/projectnote.mvc/newprojectnote' ||
+                path === '/projects/calendar/prjcalendar.asp' ||
+                path === '/mvc/file/attachment.mvc/projectattachment' ||
+                path === '/mvc/projects/teammember.mvc/add' ||
+                path === '/autotask/views/projects/project_cost.aspx' ||
+                path === '/mvc/timesheets/expense.mvc/createnewprojectexpense' ||
+                path === '/projects/wizards/transformations/copyattributes/popwiz_frames.asp' ||
+                path === '/projects/reports' ||
+                path.startsWith('/projects/reports/') ||
+                path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
                 path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
                 path === '/servicedesk/popups/forward/svcforward.asp' ||
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
                 path === '/popups/work/svcdetail.asp' ||
+                path === '/popups/searches/srcclient.asp' ||
                 path === '/administrator/roles/tabroleview.asp' ||
                 path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
-                path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties' ||
                 path === '/mvc/contracts/contract.mvc/edit' ||
                 path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
                 path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
@@ -422,6 +435,23 @@
         if (!featureEnabled || !target) return false;
         window.postMessage({ __ns: MSG_NS, type: 'close-frame', target: target }, location.origin);
         return true;
+    }
+
+    function isClientSearchSelectionClick(event) {
+        if (aesFrameCloseTarget() !== 'peek') return false;
+        if (pathOf(location.href) !== '/popups/searches/srcclient.asp') return false;
+        const el = event.target && event.target.closest
+            ? event.target.closest('a[onclick], td[onclick], div[onclick], tr[onclick]')
+            : null;
+        if (!el) return false;
+        const onclickText = el.getAttribute('onclick') || '';
+        return /\blast5List\.Insert\s*\(/i.test(onclickText);
+    }
+
+    function closePeekAfterNativeSelection() {
+        setTimeout(function () {
+            window.postMessage({ __ns: MSG_NS, type: 'close-frame', target: 'peek' }, location.origin);
+        }, 0);
     }
 
     function createMapWindow(url) {
@@ -528,6 +558,9 @@
         if (!featureEnabled) return;
         armMapOpenFromEvent(event);
         armUserNavigationFromEvent(event);
+        if (isClientSearchSelectionClick(event)) {
+            closePeekAfterNativeSelection();
+        }
         if (isPendingMapOpen()) {
             const anchor = event.target.closest && event.target.closest('a[href]');
             if (anchor && postMap(anchor.href)) {

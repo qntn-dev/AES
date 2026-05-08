@@ -1,13 +1,34 @@
 # Changelog
 
-## v0.8.1
+## v0.9.0
 
-Quick follow-up to v0.8.0.
+Experimental release focused on Projects, Branding, invoices, and safer Umbrella Contract handling.
+
+### Highlights
+
+- AES now supports all Project related tabs and windows.
+- Make Autotask feel like your own workspace with the new Branding settings.
+- Umbrella Contracts no longer break the AES shell.
+
+### New features
+
+- Added full compatibility for the Projects module in AES.
+- Added Autotask Branding options for custom colors, a custom logo, and matching UI highlights throughout Autotask.
+- Added a welcome message with a link to the correct Autotask settings for keeping time entries and notes inside AES.
+
+### Improvements
+
+- Invoices now stay contained within AES more reliably, including Batch History and Process Invoices flows.
+- Labour Adjustment popups now open in AES Peek.
+- Aligned more UI details with Autotask, including font and icon sizing for a cleaner native feel.
+- Time Entries and Ticket Notes can now be their own tabs with relevant metadata when the matching Autotask setting is disabled.
+- Relevant Peek windows now refresh the original page when closing through Autotask Save & Quit-like actions.
+- The AES Settings button now also appears when the Autotask navigation bar is collapsed.
 
 ### Fixes
 
-- Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout; it now floats cleanly above the AES tab bar instead.
-- Fixed invoices not generating AES tabs when opened from places other than invoice history.
+- Fixed tabs not reopening correctly after browser closure when tab persistence is enabled.
+- Fixed Umbrella Contracts breaking the whole extension or Autotask page. AES now checks whether a contract is an Umbrella Contract first; Umbrella Contracts open on Home, while legacy contracts still open as AES tabs.
 
 ## v0.8.0
 

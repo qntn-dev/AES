@@ -14,6 +14,33 @@
     const runtime = AES.ShellRuntime || (AES.ShellRuntime = {});
     runtime.styles = runtime.styles || {};
     runtime.styles.shell = `
+            :root {
+                --aes-accent-color: #376A94;
+                --aes-accent-color-muted: rgba(55, 106, 148, 0.58);
+                --aes-accent-color-strong: rgba(55, 106, 148, 0.72);
+                --aes-accent-color-soft: rgba(125, 167, 201, 0.5);
+                --aes-accent-link-color: #376A94;
+                --aes-accent-active-bg: rgba(55, 106, 148, 0.15);
+                --aes-accent-scrollbar: rgba(125, 167, 201, 0.5);
+                --aes-accent-scrollbar-hover: rgba(125, 167, 201, 0.75);
+                --aes-accent-scrollbar-dark: rgba(125, 167, 201, 0.58);
+                --aes-accent-scrollbar-dark-hover: rgba(125, 167, 201, 0.82);
+                --aes-native-font-family: Roboto, Arial, Helvetica, Tahoma, sans-serif;
+                --aes-native-bg-primary: #ffffff;
+                --aes-native-bg-hover: #f8fafc;
+                --aes-native-active-bg: var(--aes-accent-active-bg);
+                --aes-native-border-primary: #e2e8f0;
+                --aes-native-text-primary: #0f172a;
+                --aes-native-text-secondary: #64748b;
+            }
+            html.aes-dark {
+                --aes-native-bg-primary: oklab(0.250993 -0.00167877 -0.0103094);
+                --aes-native-bg-hover: #232d37;
+                --aes-native-active-bg: var(--aes-accent-active-bg);
+                --aes-native-border-primary: oklab(0.427889 -0.00534959 -0.0187726);
+                --aes-native-text-primary: oklab(0.96395 -0.000229597 -0.00284386);
+                --aes-native-text-secondary: #cbd5e1;
+            }
             .at-tabs-bar {
                 position: fixed;
                 top: 56px;
@@ -23,11 +50,11 @@
                 display: flex;
                 align-items: stretch;
                 padding: 0;
-                background: #ffffff;
-                border-bottom: 1px solid #e2e8f0;
+                background: var(--aes-native-bg-primary);
+                border-bottom: 1px solid var(--aes-native-border-primary);
                 overflow: hidden;
                 z-index: 220;
-                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                font-family: var(--aes-native-font-family);
                 box-sizing: border-box;
             }
             .at-tabs-bar.compact.hover-expanded {
@@ -60,7 +87,7 @@
             }
             .at-tabs-resize-handle:hover::after,
             .at-tabs-bar.resizing .at-tabs-resize-handle::after {
-                background: rgba(55, 106, 148, 0.65);
+                background: var(--aes-accent-color-muted);
             }
             html.aes-bar-vertical.aes-resizable-tabs .at-tabs-resize-handle {
                 display: block;
@@ -99,7 +126,7 @@
                 border-radius: 999px;
             }
             .at-tabs-scroll::-webkit-scrollbar-thumb:hover {
-                background: rgba(55, 106, 148, 0.58);
+                background: var(--aes-accent-color-muted);
             }
             .at-tabs-bar-inner {
                 display: flex;
@@ -407,14 +434,14 @@
                 width: 5px;
                 height: 56px;
                 border-radius: 999px;
-                background: rgba(55, 106, 148, 0.72);
+                background: var(--aes-accent-color-strong);
                 box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.72), 0 8px 22px rgba(15, 23, 42, 0.22);
                 transition: width 0.16s ease, background 0.16s ease;
             }
             .at-tabs-split-resize-grip:hover::before,
             .at-tabs-viewport.split-resizing .at-tabs-split-resize-grip::before {
                 width: 7px;
-                background: #376A94;
+                background: var(--aes-accent-color);
             }
             .at-tabs-viewport.split-resizing {
                 cursor: col-resize;
@@ -445,7 +472,7 @@
                 width: 36px;
                 height: 36px;
                 border: 3px solid #cbd5e1;
-                border-top-color: #376A94;
+                border-top-color: var(--aes-accent-color);
                 border-radius: 50%;
                 animation: at-tabs-spin 0.8s linear infinite;
             }
@@ -537,7 +564,7 @@
             html.aes-improved-scrollbars,
             html.aes-improved-scrollbars body,
             html.aes-improved-scrollbars * {
-                scrollbar-color: rgba(125, 167, 201, 0.5) transparent !important;
+                scrollbar-color: var(--aes-accent-scrollbar) transparent !important;
                 scrollbar-width: thin !important;
                 scrollbar-gutter: auto !important;
             }
@@ -568,7 +595,7 @@
             html.aes-improved-scrollbars::-webkit-scrollbar-thumb,
             html.aes-improved-scrollbars body::-webkit-scrollbar-thumb,
             html.aes-improved-scrollbars *::-webkit-scrollbar-thumb {
-                background-color: rgba(125, 167, 201, 0.5) !important;
+                background-color: var(--aes-accent-scrollbar) !important;
                 border-radius: 999px !important;
                 border: 1px solid transparent !important;
                 background-clip: content-box !important;
@@ -576,7 +603,7 @@
             html.aes-improved-scrollbars::-webkit-scrollbar-thumb:hover,
             html.aes-improved-scrollbars body::-webkit-scrollbar-thumb:hover,
             html.aes-improved-scrollbars *::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(125, 167, 201, 0.75) !important;
+                background-color: var(--aes-accent-scrollbar-hover) !important;
                 background-clip: content-box !important;
             }
             html.aes-improved-scrollbars::-webkit-scrollbar-corner,
@@ -602,7 +629,7 @@
                 scrollbar-width: none !important;
             }
             html.aes-improved-scrollbars.aes-dark {
-                scrollbar-color: rgba(125, 167, 201, 0.58) #11161c !important;
+                scrollbar-color: var(--aes-accent-scrollbar-dark) #11161c !important;
             }
             html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-track,
             html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-track,
@@ -612,13 +639,13 @@
             html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-thumb,
             html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-thumb,
             html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-thumb {
-                background-color: rgba(125, 167, 201, 0.58) !important;
+                background-color: var(--aes-accent-scrollbar-dark) !important;
                 border-color: #11161c !important;
             }
             html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-thumb:hover,
             html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-thumb:hover,
             html.aes-improved-scrollbars.aes-dark *::-webkit-scrollbar-thumb:hover {
-                background-color: rgba(125, 167, 201, 0.82) !important;
+                background-color: var(--aes-accent-scrollbar-dark-hover) !important;
             }
             html.aes-improved-scrollbars.aes-dark::-webkit-scrollbar-corner,
             html.aes-improved-scrollbars.aes-dark body::-webkit-scrollbar-corner,
@@ -634,7 +661,7 @@
                 background: transparent;
                 border: none;
                 border-bottom: 3px solid transparent;
-                color: #334155;
+                color: var(--aes-native-text-primary);
                 cursor: pointer;
                 user-select: none;
                 position: relative;
@@ -644,9 +671,9 @@
                 line-height: 1.25;
                 --aes-tab-border: transparent;
                 --aes-tab-bg-idle: transparent;
-                --aes-tab-bg-hover: #f1f5f9;
-                --aes-tab-bg-active: #E1E9EF;
-                --aes-tab-separator: #e2e8f0;
+                --aes-tab-bg-hover: var(--aes-native-bg-hover);
+                --aes-tab-bg-active: var(--aes-native-active-bg);
+                --aes-tab-separator: var(--aes-native-border-primary);
             }
             .at-tab:hover { background: var(--aes-tab-bg-hover); }
             .at-tab:not(.active) + .at-tab:not(.active)::before {
@@ -660,12 +687,12 @@
             }
             .at-tab.active {
                 background: var(--aes-tab-bg-active);
-                border-bottom-color: #376A94;
-                color: #0f172a;
+                border-bottom-color: var(--aes-accent-color);
+                color: var(--aes-native-text-primary);
             }
             .at-tab.active:not([data-aes-colored="true"]),
             .at-tab[data-aes-colored="false"].active {
-                color: #0f172a;
+                color: var(--aes-native-text-primary);
             }
             .at-tab[data-aes-colored="true"] {
                 background: var(--aes-tab-bg-idle);
@@ -679,7 +706,7 @@
                 border-bottom-color: var(--aes-tab-border);
             }
             .at-tab.split-target {
-                box-shadow: inset 0 -3px 0 #7da7c9;
+                box-shadow: inset 0 -3px 0 var(--aes-accent-color-soft);
             }
             .at-tab.split-member + .at-tab.split-member::before {
                 display: none;
@@ -695,7 +722,7 @@
                 bottom: 8px;
                 width: 3px;
                 border-radius: 999px;
-                background: #376A94;
+                background: var(--aes-accent-color);
                 z-index: 2;
             }
             .at-tab.drop-before::after {
@@ -753,14 +780,14 @@
                 width: 14px;
                 height: 14px;
                 border: 2px solid #cbd5e1;
-                border-top-color: #376A94;
+                border-top-color: var(--aes-accent-color);
                 border-radius: 50%;
                 animation: at-tabs-spin 0.8s linear infinite;
                 flex: 0 0 auto;
             }
             .at-tab .line.number,
             .at-tab .line.contact {
-                color: #64748b;
+                color: var(--aes-native-text-secondary);
                 font-size: 10.5px;
             }
             .at-tab .line.number {
@@ -905,7 +932,7 @@
                 width: 14px;
                 height: 14px;
                 border: 2px solid #cbd5e1;
-                border-top-color: #376A94;
+                border-top-color: var(--aes-accent-color);
                 border-radius: 50%;
                 animation: at-tabs-spin 0.8s linear infinite;
                 flex: 0 0 auto;
@@ -1188,12 +1215,23 @@
             .at-tabs-peek-wrapper.closing {
                 animation: aes-peek-wrapper-out 240ms cubic-bezier(0.4, 0, 1, 1) both;
             }
+            .at-tabs-peek-wrapper.at-tabs-peek-positioned {
+                transform: none;
+                animation: none;
+                align-items: stretch;
+            }
             html.aes-safari-webkit .at-tabs-peek-wrapper,
             html.aes-safari-webkit .at-tabs-peek-wrapper.closing {
                 animation: none !important;
                 transform: translate(-50%, -50%) !important;
             }
+            html.aes-safari-webkit .at-tabs-peek-wrapper.at-tabs-peek-positioned,
+            html.aes-safari-webkit .at-tabs-peek-wrapper.at-tabs-peek-positioned.closing {
+                animation: none !important;
+                transform: none !important;
+            }
             .at-tabs-peek-modal {
+                position: relative;
                 width: min(1430px, calc(100vw - 96px));
                 height: min(1014px, calc(100vh - 48px));
                 background: #ffffff;
@@ -1203,6 +1241,72 @@
                 overflow: hidden;
                 display: flex;
                 flex-direction: column;
+            }
+            .at-tabs-peek-drag-handle {
+                position: absolute;
+                top: 8px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 112px;
+                height: 22px;
+                border: 1px solid rgba(148, 163, 184, 0.46);
+                border-radius: 999px;
+                background: rgba(248, 250, 252, 0.82);
+                box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+                cursor: move;
+                z-index: 5;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                touch-action: none;
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+            }
+            .at-tabs-peek-drag-handle::before {
+                content: "";
+                width: 42px;
+                height: 4px;
+                border-radius: 999px;
+                background: currentColor;
+                color: rgba(71, 85, 105, 0.58);
+                box-shadow: 0 7px 0 rgba(71, 85, 105, 0.34);
+                transform: translateY(-3.5px);
+            }
+            .at-tabs-peek-drag-handle:hover,
+            .at-tabs-peek-drag-handle:focus-visible {
+                background: #ffffff;
+                border-color: rgba(55, 106, 148, 0.5);
+                outline: none;
+            }
+            .at-tabs-peek-resize-handle {
+                position: absolute;
+                right: 5px;
+                bottom: 5px;
+                width: 24px;
+                height: 24px;
+                border-radius: 8px;
+                cursor: nwse-resize;
+                z-index: 5;
+                touch-action: none;
+            }
+            .at-tabs-peek-resize-handle::before {
+                content: "";
+                position: absolute;
+                right: 6px;
+                bottom: 6px;
+                width: 11px;
+                height: 11px;
+                border-right: 2px solid rgba(71, 85, 105, 0.55);
+                border-bottom: 2px solid rgba(71, 85, 105, 0.55);
+                box-shadow: 4px 4px 0 -2px rgba(71, 85, 105, 0.32);
+            }
+            .at-tabs-peek-resize-handle:hover::before {
+                border-color: var(--aes-brand-primary-color, #376A94);
+            }
+            html.aes-peek-interacting,
+            html.aes-peek-interacting * {
+                cursor: grabbing !important;
+                user-select: none !important;
             }
             .at-tabs-peek-modal.live-reuse {
                 background: transparent;
@@ -1314,6 +1418,11 @@
                 opacity: 0.45;
                 cursor: not-allowed;
                 box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+            }
+            .at-tabs-peek-action.reset-position-action {
+                width: 44px;
+                min-width: 44px;
+                padding-inline: 0;
             }
             .at-tabs-peek-action svg {
                 width: 20px;
@@ -1818,6 +1927,36 @@
                 flex-direction: column;
                 gap: 8px;
             }
+            .at-tabs-branding-card {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                align-items: center;
+                gap: 18px;
+                padding: 18px 20px;
+                border: 1px solid var(--aes-native-border-primary);
+                border-radius: 16px;
+                background: var(--aes-native-bg-primary);
+            }
+            .at-tabs-branding-card:hover {
+                background: var(--aes-native-bg-hover);
+            }
+            .at-tabs-branding-copy {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                min-width: 0;
+            }
+            .at-tabs-settings-warning {
+                padding: 11px 14px;
+                border: 1px solid var(--aes-native-border-primary);
+                border-left: 4px solid var(--aes-accent-color);
+                border-radius: 12px;
+                background: color-mix(in srgb, var(--aes-accent-color) 8%, var(--aes-native-bg-primary));
+                color: var(--aes-native-text-primary);
+                font-size: 12px;
+                font-weight: 650;
+                line-height: 1.45;
+            }
             .at-tabs-settings-page-title {
                 display: flex;
                 flex-direction: column;
@@ -1906,11 +2045,19 @@
             .at-tabs-setting-reload-note.visible {
                 display: flex;
             }
+            .at-tabs-settings-section > .at-tabs-setting-reload-note {
+                margin: 0;
+                padding: 10px 12px;
+                border-radius: 12px;
+                background: color-mix(in srgb, var(--aes-accent-color) 7%, var(--aes-native-bg-primary));
+                border-color: color-mix(in srgb, var(--aes-accent-color) 28%, var(--aes-native-border-primary));
+                color: var(--aes-native-text-primary);
+            }
             .at-tabs-setting-reload-button {
                 appearance: none;
-                border: 1px solid #376A94;
+                border: 1px solid var(--aes-accent-color);
                 border-radius: 8px;
-                background: #376A94;
+                background: var(--aes-accent-color);
                 color: #ffffff;
                 cursor: pointer;
                 flex: 0 0 auto;
@@ -1918,8 +2065,8 @@
                 padding: 8px 10px;
             }
             .at-tabs-setting-reload-button:hover {
-                background: #2c567a;
-                border-color: #2c567a;
+                background: var(--aes-accent-color-strong);
+                border-color: var(--aes-accent-color-strong);
             }
             html.aes-dark .at-tabs-setting-note {
                 color: #94a3b8;
@@ -1965,6 +2112,11 @@
                 font-weight: 600;
                 color: #0f172a;
             }
+            .at-tabs-setting-description {
+                color: #64748b;
+                font-size: 12px;
+                line-height: 1.4;
+            }
             .at-tabs-setting-toggle {
                 position: relative;
                 display: inline-flex;
@@ -2002,7 +2154,7 @@
                 transition: transform 0.18s ease;
             }
             .at-tabs-setting-toggle input:checked + .at-tabs-setting-toggle-ui {
-                background: #376A94;
+                background: var(--aes-accent-color);
             }
             .at-tabs-setting-toggle input:checked + .at-tabs-setting-toggle-ui::after {
                 transform: translateX(18px);
@@ -2010,6 +2162,70 @@
             .at-tabs-setting-toggle input:focus-visible + .at-tabs-setting-toggle-ui {
                 outline: 2px solid #93c5fd;
                 outline-offset: 2px;
+            }
+            .at-tabs-setting-color-controls {
+                display: inline-flex;
+                align-items: center;
+                gap: 10px;
+                flex: 0 0 auto;
+            }
+            .at-tabs-setting-color-input {
+                width: 42px;
+                height: 30px;
+                padding: 2px;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                cursor: pointer;
+            }
+            .at-tabs-setting-color-input:disabled {
+                opacity: 0.42;
+                cursor: not-allowed;
+            }
+            .at-tabs-setting-file-controls {
+                display: inline-flex;
+                align-items: center;
+                justify-content: flex-end;
+                gap: 10px;
+                min-width: 0;
+                flex: 0 1 auto;
+            }
+            .at-tabs-setting-file-status {
+                max-width: 150px;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                color: #64748b;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            .at-tabs-setting-file-input {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                opacity: 0;
+                pointer-events: none;
+                max-width: 1px;
+                color: #334155;
+                font: 600 11px/1.2 var(--aes-native-font-family);
+            }
+            .at-tabs-setting-small-button {
+                appearance: none;
+                border: 1px solid #cbd5e1;
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                font: 700 11px/1 var(--aes-native-font-family);
+                padding: 8px 10px;
+            }
+            .at-tabs-setting-small-button:hover:not(:disabled) {
+                border-color: var(--aes-accent-color);
+                color: var(--aes-accent-color);
+            }
+            .at-tabs-setting-small-button:disabled {
+                opacity: 0.45;
+                cursor: not-allowed;
             }
             .at-tabs-settings-note {
                 font-size: 12px;
@@ -2468,7 +2684,20 @@
                 box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
             }
             html.aes-dark .at-tabs-setting-toggle input:checked + .at-tabs-setting-toggle-ui {
-                background: #376A94;
+                background: var(--aes-accent-color);
+            }
+            html.aes-dark .at-tabs-setting-color-input {
+                background: #111827;
+                border-color: #475569;
+            }
+            html.aes-dark .at-tabs-setting-file-status,
+            html.aes-dark .at-tabs-setting-file-input {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-setting-small-button {
+                background: #232D37;
+                border-color: #475569;
+                color: #e2e8f0;
             }
 
             /* Map modal interior in dark mode */
@@ -2502,6 +2731,21 @@
             }
             html.aes-dark .at-tabs-peek-frame {
                 background: #1F2227;
+            }
+            html.aes-dark .at-tabs-peek-drag-handle {
+                background: rgba(35, 45, 55, 0.88);
+                border-color: rgba(71, 85, 105, 0.72);
+                color: rgba(226, 232, 240, 0.76);
+                box-shadow: 0 8px 22px rgba(0, 0, 0, 0.38);
+            }
+            html.aes-dark .at-tabs-peek-drag-handle:hover,
+            html.aes-dark .at-tabs-peek-drag-handle:focus-visible {
+                background: #2a3641;
+                border-color: rgba(125, 167, 201, 0.62);
+            }
+            html.aes-dark .at-tabs-peek-resize-handle::before {
+                border-color: rgba(226, 232, 240, 0.58);
+                box-shadow: 4px 4px 0 -2px rgba(226, 232, 240, 0.3);
             }
             html.aes-dark .at-tabs-peek-loader {
                 background: rgba(31, 34, 39, 0.85);
@@ -2689,7 +2933,7 @@
             }
             html.aes-bar-vertical .at-tab.active {
                 border-bottom-color: transparent;
-                border-left-color: #376A94;
+                border-left-color: var(--aes-accent-color);
             }
             html.aes-bar-vertical .at-tab[data-aes-colored="true"] {
                 border-left-color: transparent;
@@ -2699,7 +2943,7 @@
                 border-left-color: var(--aes-tab-border);
             }
             html.aes-bar-vertical .at-tab.split-target {
-                box-shadow: inset 3px 0 0 #7da7c9;
+                box-shadow: inset 3px 0 0 var(--aes-accent-color-soft);
             }
             html.aes-bar-vertical .at-tab.drop-before::after,
             html.aes-bar-vertical .at-tab.drop-after::after {
@@ -2749,6 +2993,211 @@
             }
             html.aes-bar-vertical .at-tabs-scroll-button svg {
                 transform: rotate(90deg);
+            }
+            html.aes-brand-link-colors a[href],
+            html.aes-brand-link-colors a.c-link,
+            html.aes-brand-link-colors .c-link,
+            html.aes-brand-link-colors .Link,
+            html.aes-brand-link-colors td.Link,
+            html.aes-brand-link-colors th.Link,
+            html.aes-brand-link-colors .TextCell.Link,
+            html.aes-brand-link-colors [onclick*="NewWindowPage"].Link,
+            html.aes-brand-link-colors [onclick*="__openPage"].Link,
+            html.aes-brand-link-colors .color-text-link,
+            html.aes-brand-link-colors [class~="color-text-link"],
+            html.aes-brand-link-colors .LinkButton2,
+            html.aes-brand-link-colors .LinkButton2 .Text2,
+            html.aes-brand-link-colors .LinkButtonContainer .Text2 {
+                color: var(--aes-accent-link-color) !important;
+            }
+            html.aes-brand-link-colors [class~="bg-background-selected"] {
+                background: var(--aes-accent-color) !important;
+                background-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors [class~="color-text-selected"] {
+                color: #ffffff !important;
+            }
+            html.aes-brand-link-colors .o-tab.o-tab--is-selected:not(.o-tab--container-variant),
+            html.aes-brand-link-colors .o-tab[aria-selected="true"]:not(.o-tab--container-variant),
+            html.aes-brand-link-colors .o-tab.is-selected:not(.o-tab--container-variant) {
+                border-bottom-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .o-tab.o-tab--container-variant.o-tab--is-selected,
+            html.aes-brand-link-colors .o-tab.o-tab--container-variant[aria-selected="true"],
+            html.aes-brand-link-colors .o-tab.o-tab--container-variant.is-selected {
+                border-top-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .Button.SelectedState,
+            html.aes-brand-link-colors .Button2.SelectedState,
+            html.aes-brand-link-colors a.Button.SelectedState,
+            html.aes-brand-link-colors a.Button2.SelectedState {
+                border-bottom-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked,
+            html.aes-brand-link-colors .Checkbox2 .Checked {
+                background-color: var(--aes-accent-color) !important;
+                border-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors input[type="checkbox"]:checked {
+                accent-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .o-checkbox-box--has-selection,
+            html.aes-brand-link-colors .o-checkbox-box--is-selected {
+                color: var(--aes-accent-color) !important;
+                border-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked .Checkmark,
+            html.aes-brand-link-colors .Checkbox2 .Checked .Checkmark,
+            html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked .Checkmark path,
+            html.aes-brand-link-colors .Checkbox2 .Checked .Checkmark path {
+                color: #ffffff !important;
+                fill: #ffffff !important;
+            }
+            html.aes-brand-link-colors .o-checkbox-box--has-selection span,
+            html.aes-brand-link-colors .o-checkbox-box--is-selected span {
+                color: var(--aes-accent-color) !important;
+                fill: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .Button2.SuggestiveBackground,
+            html.aes-brand-link-colors .Button.SuggestiveBackground,
+            html.aes-brand-link-colors .Button2.Primary,
+            html.aes-brand-link-colors .Button.Primary {
+                background: var(--aes-accent-color) !important;
+                background-color: var(--aes-accent-color) !important;
+                border-color: var(--aes-accent-color) !important;
+                color: #ffffff !important;
+            }
+            html.aes-brand-link-colors .Button2.SuggestiveBackground .Text2,
+            html.aes-brand-link-colors .Button.SuggestiveBackground .Text,
+            html.aes-brand-link-colors .Button2.Primary .Text2,
+            html.aes-brand-link-colors .Button.Primary .Text {
+                color: #ffffff !important;
+            }
+            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation,
+            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation {
+                background: var(--aes-accent-color) !important;
+                background-color: var(--aes-accent-color) !important;
+                border-color: var(--aes-accent-color) !important;
+                color: #ffffff !important;
+            }
+            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .Text,
+            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .SecondaryText,
+            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .Text,
+            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .SecondaryText {
+                color: #ffffff !important;
+            }
+            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarButton:hover,
+            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarButton:hover {
+                background-color: rgba(255, 255, 255, 0.18) !important;
+            }
+            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarIcon,
+            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarIcon,
+            html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Star,
+            html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Help,
+            html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Star,
+            html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Help {
+                filter: var(--aes-titlebar-icon-filter, none) !important;
+            }
+            html.aes-brand-link-colors .EntityPageColorBar,
+            html.aes-brand-link-colors .EntityPageColorBar.Ticket {
+                background: var(--aes-accent-color) !important;
+                background-color: var(--aes-accent-color) !important;
+                border-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .TabButton.Active,
+            html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active {
+                border-bottom-color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .TabButton.Active .Text,
+            html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active .Text {
+                color: var(--aes-accent-color) !important;
+            }
+            html.aes-brand-link-colors .TabButton.Active .Icon,
+            html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active .Icon {
+                filter: var(--aes-accent-icon-filter, none) !important;
+            }
+            html.aes-dark .at-tab.active:not([data-aes-colored="true"]),
+            html.aes-dark .at-tab[data-aes-colored="false"].active,
+            html.aes-dark .at-tab.home.active {
+                background: var(--aes-native-active-bg) !important;
+                color: var(--aes-native-text-primary) !important;
+            }
+            html.aes-dark.aes-bar-vertical .at-tab.active:not([data-aes-colored="true"]),
+            html.aes-dark.aes-bar-vertical .at-tab[data-aes-colored="false"].active,
+            html.aes-dark.aes-bar-vertical .at-tab.home.active {
+                border-left-color: var(--aes-accent-color) !important;
+                border-bottom-color: transparent !important;
+            }
+            .at-tabs-settings-modal {
+                background: var(--aes-native-bg-primary);
+                border-color: var(--aes-native-border-primary);
+                color: var(--aes-native-text-primary);
+                font-family: var(--aes-native-font-family);
+            }
+            .at-tabs-settings-header,
+            .at-tabs-settings-footer {
+                border-color: var(--aes-native-border-primary);
+            }
+            .at-tabs-settings-title,
+            .at-tabs-settings-page-title strong,
+            .at-tabs-setting-name {
+                color: var(--aes-native-text-primary);
+            }
+            .at-tabs-settings-page-title span,
+            .at-tabs-settings-footer,
+            .at-tabs-settings-note,
+            .at-tabs-setting-file-status {
+                color: var(--aes-native-text-secondary);
+            }
+            .at-tabs-settings-nav {
+                background: var(--aes-native-bg-primary);
+                border-right-color: var(--aes-native-border-primary);
+            }
+            .at-tabs-settings-nav-item {
+                color: var(--aes-native-text-primary);
+            }
+            .at-tabs-settings-nav-item:hover {
+                background: var(--aes-native-bg-hover);
+                border-color: var(--aes-native-border-primary);
+                color: var(--aes-native-text-primary);
+            }
+            .at-tabs-settings-nav-item.active {
+                background: var(--aes-native-active-bg);
+                border-color: transparent;
+                color: var(--aes-native-text-primary);
+                box-shadow: inset 3px 0 0 var(--aes-accent-color);
+            }
+            .at-tabs-settings-pages {
+                background: var(--aes-native-bg-primary);
+            }
+            .at-tabs-setting-row {
+                background: var(--aes-native-bg-primary);
+                border-color: var(--aes-native-border-primary);
+            }
+            .at-tabs-setting-row:hover {
+                background: var(--aes-native-bg-hover);
+            }
+            .at-tabs-settings-reset,
+            .at-tabs-settings-page-action,
+            .at-tabs-setting-small-button {
+                background: var(--aes-native-bg-primary);
+                border-color: var(--aes-native-border-primary);
+                color: var(--aes-native-text-primary);
+                font-family: var(--aes-native-font-family);
+            }
+            .at-tabs-settings-reset:hover,
+            .at-tabs-settings-page-action:hover,
+            .at-tabs-setting-small-button:hover:not(:disabled),
+            .at-tabs-settings-close:hover {
+                background: var(--aes-native-bg-hover);
+                border-color: var(--aes-accent-color);
+                color: var(--aes-native-text-primary);
+            }
+            .at-tabs-setting-select,
+            .at-tabs-setting-color-input {
+                background: var(--aes-native-bg-primary);
+                border-color: var(--aes-native-border-primary);
+                color: var(--aes-native-text-primary);
             }
             body.EntityPage>.MessageBarContainer {
                 padding: 25px 8px 0 8px;

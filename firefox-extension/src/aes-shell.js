@@ -11,6 +11,9 @@
      * Companion files: aes-shell-runtime.js, aes-shell-config.js, aes-shell-styles.js.
      */
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
+    if (document.contentType === 'image/svg+xml' ||
+        document.documentElement && String(document.documentElement.tagName || '').toLowerCase() === 'svg' ||
+        /\.svg(?:[?#]|$)/i.test(location.pathname || '')) return;
     const AES_RUNTIME_BUILD_ID = '0.8.0-stable-1';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
@@ -66,6 +69,11 @@
     function normalizeTabType(type) {
         return typeof type === 'string' ? type.toLowerCase() : '';
     }
+
+    const DEFAULT_AUTOTASK_BRAND_COLOR = '#376A94';
+    const AUTOTASK_FULL_LOGO_SELECTOR = 'img[src*="/AutotaskOnyx/Content/assets/ATLogoFull-White-HeaderVersion"], img[data-aes-autotask-logo-override="true"]';
+    const AUTOTASK_CUSTOM_LOGO_FALLBACK_WIDTH = 240;
+    const AUTOTASK_CUSTOM_LOGO_FALLBACK_HEIGHT = 56;
 
     function createRandomId(prefix) {
         try {
@@ -133,6 +141,9 @@
         releaseNotesSnoozeVersion: typeof (AES.state && typeof AES.state.releaseNotesSnoozeVersion === 'string')
             ? AES.state.releaseNotesSnoozeVersion
             : '',
+        welcomeNoticeLastSeenVersion: typeof (AES.state && typeof AES.state.welcomeNoticeLastSeenVersion === 'string')
+            ? AES.state.welcomeNoticeLastSeenVersion
+            : '',
         githubReleaseCheckInFlight: false,
         mapModal: null,
         mapBackdrop: null,
@@ -143,12 +154,14 @@
         peekCloseConfirmShade: null,
         peekCloseConfirm: null,
         peekTabId: null,
+        peekOriginTabId: null,
         peekPrewarm: null,
         peekReuseIframe: null,
         peekReusePrevStyle: '',
         peekViewportPrevStyle: '',
         peekSyncOverlay: null,
         peekResizeObserver: null,
+        peekMoveResizeCleanup: null,
         hoverCard: null,
         hoverTabId: null,
         hoverCardHovered: false,
@@ -205,7 +218,20 @@
         resizableTabBarEnabled: !!(AES.state && AES.state.resizableTabBarEnabled),
         horizontalCompactTabsEnabled: !!(AES.state && AES.state.horizontalCompactTabsEnabled),
         roundedPageFramesEnabled: !!(AES.state && AES.state.roundedPageFramesEnabled),
+        autotaskBrandColorEnabled: !!(AES.state && AES.state.autotaskBrandColorEnabled),
+        autotaskBrandColor: AES.state && typeof AES.state.autotaskBrandColor === 'string'
+            ? AES.state.autotaskBrandColor
+            : DEFAULT_AUTOTASK_BRAND_COLOR,
+        autotaskBrandColorOriginal: null,
+        autotaskBrandColorOverrideApplied: false,
+        autotaskLogoOverrideEnabled: !!(AES.state && AES.state.autotaskLogoOverrideEnabled),
+        autotaskLogoDataUrl: AES.state && typeof AES.state.autotaskLogoDataUrl === 'string'
+            ? AES.state.autotaskLogoDataUrl
+            : '',
+        autotaskLogoObserver: null,
+        autotaskLogoRaf: 0,
         skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
+        peekMoveResizeEnabled: !!(AES.state && AES.state.peekMoveResizeEnabled),
         tabLine2Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine2Fields, 2),
         tabLine3Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine3Fields, 3),
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
@@ -230,20 +256,29 @@
     const GITHUB_RELEASE_CHECK_STORAGE_KEY = 'aes-github-release-check-at';
     const GITHUB_RELEASE_DISMISS_STORAGE_KEY = 'aes-github-release-dismissed-version';
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
+    const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
-        version: '0.8.1',
+        version: '0.9.0',
         sections: [
             {
-                title: 'v0.8.1',
+                title: 'New features',
                 items: [
-                    'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout, and now floats cleanly above the AES tab bar instead.',
-                    'Fixed invoices not generating AES tabs when opened from places other than invoice history.',
+                    'Full compatibility of the Projects module with AES.',
+                    'Added a welcome message with a link to the correct Autotask settings, so users can make sure time entries and notes do not open in a separate window and break AES.',
                 ],
             },
             {
-                title: 'v0.8.0',
+                title: 'Improvements',
                 items: [
-                    'For v0.8.0 release notes please refer to GitHub.',
+                    'Time Entries and Ticket Notes can now be their own tabs with relevant metadata, in case the setting is disabled in Autotask.',
+                    'Relevant Peek windows now refresh the original page when closing via Autotask Save & Quit-like buttons.',
+                    'AES Settings button now also shows when the Autotask navigation bar is collapsed.',
+                ],
+            },
+            {
+                title: 'Bug Fixes',
+                items: [
+                    'Fixed tabs not reopening correctly after a browser closure in case this setting is enabled.',
                 ],
             },
         ],
@@ -401,6 +436,7 @@
     const ICONS = {
         home: faIcon('fa-house fa-regular'),
         ticket: faIcon('fa-ticket fa-regular'),
+        ticketactivity: faIcon('fa-note-sticky fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
         invoice: faIcon('fa-file-invoice fa-regular'),
         account: faIcon('fa-user-group fa-regular'),
@@ -454,6 +490,12 @@
             const tab = state.tabs.find(t => t.iframeEl === iframeEl);
             if (!tab) return;
             if (tab.loadStarted === false || iframeEl.dataset.aesLoadStarted === 'false') return;
+            const loadedUrl = currentFrameUrl(iframeEl);
+            if (shouldMoveLegacyContractRedirectToHome(tab, loadedUrl)) {
+                openUrlOnHome(loadedUrl);
+                closeTab(tab.id);
+                return;
+            }
             tab.loading = false;
             const fallback = fallbackTabMetadataForUrl(tab.url);
             if (!tab.title && fallback.title) tab.title = fallback.title;
@@ -465,6 +507,72 @@
             saveTabs();
         });
         return iframeEl;
+    }
+
+    function currentFrameUrl(frame) {
+        if (!frame) return '';
+        try { return frame.contentWindow.location.href || frame.getAttribute('src') || ''; }
+        catch (e) { return frame.getAttribute('src') || ''; }
+    }
+
+    function isLegacyContractViewUrl(url) {
+        return AES.normalizeHandledPath(AES.pathOf(url || '')) === '/contracts/views/contractview.asp';
+    }
+
+    function shouldMoveLegacyContractRedirectToHome(tab, loadedUrl) {
+        if (!tab || !loadedUrl) return false;
+        return isLegacyContractViewUrl(tab.url)
+            && AES.isNativeHomeUrl
+            && AES.isNativeHomeUrl(loadedUrl);
+    }
+
+    function contractIdFromLegacyContractUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            return parsed.searchParams.get('contractID') || parsed.searchParams.get('contractId') || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function buildOnyxContractDetailsUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            const contractId = contractIdFromLegacyContractUrl(parsed.href);
+            if (!/^\d+$/.test(contractId || '')) return '';
+            const viewData = btoa(JSON.stringify({ contractId: Number(contractId) }));
+            const onyxUrl = new URL('/AutotaskOnyx/LandingPage', parsed.origin);
+            onyxUrl.searchParams.set('view', 'umbrella-contract-details');
+            onyxUrl.searchParams.set('view-data', viewData);
+            return onyxUrl.href;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function extractOnyxContractDetailsUrlFromHtml(html, sourceUrl) {
+        const text = String(html || '');
+        if (!/umbrella-contract-details/i.test(text)) return '';
+
+        const directMatch = text
+            .replace(/&amp;/g, '&')
+            .match(/\/AutotaskOnyx\/LandingPage\?[^"'<>\\\s]*view=umbrella-contract-details[^"'<>\\\s]*/i);
+        if (directMatch && directMatch[0]) {
+            try { return new URL(directMatch[0], location.origin).href; }
+            catch (e) {}
+        }
+
+        return buildOnyxContractDetailsUrl(sourceUrl);
+    }
+
+    function showContractProbeOverlay() {
+        state.contractProbeLoading = true;
+        updateLoaderVisibility();
+    }
+
+    function hideContractProbeOverlay() {
+        state.contractProbeLoading = false;
+        updateLoaderVisibility();
     }
 
     function createTabPaneLoader() {
@@ -535,7 +643,8 @@
             })
             : false;
         state.loader.classList.toggle('show', !!(
-            !splitVisible && !roundedSingleVisible && ((active && active.loading) || visibleSplitLoading)
+            state.contractProbeLoading ||
+            (!splitVisible && !roundedSingleVisible && ((active && active.loading) || visibleSplitLoading))
         ));
         for (const tab of state.tabs) {
             if (!tab.loaderEl) continue;
@@ -695,10 +804,54 @@
         };
     }
 
+    function normalizeAutotaskBrandColor(value) {
+        const raw = String(value || '').trim();
+        const short = raw.match(/^#([0-9a-f]{3})$/i);
+        if (short) {
+            return '#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase();
+        }
+        const long = raw.match(/^#[0-9a-f]{6}$/i);
+        return long ? raw.toLowerCase() : DEFAULT_AUTOTASK_BRAND_COLOR;
+    }
+
     function colorToRgba(hex, alpha) {
         const rgb = hexToRgb(hex);
         if (!rgb) return '';
         return 'rgba(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ', ' + alpha + ')';
+    }
+
+    function colorToSpriteFilter(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return 'none';
+        const max = Math.max(rgb.r, rgb.g, rgb.b);
+        const min = Math.min(rgb.r, rgb.g, rgb.b);
+        const lightness = (max + min) / 510;
+        let hue = 0;
+        const delta = max - min;
+        if (delta) {
+            if (max === rgb.r) hue = ((rgb.g - rgb.b) / delta) % 6;
+            else if (max === rgb.g) hue = (rgb.b - rgb.r) / delta + 2;
+            else hue = (rgb.r - rgb.g) / delta + 4;
+            hue *= 60;
+            if (hue < 0) hue += 360;
+        }
+        const saturation = max === min
+            ? 0
+            : delta / (255 - Math.abs((max + min) - 255));
+        const brightness = Math.max(0.35, Math.min(1.65, 0.72 + lightness));
+        const saturate = Math.max(0, Math.min(6, 0.55 + saturation * 4.2));
+        return 'sepia(1) saturate(' + saturate.toFixed(2) + ') hue-rotate(' + (hue - 45).toFixed(0) + 'deg) brightness(' + brightness.toFixed(2) + ')';
+    }
+
+    function colorNeedsLightForeground(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return false;
+        const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+        return luminance < 0.54;
+    }
+
+    function colorToTitlebarIconFilter(hex) {
+        return colorNeedsLightForeground(hex) ? 'brightness(0) invert(1)' : 'none';
     }
 
     function buildTabsPayload() {
@@ -801,6 +954,8 @@
         try { url = frame.contentWindow.location.href; }
         catch (e) { url = frame.getAttribute('src') || ''; }
         if (!url || url === 'about:blank') return;
+        const nativeTitle = homeTitleForNativeUrl(url);
+        if (nativeTitle) setHomeTitle(nativeTitle);
 
         if (state.activeId === null && AES.isHandledUrl(url)) {
             if (url !== state.nativeLastUrl) {
@@ -2010,6 +2165,8 @@
             syncImprovedScrollbarsState();
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
+            applyAutotaskBrandColor();
+            applyAutotaskLogoOverride();
         } else {
             if (AES.initPhoneLinks) AES.initPhoneLinks();
             injectTopLevelPageBridgeFromShell();
@@ -2024,6 +2181,8 @@
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
             syncImprovedScrollbarsState();
+            applyAutotaskBrandColor();
+            applyAutotaskLogoOverride();
         }
         broadcastFeatureEnabledState();
         updateShellVisibility();
@@ -2356,6 +2515,26 @@
         saveTabs();
     }
 
+    function openUrlOnHome(url) {
+        let href = '';
+        try { href = new URL(url, window.location.origin).href; }
+        catch (e) { return; }
+        activateHome();
+        state.homePersistedUrl = href;
+        state.homePersistedTitle = '';
+        setHomeLoading(true);
+        const frame = state.nativeFrame || findContentIframe();
+        if (frame) {
+            try {
+                if (frame.getAttribute('src') !== href) frame.setAttribute('src', href);
+            } catch (e) {}
+        } else {
+            try { window.location.assign(href); }
+            catch (e) {}
+        }
+        saveTabs();
+    }
+
     function activateTab(id, options) {
         const opts = options || {};
         const previousId = state.activeId;
@@ -2473,6 +2652,8 @@
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
         if (p === '/mvc/servicedesk/ticketnew.mvc') return 'ticket';
+        if (p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+            p === '/mvc/servicedesk/note.mvc/newticketnotepage') return 'ticketactivity';
         if (p === '/mvc/crm/accountdetail.mvc') return 'account';
         if (p === '/mvc/crm/installedproductdetail.mvc') return 'device';
         if (p === '/mvc/crm/note.mvc/view') return 'note';
@@ -2507,7 +2688,9 @@
             p.includes('/billingproductassociation') ||
             p.includes('/billingruleassociation')) return 'charge';
         if (p.startsWith('/contracts/views/contract')) return 'contract';
-        if (p === '/mvc/contracts/invoiceviewer.mvc') return 'invoice';
+        if (p === '/mvc/contracts/invoiceviewer.mvc' ||
+            p === '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer' ||
+            p === '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer') return 'invoice';
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail') return 'project';
         if (p === '/mvc/projects/taskdetail.mvc') return 'projecttask';
         if (p === '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx') return 'calendar';
@@ -2564,6 +2747,14 @@
         let key = settings && settings[type] || (line === 2 ? 'organization' : 'contact');
         if (!options.includes(key)) key = getDefaultLineField(type, line);
         const fields = tabMetadataFields(tab);
+        if (type === 'invoice') {
+            if (line === 2 && key === 'id' && !String(fields.id || '').trim() && String(fields.purchaseOrder || '').trim()) {
+                return fields.purchaseOrder;
+            }
+            if (line === 3 && key === 'none' && String(fields.organization || '').trim()) {
+                return fields.organization;
+            }
+        }
         if (type === 'administration' && line === 3 && (key === 'none' || key === 'type')) {
             const line2Settings = state.tabLine2Fields;
             const line2Options = getLineOptionsForType(type);
@@ -2619,6 +2810,20 @@
         try { parsed = new URL(url, location.origin); } catch (e) {}
         const params = parsed ? parsed.searchParams : new URLSearchParams();
 
+        if (path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage') {
+            return {
+                title: 'New Ticket Time Entry',
+                number: '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/servicedesk/note.mvc/newticketnotepage') {
+            return {
+                title: 'New Ticket Note',
+                number: '',
+                contact: '',
+            };
+        }
         if (path === '/mvc/servicedesk/ticketnew.mvc') {
             const ticketType = params.get('ticketType') || params.get('tickettype') || '';
             const typeLabel = ticketType === '2' ? 'Incident Ticket'
@@ -2672,11 +2877,14 @@
                 contact: ''
             };
         }
-        if (AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceviewer.mvc') {
+        if (AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceviewer.mvc' ||
+            AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer' ||
+            AES.normalizeHandledPath(path) === '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer') {
             const invoiceId = params.get('invoiceId') || params.get('invoiceID') || params.get('invoiceid');
+            const batchId = params.get('batchId') || params.get('batchID') || params.get('batchid');
             return {
-                title: invoiceId ? `Invoice ${invoiceId}` : 'Invoice',
-                number: invoiceId ? `ID ${invoiceId}` : 'Invoice',
+                title: invoiceId ? `Invoice ${invoiceId}` : batchId ? `Invoice Batch ${batchId}` : 'Invoice',
+                number: invoiceId ? `ID ${invoiceId}` : batchId ? `Batch ${batchId}` : 'Invoice',
                 contact: ''
             };
         }
@@ -2994,6 +3202,17 @@
         clearHomeLoading();
     }
 
+    function homeTitleForNativeUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            if (parsed.pathname.toLowerCase() === '/autotaskonyx/landingpage' &&
+                parsed.searchParams.get('view') === 'umbrella-contract-details') {
+                return 'Umbrella Contract';
+            }
+        } catch (e) {}
+        return '';
+    }
+
     function setHomeLoading(loading) {
         const next = !!loading;
         state.homeLoading = next;
@@ -3024,6 +3243,12 @@
     function updateHomeTitleFromTopLevelPage(skipFrameCheck) {
         if (!state.showTabBarOnNonIframePages) return;
         if (!skipFrameCheck && findContentIframe()) return;
+        const nativeTitle = homeTitleForNativeUrl(location.href);
+        if (nativeTitle) {
+            clearHomeLoading();
+            setHomeTitle(nativeTitle);
+            return;
+        }
         const title = extractTopLevelPageTitle();
         if (!title) return;
         clearHomeLoading();
@@ -3974,6 +4199,100 @@
         void AES.saveSettings();
     }
 
+
+    function markWelcomeNoticeAsSeen() {
+        state.welcomeNoticeLastSeenVersion = WELCOME_NOTICE_VERSION;
+        AES.state.welcomeNoticeLastSeenVersion = WELCOME_NOTICE_VERSION;
+        void AES.saveSettings();
+    }
+
+    function openWelcomeNoticeModal() {
+        if (state.releaseNotesModal || state.releaseNotesClosing) return false;
+
+        const backdrop = document.createElement('div');
+        backdrop.className = 'at-tabs-release-notes-backdrop';
+        backdrop.addEventListener('click', function () {
+            closeReleaseNotesModal();
+            markWelcomeNoticeAsSeen();
+        });
+
+        const modal = document.createElement('div');
+        modal.className = 'at-tabs-release-notes-modal';
+
+        const header = document.createElement('div');
+        header.className = 'at-tabs-release-notes-header';
+
+        const title = document.createElement('div');
+        title.className = 'at-tabs-release-notes-title';
+        title.textContent = 'Thank you for installing Autotask Enhancement Suite!';
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.className = 'at-tabs-release-notes-close';
+        close.textContent = '×';
+        close.title = 'Close welcome notice';
+        close.addEventListener('click', function () {
+            closeReleaseNotesModal();
+            markWelcomeNoticeAsSeen();
+        });
+
+        const body = document.createElement('div');
+        body.className = 'at-tabs-release-notes-body';
+
+        const description = document.createElement('p');
+        description.className = 'at-tabs-release-notes-intro';
+        description.textContent = 'This extension enhances the Autotask PSA experience by adding a native-looking tabbar preventing Autotask from creating loads of browser tabs.';
+        body.appendChild(description);
+
+        const important = document.createElement('p');
+        important.className = 'at-tabs-release-notes-intro';
+        important.textContent = 'Important note: The extension only functions correctly when the setting "Open ticket/task time entries and notes inside ticket/task window" within your Profile Settings is turned ON.';
+        body.appendChild(important);
+
+        const actions = document.createElement('div');
+        actions.className = 'at-tabs-release-notes-actions';
+
+        const settingsButton = document.createElement('button');
+        settingsButton.type = 'button';
+        settingsButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
+        settingsButton.textContent = 'Open Profile Settings';
+        settingsButton.addEventListener('click', function () {
+            markWelcomeNoticeAsSeen();
+            closeReleaseNotesModal(true);
+            try {
+                openTab(new URL('/Mvc/User/Preferences.mvc/Index', window.location.origin).href);
+            } catch (e) {}
+        });
+
+        const confirmButton = document.createElement('button');
+        confirmButton.type = 'button';
+        confirmButton.className = 'at-tabs-release-notes-action';
+        confirmButton.textContent = 'Got it';
+        confirmButton.addEventListener('click', function () {
+            markWelcomeNoticeAsSeen();
+            closeReleaseNotesModal(true);
+        });
+
+        actions.appendChild(settingsButton);
+        actions.appendChild(confirmButton);
+        header.appendChild(title);
+        header.appendChild(close);
+        modal.appendChild(header);
+        modal.appendChild(body);
+        modal.appendChild(actions);
+
+        document.body.appendChild(backdrop);
+        document.body.appendChild(modal);
+        state.releaseNotesBackdrop = backdrop;
+        state.releaseNotesModal = modal;
+        return true;
+    }
+
+    function maybeShowWelcomeNoticeModal() {
+        if (state.welcomeNoticeLastSeenVersion === WELCOME_NOTICE_VERSION) return false;
+        return openWelcomeNoticeModal();
+    }
+
     function openReleaseNotesModal() {
         if (state.releaseNotesModal || state.releaseNotesClosing) return;
 
@@ -4270,8 +4589,13 @@
             resizableTabBarEnabled: true,
             horizontalCompactTabsEnabled: false,
             roundedPageFramesEnabled: false,
+            autotaskBrandColorEnabled: false,
+            autotaskBrandColor: DEFAULT_AUTOTASK_BRAND_COLOR,
+            autotaskLogoOverrideEnabled: false,
+            autotaskLogoDataUrl: '',
             improvedScrollbarsEnabled: true,
             skipPeekBackdropCloseWarning: false,
+            peekMoveResizeEnabled: false,
             tabLine2Fields: defaultTabLineSettings(2),
             tabLine3Fields: defaultTabLineSettings(3),
             tabBarWidth: AES.BAR_W || 240,
@@ -4400,6 +4724,217 @@
         const improvedScrollbarsRow = improvedScrollbarsControl.row;
         const improvedScrollbarsInput = improvedScrollbarsControl.input;
 
+        const brandColorRow = document.createElement('div');
+        brandColorRow.className = 'at-tabs-branding-card';
+
+        const brandColorLabel = document.createElement('div');
+        brandColorLabel.className = 'at-tabs-branding-copy';
+        const brandColorName = document.createElement('span');
+        brandColorName.className = 'at-tabs-setting-name';
+        brandColorName.textContent = 'Brand color';
+        const brandColorDescription = document.createElement('span');
+        brandColorDescription.className = 'at-tabs-setting-description';
+        brandColorDescription.textContent = 'Updates Autotask accents, selected states, links, buttons, checkboxes, and AES highlights.';
+        brandColorLabel.appendChild(brandColorName);
+        brandColorLabel.appendChild(brandColorDescription);
+        brandColorRow.appendChild(brandColorLabel);
+
+        const brandColorControls = document.createElement('span');
+        brandColorControls.className = 'at-tabs-setting-color-controls';
+
+        const brandColorInput = document.createElement('input');
+        brandColorInput.type = 'color';
+        brandColorInput.className = 'at-tabs-setting-color-input';
+        brandColorInput.value = normalizeAutotaskBrandColor(state.autotaskBrandColor);
+        brandColorInput.title = 'Autotask brand primary color';
+
+        const brandColorResetButton = document.createElement('button');
+        brandColorResetButton.type = 'button';
+        brandColorResetButton.className = 'at-tabs-setting-small-button';
+        brandColorResetButton.textContent = 'Default';
+        brandColorResetButton.title = 'Revert to the default Autotask brand color';
+
+        const brandColorToggle = document.createElement('label');
+        brandColorToggle.className = 'at-tabs-setting-toggle';
+        const brandColorEnabledInput = document.createElement('input');
+        brandColorEnabledInput.type = 'checkbox';
+        brandColorEnabledInput.checked = !!state.autotaskBrandColorEnabled;
+        const brandColorToggleUi = document.createElement('span');
+        brandColorToggleUi.className = 'at-tabs-setting-toggle-ui';
+        brandColorToggle.appendChild(brandColorEnabledInput);
+        brandColorToggle.appendChild(brandColorToggleUi);
+
+        function syncBrandColorControlState() {
+            brandColorInput.disabled = !brandColorEnabledInput.checked;
+            brandColorInput.title = brandColorInput.disabled
+                ? 'Enable this setting to change the Autotask brand color'
+                : 'Autotask brand primary color';
+        }
+
+        brandColorEnabledInput.addEventListener('change', function () {
+            state.autotaskBrandColorEnabled = brandColorEnabledInput.checked;
+            AES.state.autotaskBrandColorEnabled = brandColorEnabledInput.checked;
+            syncBrandColorControlState();
+            applyAutotaskBrandColor();
+            brandingReloadNote.classList.add('visible');
+            void AES.saveSettings();
+        });
+        brandColorInput.addEventListener('input', function () {
+            const color = normalizeAutotaskBrandColor(brandColorInput.value);
+            state.autotaskBrandColor = color;
+            AES.state.autotaskBrandColor = color;
+            applyAutotaskBrandColor();
+        });
+        brandColorInput.addEventListener('change', function () {
+            const color = normalizeAutotaskBrandColor(brandColorInput.value);
+            brandColorInput.value = color;
+            state.autotaskBrandColor = color;
+            AES.state.autotaskBrandColor = color;
+            applyAutotaskBrandColor();
+            void AES.saveSettings();
+        });
+        brandColorResetButton.addEventListener('click', function () {
+            brandColorInput.value = DEFAULT_AUTOTASK_BRAND_COLOR;
+            state.autotaskBrandColor = DEFAULT_AUTOTASK_BRAND_COLOR;
+            AES.state.autotaskBrandColor = DEFAULT_AUTOTASK_BRAND_COLOR;
+            applyAutotaskBrandColor();
+            void AES.saveSettings();
+        });
+
+        brandColorControls.appendChild(brandColorInput);
+        brandColorControls.appendChild(brandColorResetButton);
+        brandColorControls.appendChild(brandColorToggle);
+        brandColorRow.appendChild(brandColorControls);
+        syncBrandColorControlState();
+
+        const logoRow = document.createElement('div');
+        logoRow.className = 'at-tabs-branding-card';
+
+        const logoLabel = document.createElement('div');
+        logoLabel.className = 'at-tabs-branding-copy';
+        const logoName = document.createElement('span');
+        logoName.className = 'at-tabs-setting-name';
+        logoName.textContent = 'Header logo';
+        const logoDescription = document.createElement('span');
+        logoDescription.className = 'at-tabs-setting-description';
+        logoDescription.textContent = 'Upload an SVG to replace the full Autotask header logo on this browser.';
+        logoLabel.appendChild(logoName);
+        logoLabel.appendChild(logoDescription);
+        logoRow.appendChild(logoLabel);
+
+        const logoControls = document.createElement('span');
+        logoControls.className = 'at-tabs-setting-file-controls';
+
+        const logoStatus = document.createElement('span');
+        logoStatus.className = 'at-tabs-setting-file-status';
+
+        const logoFileInput = document.createElement('input');
+        logoFileInput.type = 'file';
+        logoFileInput.accept = '.svg,image/svg+xml';
+        logoFileInput.className = 'at-tabs-setting-file-input';
+        logoFileInput.title = 'Upload SVG logo';
+
+        const logoUploadButton = document.createElement('button');
+        logoUploadButton.type = 'button';
+        logoUploadButton.className = 'at-tabs-setting-small-button';
+        logoUploadButton.textContent = 'Upload SVG';
+        logoUploadButton.addEventListener('click', function () {
+            logoFileInput.click();
+        });
+
+        const logoClearButton = document.createElement('button');
+        logoClearButton.type = 'button';
+        logoClearButton.className = 'at-tabs-setting-small-button';
+        logoClearButton.textContent = 'Clear';
+
+        const logoToggle = document.createElement('label');
+        logoToggle.className = 'at-tabs-setting-toggle';
+        const logoEnabledInput = document.createElement('input');
+        logoEnabledInput.type = 'checkbox';
+        logoEnabledInput.checked = !!state.autotaskLogoOverrideEnabled;
+        const logoToggleUi = document.createElement('span');
+        logoToggleUi.className = 'at-tabs-setting-toggle-ui';
+        logoToggle.appendChild(logoEnabledInput);
+        logoToggle.appendChild(logoToggleUi);
+
+        function svgTextToDataUrl(svgText) {
+            const text = String(svgText || '').trim();
+            if (!/<svg[\s>]/i.test(text)) return '';
+            if (/<script[\s>]/i.test(text)) return '';
+            return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
+        }
+
+        function syncLogoControlState() {
+            const hasLogo = !!state.autotaskLogoDataUrl;
+            logoStatus.textContent = hasLogo ? 'Custom SVG uploaded' : 'No logo uploaded';
+            logoEnabledInput.disabled = !hasLogo;
+            logoClearButton.disabled = !hasLogo;
+            if (!hasLogo) logoEnabledInput.checked = false;
+        }
+
+        logoEnabledInput.addEventListener('change', function () {
+            state.autotaskLogoOverrideEnabled = logoEnabledInput.checked && !!state.autotaskLogoDataUrl;
+            AES.state.autotaskLogoOverrideEnabled = state.autotaskLogoOverrideEnabled;
+            logoEnabledInput.checked = state.autotaskLogoOverrideEnabled;
+            syncLogoControlState();
+            applyAutotaskLogoOverride();
+            void AES.saveSettings();
+        });
+
+        logoFileInput.addEventListener('change', function () {
+            const file = logoFileInput.files && logoFileInput.files[0];
+            if (!file) return;
+            const isSvgFile = /\.svg$/i.test(file.name || '') || file.type === 'image/svg+xml';
+            if (!isSvgFile) {
+                window.alert('Please upload an SVG file.');
+                logoFileInput.value = '';
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = function () {
+                const dataUrl = svgTextToDataUrl(reader.result);
+                if (!dataUrl) {
+                    window.alert('Please upload a valid SVG file without script tags.');
+                    logoFileInput.value = '';
+                    return;
+                }
+                state.autotaskLogoDataUrl = dataUrl;
+                state.autotaskLogoOverrideEnabled = true;
+                AES.state.autotaskLogoDataUrl = dataUrl;
+                AES.state.autotaskLogoOverrideEnabled = true;
+                logoEnabledInput.checked = true;
+                logoFileInput.value = '';
+                syncLogoControlState();
+                applyAutotaskLogoOverride();
+                void AES.saveSettings();
+            };
+            reader.onerror = function () {
+                window.alert('AES could not read that SVG file.');
+                logoFileInput.value = '';
+            };
+            reader.readAsText(file);
+        });
+
+        logoClearButton.addEventListener('click', function () {
+            state.autotaskLogoDataUrl = '';
+            state.autotaskLogoOverrideEnabled = false;
+            AES.state.autotaskLogoDataUrl = '';
+            AES.state.autotaskLogoOverrideEnabled = false;
+            logoEnabledInput.checked = false;
+            logoFileInput.value = '';
+            syncLogoControlState();
+            applyAutotaskLogoOverride();
+            void AES.saveSettings();
+        });
+
+        logoControls.appendChild(logoStatus);
+        logoControls.appendChild(logoUploadButton);
+        logoControls.appendChild(logoFileInput);
+        logoControls.appendChild(logoClearButton);
+        logoControls.appendChild(logoToggle);
+        logoRow.appendChild(logoControls);
+        syncLogoControlState();
+
         const phoneControl = createSettingsToggleRow({
             name: 'Clickable phone numbers',
             info: 'Turns detected phone numbers into clickable tel links.',
@@ -4471,11 +5006,11 @@
         const resizeInput = resizeControl.input;
 
         const hideControl = createSettingsToggleRow({
-            name: 'Hide tab bar',
-            info: 'Manually disable the tab bar that gets added by this extension',
-            checked: state.shellHidden,
+            name: 'Enable tab bar',
+            info: 'Shows the AES tab bar in Autotask.',
+            checked: !state.shellHidden,
             onChange: function (input) {
-                state.shellHidden = input.checked;
+                state.shellHidden = !input.checked;
                 updateShellVisibility();
             }
         });
@@ -4541,6 +5076,19 @@
         });
         const peekConfirmRow = peekConfirmControl.row;
         const peekConfirmInput = peekConfirmControl.input;
+
+        const peekMoveResizeControl = createSettingsToggleRow({
+            name: 'Allow resizing and moving of Peek windows',
+            info: 'Adds drag and resize controls to Peek windows. Disabled by default to keep Peek behavior closest to Autotask.',
+            checked: !!state.peekMoveResizeEnabled,
+            onChange: function (input) {
+                state.peekMoveResizeEnabled = input.checked;
+                AES.state.peekMoveResizeEnabled = input.checked;
+                void AES.saveSettings();
+            }
+        });
+        const peekMoveResizeRow = peekMoveResizeControl.row;
+        const peekMoveResizeInput = peekMoveResizeControl.input;
 
         const customizationSection = document.createElement('div');
         customizationSection.className = 'at-tabs-settings-section';
@@ -4668,14 +5216,37 @@
 
         const uiSection = document.createElement('div');
         uiSection.className = 'at-tabs-settings-section';
+        const peekSection = document.createElement('div');
+        peekSection.className = 'at-tabs-settings-section';
+        const brandingSection = document.createElement('div');
+        brandingSection.className = 'at-tabs-settings-section';
+        const brandingWarning = document.createElement('div');
+        brandingWarning.className = 'at-tabs-settings-warning';
+        brandingWarning.textContent = 'These settings are only visible locally and may cause visual issues or unreadable text.';
+        const brandingReloadNote = document.createElement('div');
+        brandingReloadNote.className = 'at-tabs-setting-reload-note';
+        const brandingReloadText = document.createElement('span');
+        brandingReloadText.textContent = 'Refresh this browser tab to fully apply Branding changes across existing Autotask pages.';
+        const brandingReloadButton = document.createElement('button');
+        brandingReloadButton.type = 'button';
+        brandingReloadButton.className = 'at-tabs-setting-reload-button';
+        brandingReloadButton.textContent = 'Refresh now';
+        brandingReloadButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            void AES.saveSettings().then(function () {
+                window.location.reload();
+            });
+        });
+        brandingReloadNote.appendChild(brandingReloadText);
+        brandingReloadNote.appendChild(brandingReloadButton);
 
+        section.appendChild(hideRow);
         section.appendChild(orientationRow);
         section.appendChild(resizeRow);
         section.appendChild(everywhereRow);
-        section.appendChild(hideRow);
         section.appendChild(openAtStartRow);
         section.appendChild(persistRow);
-        section.appendChild(peekConfirmRow);
         generalSection.appendChild(enabledRow);
         generalSection.appendChild(enabledReloadNote);
         uiSection.appendChild(earlyAccessRow);
@@ -4683,6 +5254,12 @@
         uiSection.appendChild(roundedPageFramesRow);
         uiSection.appendChild(improvedScrollbarsRow);
         uiSection.appendChild(phoneRow);
+        peekSection.appendChild(peekConfirmRow);
+        peekSection.appendChild(peekMoveResizeRow);
+        brandingSection.appendChild(brandingWarning);
+        brandingSection.appendChild(brandColorRow);
+        brandingSection.appendChild(logoRow);
+        brandingSection.appendChild(brandingReloadNote);
 
         const nav = document.createElement('div');
         nav.className = 'at-tabs-settings-nav';
@@ -4690,9 +5267,11 @@
         pages.className = 'at-tabs-settings-pages';
         const pageDefs = [
             { id: 'general', label: 'General', description: 'Core extension controls.', section: generalSection },
+            { id: 'tabbar', label: 'Tab Bar', description: 'Position, persistence, and visibility.', section: section },
+            { id: 'peek', label: 'Peek', description: 'Overlay behavior for previewing Autotask pages.', section: peekSection },
             { id: 'ui', label: 'Enhancements', description: 'Visual tweaks for Autotask and native navigation cleanup.', section: uiSection },
-            { id: 'tabbar', label: 'Tab bar', description: 'Position, persistence, Peek behavior, and visibility.', section: section },
-            { id: 'customization', label: 'Customization', description: 'Choose what metadata appears on each tab line.', section: customizationSection },
+            { id: 'branding', label: 'Branding', description: 'Experimental color and logo overrides for Autotask.', section: brandingSection },
+            { id: 'customization', label: 'Metadata', description: 'Choose what metadata appears on each tab line.', section: customizationSection },
         ];
         const navButtons = [];
         const pageEls = [];
@@ -4756,22 +5335,32 @@
 
             enabledInput.checked = defaults.extensionEnabled;
             enabledReloadNote.classList.remove('visible');
+            brandingReloadNote.classList.remove('visible');
             earlyAccessInput.checked = defaults.hideEarlyAccessLabels;
             resourcePlannerInput.checked = defaults.replaceCalendarWithResourcePlanner;
             roundedPageFramesInput.checked = defaults.roundedPageFramesEnabled;
+            brandColorEnabledInput.checked = defaults.autotaskBrandColorEnabled;
+            brandColorInput.value = defaults.autotaskBrandColor;
+            syncBrandColorControlState();
+            logoEnabledInput.checked = defaults.autotaskLogoOverrideEnabled;
+            logoFileInput.value = '';
+            syncLogoControlState();
             orientationSelect.value = defaults.barOrientation === 'vertical' ? 'vertical-left' : (defaults.horizontalCompactTabsEnabled ? 'horizontal-compact' : 'horizontal');
             resizeInput.checked = defaults.resizableTabBarEnabled;
-            hideInput.checked = state.shellHidden;
+            hideInput.checked = !state.shellHidden;
             openAtStartInput.checked = defaults.openNewTabsAtStart;
             persistInput.checked = defaults.rememberTabsAfterClose;
             everywhereInput.checked = defaults.showTabBarOnNonIframePages;
             peekConfirmInput.checked = !defaults.skipPeekBackdropCloseWarning;
+            peekMoveResizeInput.checked = defaults.peekMoveResizeEnabled;
             improvedScrollbarsInput.checked = defaults.improvedScrollbarsEnabled;
             phoneInput.checked = defaults.phoneLinksEnabled;
             setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
             updateCustomizationCompactState();
 
             applyAutotaskTheme();
+            applyAutotaskBrandColor();
+            applyAutotaskLogoOverride();
             applyBarOrientationClass();
             applyPageFrameClass();
             syncImprovedScrollbarsState();
@@ -5049,11 +5638,19 @@
     // Diagnostic mode: try to reuse the already-loaded real tab iframe for
     // Peek. This intentionally stresses the shell so we can inspect why it
     // fails; if it cannot reuse, it falls back to the temporary iframe path.
-    function closePeekModal(immediate) {
+    function closePeekModal(immediate, options) {
+        const opts = options || {};
+        const refreshOriginTabId = opts.refreshOrigin === true ? state.peekOriginTabId : null;
+        const refreshOriginAfterClose = function () {
+            if (typeof refreshOriginTabId !== 'number') return;
+            const originTab = tabById(refreshOriginTabId);
+            if (originTab) refreshTabIframe(originTab);
+        };
         if (state.peekClosing && !immediate) return;
         closePeekCloseConfirm();
         if (immediate || prefersReducedMotion()) {
             removePeekModalNow();
+            refreshOriginAfterClose();
             return;
         }
         if (!state.peekBackdrop && !state.peekWrapper && !state.peekReuseIframe) return;
@@ -5061,10 +5658,17 @@
         if (state.peekBackdrop) state.peekBackdrop.classList.add('closing');
         if (state.peekWrapper) state.peekWrapper.classList.add('closing');
         if (state.viewport && state.peekReuseIframe) state.viewport.classList.add('peek-closing');
-        window.setTimeout(removePeekModalNow, AES_MODAL_EXIT_MS);
+        window.setTimeout(function () {
+            removePeekModalNow();
+            refreshOriginAfterClose();
+        }, AES_MODAL_EXIT_MS);
     }
 
     function removePeekModalNow() {
+        if (state.peekMoveResizeCleanup) {
+            try { state.peekMoveResizeCleanup(); } catch (e) {}
+            state.peekMoveResizeCleanup = null;
+        }
         stopPeekLiveReuse();
         if (state.peekBackdrop) {
             state.peekBackdrop.remove();
@@ -5076,6 +5680,7 @@
         }
         state.peekModal = null;
         state.peekTabId = null;
+        state.peekOriginTabId = null;
         state.peekClosing = false;
     }
 
@@ -5155,6 +5760,181 @@
         closeButton.focus();
     }
 
+    function peekActionsExtraWidth(actions) {
+        if (!actions) return 0;
+        const rect = actions.getBoundingClientRect();
+        const width = rect && rect.width ? rect.width : 0;
+        return Math.ceil(width + 12);
+    }
+
+    function clampPeekGeometry(geometry, actions) {
+        const margin = 16;
+        const minWidth = Math.min(560, Math.max(360, window.innerWidth - (margin * 2)));
+        const minHeight = Math.min(360, Math.max(260, window.innerHeight - (margin * 2)));
+        const actionWidth = peekActionsExtraWidth(actions);
+        const maxWidth = Math.max(minWidth, window.innerWidth - (margin * 2) - actionWidth);
+        const maxHeight = Math.max(minHeight, window.innerHeight - (margin * 2));
+        const width = Math.min(maxWidth, Math.max(minWidth, geometry.width));
+        const height = Math.min(maxHeight, Math.max(minHeight, geometry.height));
+        const maxLeft = Math.max(margin, window.innerWidth - width - actionWidth - margin);
+        const maxTop = Math.max(margin, window.innerHeight - height - margin);
+        const left = Math.min(maxLeft, Math.max(margin, geometry.left));
+        const top = Math.min(maxTop, Math.max(margin, geometry.top));
+        return { left, top, width, height };
+    }
+
+    function applyPeekGeometry(wrapper, modal, actions, geometry) {
+        if (!wrapper || !modal) return;
+        const next = clampPeekGeometry(geometry, actions);
+        wrapper.classList.add('at-tabs-peek-positioned');
+        setCssPx(wrapper, 'left', next.left);
+        setCssPx(wrapper, 'top', next.top);
+        wrapper.style.right = 'auto';
+        wrapper.style.bottom = 'auto';
+        wrapper.style.transform = 'none';
+        setCssPx(modal, 'width', next.width);
+        setCssPx(modal, 'height', next.height);
+        if (state.peekSyncOverlay) requestAnimationFrame(state.peekSyncOverlay);
+    }
+
+    function currentPeekGeometry(wrapper, modal) {
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const modalRect = modal.getBoundingClientRect();
+        return {
+            left: wrapperRect.left,
+            top: wrapperRect.top,
+            width: modalRect.width,
+            height: modalRect.height
+        };
+    }
+
+    function centerPeekGeometry(modal, actions) {
+        const actionWidth = peekActionsExtraWidth(actions);
+        const width = Math.min(1430, Math.max(360, window.innerWidth - 96 - actionWidth));
+        const height = Math.min(1014, Math.max(260, window.innerHeight - 48));
+        return {
+            left: Math.max(16, (window.innerWidth - width - actionWidth) / 2),
+            top: Math.max(16, (window.innerHeight - height) / 2),
+            width,
+            height
+        };
+    }
+
+    function installPeekMoveResize(wrapper, modal, actions, moveHandle, resetButton) {
+        if (!wrapper || !modal) return;
+        if (state.peekMoveResizeCleanup) {
+            try { state.peekMoveResizeCleanup(); } catch (e) {}
+            state.peekMoveResizeCleanup = null;
+        }
+
+        const dragHandle = document.createElement('button');
+        dragHandle.type = 'button';
+        dragHandle.className = 'at-tabs-peek-drag-handle';
+        dragHandle.title = 'Drag Peek window';
+        dragHandle.setAttribute('aria-label', 'Drag Peek window');
+
+        const resizeHandle = document.createElement('div');
+        resizeHandle.className = 'at-tabs-peek-resize-handle';
+        resizeHandle.title = 'Resize Peek window';
+        resizeHandle.setAttribute('aria-label', 'Resize Peek window');
+
+        modal.appendChild(dragHandle);
+        modal.appendChild(resizeHandle);
+
+        let activeInteraction = null;
+
+        const syncToViewport = function () {
+            if (state.peekSyncOverlay) requestAnimationFrame(state.peekSyncOverlay);
+        };
+
+        const beginInteraction = function (event, mode) {
+            if (!event || event.button !== 0) return;
+            if (!wrapper.isConnected || !modal.isConnected) return;
+            event.preventDefault();
+            event.stopPropagation();
+            activeInteraction = {
+                mode,
+                pointerId: event.pointerId,
+                startX: event.clientX,
+                startY: event.clientY,
+                start: currentPeekGeometry(wrapper, modal)
+            };
+            document.documentElement.classList.add('aes-peek-interacting');
+            try {
+                event.currentTarget.setPointerCapture(event.pointerId);
+            } catch (e) {}
+            window.addEventListener('pointermove', onPointerMove, true);
+            window.addEventListener('pointerup', endInteraction, true);
+            window.addEventListener('pointercancel', endInteraction, true);
+        };
+
+        const onPointerMove = function (event) {
+            if (!activeInteraction) return;
+            if (event.pointerId !== activeInteraction.pointerId) return;
+            event.preventDefault();
+            const dx = event.clientX - activeInteraction.startX;
+            const dy = event.clientY - activeInteraction.startY;
+            const start = activeInteraction.start;
+            if (activeInteraction.mode === 'resize') {
+                applyPeekGeometry(wrapper, modal, actions, {
+                    left: start.left,
+                    top: start.top,
+                    width: start.width + dx,
+                    height: start.height + dy
+                });
+            } else {
+                applyPeekGeometry(wrapper, modal, actions, {
+                    left: start.left + dx,
+                    top: start.top + dy,
+                    width: start.width,
+                    height: start.height
+                });
+            }
+        };
+
+        const endInteraction = function (event) {
+            if (!activeInteraction) return;
+            if (event && event.pointerId !== activeInteraction.pointerId) return;
+            activeInteraction = null;
+            document.documentElement.classList.remove('aes-peek-interacting');
+            window.removeEventListener('pointermove', onPointerMove, true);
+            window.removeEventListener('pointerup', endInteraction, true);
+            window.removeEventListener('pointercancel', endInteraction, true);
+            syncToViewport();
+        };
+
+        const resetPeekGeometry = function () {
+            applyPeekGeometry(wrapper, modal, actions, centerPeekGeometry(modal, actions));
+        };
+
+        const clampOnViewportResize = function () {
+            applyPeekGeometry(wrapper, modal, actions, currentPeekGeometry(wrapper, modal));
+        };
+
+        dragHandle.addEventListener('pointerdown', function (event) { beginInteraction(event, 'move'); });
+        dragHandle.addEventListener('dblclick', resetPeekGeometry);
+        resizeHandle.addEventListener('pointerdown', function (event) { beginInteraction(event, 'resize'); });
+        if (moveHandle) {
+            moveHandle.addEventListener('pointerdown', function (event) { beginInteraction(event, 'move'); });
+        }
+        if (resetButton) {
+            resetButton.addEventListener('click', resetPeekGeometry);
+        }
+        window.addEventListener('resize', clampOnViewportResize);
+
+        applyPeekGeometry(wrapper, modal, actions, currentPeekGeometry(wrapper, modal));
+
+        state.peekMoveResizeCleanup = function () {
+            document.documentElement.classList.remove('aes-peek-interacting');
+            window.removeEventListener('pointermove', onPointerMove, true);
+            window.removeEventListener('pointerup', endInteraction, true);
+            window.removeEventListener('pointercancel', endInteraction, true);
+            window.removeEventListener('resize', clampOnViewportResize);
+            try { dragHandle.remove(); } catch (e) {}
+            try { resizeHandle.remove(); } catch (e) {}
+        };
+    }
+
     function assignPeekOpener(iframe, openerWindow) {
         if (!iframe || !openerWindow) return;
         try {
@@ -5164,11 +5944,47 @@
         } catch (e) {}
     }
 
+    function shouldAllowProgrammaticPeekConversion(url) {
+        const path = AES.normalizeHandledPath(AES.pathOf(url)).toLowerCase();
+        return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
+            path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+            path === '/mvc/servicedesk/note.mvc/newticketnotepage';
+    }
+
+    function ensurePeekTargetTabForConversion(peekTab, options) {
+        const opts = options || {};
+        const targetUrl = peekTab && peekTab.url;
+        if (!targetUrl) return null;
+        if (typeof peekTab.id === 'number') {
+            const existingById = tabById(peekTab.id) || peekTab;
+            if (opts.activate && existingById && typeof existingById.id === 'number') activateTab(existingById.id);
+            return existingById;
+        }
+        const existing = state.tabs.find(function (candidate) { return candidate.url === targetUrl; });
+        if (existing) {
+            if (opts.activate) activateTab(existing.id);
+            return existing;
+        }
+        const previousActiveId = state.activeId;
+        const created = createAndAddTab(targetUrl) || state.tabs.slice().reverse().find(function (candidate) {
+            return candidate.url === targetUrl;
+        });
+        if (!created) return null;
+        if (opts.activate) {
+            activateTab(created.id);
+        } else if (previousActiveId !== null && previousActiveId !== created.id && tabById(previousActiveId)) {
+            activateTab(previousActiveId);
+        }
+        return created;
+    }
+
     function openPeekModal(tab, options) {
         if (!tab || !tab.url) return;
         const opts = options || {};
         const canOpenPeekAsTab = opts.allowOpenInTab === true;
         const openerWindow = opts.openerWindow || null;
+        const openerTab = openerWindow ? findTabFromWindow(openerWindow) : null;
         closePeekModal(true);
         hideHoverCard(true);
 
@@ -5233,26 +6049,43 @@
         closeBtn.textContent = '×';
         closeBtn.addEventListener('click', closePeekModal);
 
+        const peekMoveResizeEnabled = !!state.peekMoveResizeEnabled;
+        let resetPositionBtn = null;
+        if (peekMoveResizeEnabled) {
+            resetPositionBtn = document.createElement('button');
+            resetPositionBtn.type = 'button';
+            resetPositionBtn.className = 'at-tabs-peek-action reset-position-action';
+            resetPositionBtn.title = 'Reset Peek position and size';
+            resetPositionBtn.setAttribute('aria-label', 'Reset Peek position and size');
+            appendIconMarkup(resetPositionBtn, '<span class="fa-arrow-rotate-left fa-solid" aria-hidden="true"></span>');
+        }
+
         const splitBtn = document.createElement('button');
         splitBtn.type = 'button';
         splitBtn.className = 'at-tabs-peek-action split-action';
         splitBtn.title = 'Split with current tab';
         splitBtn.setAttribute('aria-label', 'Split with current tab');
         appendIconMarkup(splitBtn, '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg>');
-        const canSplit = opts.allowSplit !== false && typeof tab.id === 'number' && state.activeId !== null && state.activeId !== tab.id;
+        const canConvertPeekToTab = canOpenPeekAsTab && typeof tab.id !== 'number';
+        const canSplitExistingTab = opts.allowSplit !== false && typeof tab.id === 'number' && state.activeId !== null && state.activeId !== tab.id;
+        const canSplitConvertedTab = opts.allowSplit === true && canConvertPeekToTab && state.activeId !== null;
+        const canSplit = canSplitExistingTab || canSplitConvertedTab;
         if (!canSplit) {
             splitBtn.disabled = true;
             splitBtn.title = state.activeId === null
                 ? 'Open another custom tab first to split with'
-                : typeof tab.id !== 'number'
-                    ? 'Open this Peek as a tab before splitting'
-                    : 'Cannot split a tab with itself';
+                : canConvertPeekToTab
+                    ? 'Convert this Peek to a tab before splitting'
+                    : typeof tab.id !== 'number'
+                        ? 'Open this Peek as a tab before splitting'
+                        : 'Cannot split a tab with itself';
         }
         splitBtn.addEventListener('click', function () {
             if (splitBtn.disabled) return;
-            const tabId = tab.id;
+            const targetTab = ensurePeekTargetTabForConversion(tab, { activate: false });
+            const tabId = targetTab && targetTab.id;
             closePeekModal();
-            enableSplitScreen(tabId);
+            if (typeof tabId === 'number') enableSplitScreen(tabId);
         });
 
         const openInTabBtn = document.createElement('button');
@@ -5264,12 +6097,13 @@
         appendIconMarkup(openInTabBtn, '<span class="fa-up-right-from-square fa-regular" aria-hidden="true"></span>');
         openInTabBtn.addEventListener('click', function () {
             if (!canOpenPeekAsTab) return;
-            const targetUrl = tab.url;
+            const targetTab = ensurePeekTargetTabForConversion(tab, { activate: true });
             closePeekModal();
-            openTab(targetUrl);
+            if (targetTab && typeof targetTab.id === 'number') activateTab(targetTab.id);
         });
 
         actions.appendChild(closeBtn);
+        if (resetPositionBtn) actions.appendChild(resetPositionBtn);
         actions.appendChild(openInTabBtn);
         actions.appendChild(splitBtn);
 
@@ -5283,6 +6117,14 @@
         state.peekWrapper = wrapper;
         state.peekModal = modal;
         state.peekTabId = tab.id;
+        state.peekOriginTabId = typeof tab.id === 'number'
+            ? tab.id
+            : openerTab && typeof openerTab.id === 'number'
+                ? openerTab.id
+                : null;
+        if (peekMoveResizeEnabled) {
+            installPeekMoveResize(wrapper, modal, actions, null, resetPositionBtn);
+        }
         if (reusedLiveIframe && state.peekSyncOverlay) {
             requestAnimationFrame(state.peekSyncOverlay);
         }
@@ -5514,10 +6356,25 @@
         state.hoverHideTimer = setTimeout(doHide, HOVER_HIDE_DELAY_MS);
     }
 
-    function openTab(url) {
+    function openTab(url, options) {
         if (!featuresEnabled()) return;
+        const opts = options || {};
+        if (!opts.skipContractProbe && isLegacyContractViewUrl(url)) {
+            openLegacyContractWithProbe(url);
+            return;
+        }
+        openTabDirect(url);
+    }
+
+    function openTabDirect(url) {
+        if (!featuresEnabled()) return;
+        if (AES.isNativeHomeUrl && AES.isNativeHomeUrl(url)) {
+            openUrlOnHome(url);
+            return;
+        }
         if (shouldOpenUrlInPeek(url)) {
-            openUrlInPeek(url);
+            const allowConversion = shouldAllowProgrammaticPeekConversion(url);
+            openUrlInPeek(url, allowConversion ? { allowOpenInTab: true, allowSplit: true } : undefined);
             return;
         }
         const existing = state.tabs.find(t => t.url === url);
@@ -5528,9 +6385,104 @@
         createAndAddTab(url);
     }
 
+    function openLegacyContractWithProbe(url) {
+        let targetUrl = '';
+        try { targetUrl = new URL(url || '', location.origin).href; }
+        catch (e) { return; }
+
+        const existing = state.tabs.find(t => t.url === targetUrl);
+        if (existing) {
+            activateTab(existing.id);
+            return;
+        }
+
+        if (state.contractProbeUrl === targetUrl) {
+            showContractProbeOverlay();
+            return;
+        }
+
+        state.contractProbeUrl = targetUrl;
+        showContractProbeOverlay();
+
+        const finish = function (mode, resolvedUrl) {
+            if (state.contractProbeUrl !== targetUrl) return;
+            state.contractProbeUrl = '';
+            hideContractProbeOverlay();
+
+            if (mode === 'home' && resolvedUrl) {
+                openUrlOnHome(resolvedUrl);
+                return;
+            }
+
+            openTab(targetUrl, { skipContractProbe: true });
+        };
+
+        const failOpenTab = function () {
+            finish('tab', targetUrl);
+        };
+
+        let settled = false;
+        let legacySettleTimer = 0;
+        const probeFrame = document.createElement('iframe');
+        state.contractProbeFrame = probeFrame;
+        probeFrame.setAttribute('aria-hidden', 'true');
+        probeFrame.style.position = 'fixed';
+        probeFrame.style.left = '-10000px';
+        probeFrame.style.top = '0';
+        probeFrame.style.width = '1px';
+        probeFrame.style.height = '1px';
+        probeFrame.style.opacity = '0';
+        probeFrame.style.pointerEvents = 'none';
+
+        const cleanup = function () {
+            if (legacySettleTimer) {
+                window.clearTimeout(legacySettleTimer);
+                legacySettleTimer = 0;
+            }
+            try { probeFrame.remove(); } catch (e) {}
+            if (state.contractProbeFrame === probeFrame) state.contractProbeFrame = null;
+        };
+
+        const settle = function (mode, resolvedUrl) {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutId);
+            cleanup();
+            finish(mode, resolvedUrl);
+        };
+
+        const timeoutId = window.setTimeout(function () {
+            settle('tab', targetUrl);
+        }, 7000);
+
+        probeFrame.addEventListener('load', function () {
+            if (settled) return;
+            const loadedUrl = currentFrameUrl(probeFrame);
+            if (loadedUrl && AES.isNativeHomeUrl && AES.isNativeHomeUrl(loadedUrl)) {
+                settle('home', loadedUrl);
+                return;
+            }
+
+            if (isLegacyContractViewUrl(loadedUrl || targetUrl)) {
+                if (legacySettleTimer) window.clearTimeout(legacySettleTimer);
+                legacySettleTimer = window.setTimeout(function () {
+                    settle('tab', targetUrl);
+                }, 900);
+            }
+        });
+
+        try {
+            document.body.appendChild(probeFrame);
+            probeFrame.src = targetUrl;
+        } catch (e) {
+            settle('tab', targetUrl);
+        }
+    }
+
     function shouldOpenUrlInPeek(url) {
         const path = AES.normalizeHandledPath(AES.pathOf(url)).toLowerCase();
-        return path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
+        return shouldAllowProgrammaticPeekConversion(url) ||
+            path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
             path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties';
     }
 
@@ -5676,7 +6628,7 @@
 
         if (data.type === 'close-frame' || data.type === 'close-peek') {
             if (windowBelongsToPeek(event.source)) {
-                closePeekModal();
+                closePeekModal(false, { refreshOrigin: true });
                 return;
             }
             const tab = findTabFromWindow(event.source);
@@ -5692,8 +6644,23 @@
             return;
         }
 
+        if (data.type === 'native-open' && data.url) {
+            try {
+                const targetUrl = AES.toAbsoluteUrl(data.url);
+                if (!AES.isNativeHomeUrl(targetUrl)) return;
+                activateHome();
+                if (location.href !== targetUrl) location.assign(targetUrl);
+            } catch (e) {}
+            return;
+        }
+
         if (data.type === 'open-peek' && data.url) {
-            openUrlInPeek(data.url, { openerWindow: event.source });
+            const allowConversion = shouldAllowProgrammaticPeekConversion(data.url);
+            openUrlInPeek(data.url, {
+                openerWindow: event.source,
+                allowOpenInTab: allowConversion,
+                allowSplit: allowConversion,
+            });
             return;
         }
 
@@ -5771,7 +6738,7 @@
             // native-frame source match instead of trusting "not a tab".
             if (findTabFromWindow(event.source)) return;
             if (!findNativeFrameFromWindow(event.source)) return;
-            setHomeTitle(data.title);
+            setHomeTitle(homeTitleForNativeUrl(currentNativeFrameUrl()) || data.title);
             return;
         }
     }
@@ -5848,6 +6815,16 @@
 
         const handledUrl = AES.extractHandledUrlFromLandingPageUrl(topHref);
         if (!handledUrl) {
+            const active = state.activeId === null ? null : tabById(state.activeId);
+            if (active && shouldMoveLegacyContractRedirectToHome(active, topHref)) {
+                state.homePersistedUrl = topHref;
+                state.homePersistedTitle = '';
+                activateHome();
+                closeTab(active.id);
+                state.lastObservedTopHandledUrl = '';
+                saveTabs();
+                return;
+            }
             state.lastObservedTopHandledUrl = '';
             if (hrefChanged && !firstObservation && state.activeId !== null) {
                 activateHome();
@@ -5892,11 +6869,178 @@
         for (const tab of state.tabs) applyTabColorStyle(tab);
     }
 
+    function clearAesAccentColorVariables() {
+        document.documentElement.style.removeProperty('--aes-accent-color');
+        document.documentElement.style.removeProperty('--aes-accent-color-muted');
+        document.documentElement.style.removeProperty('--aes-accent-color-strong');
+        document.documentElement.style.removeProperty('--aes-accent-color-soft');
+        document.documentElement.style.removeProperty('--aes-accent-link-color');
+        document.documentElement.style.removeProperty('--aes-accent-active-bg');
+        document.documentElement.style.removeProperty('--aes-accent-scrollbar');
+        document.documentElement.style.removeProperty('--aes-accent-scrollbar-hover');
+        document.documentElement.style.removeProperty('--aes-accent-scrollbar-dark');
+        document.documentElement.style.removeProperty('--aes-accent-scrollbar-dark-hover');
+        document.documentElement.style.removeProperty('--aes-accent-icon-filter');
+        document.documentElement.style.removeProperty('--aes-titlebar-icon-filter');
+    }
+
+    function applyAesAccentColorVariables(color) {
+        document.documentElement.style.setProperty('--aes-accent-color', color);
+        document.documentElement.style.setProperty('--aes-accent-color-muted', colorToRgba(color, 0.58));
+        document.documentElement.style.setProperty('--aes-accent-color-strong', colorToRgba(color, 0.72));
+        document.documentElement.style.setProperty('--aes-accent-color-soft', colorToRgba(color, 0.5));
+        document.documentElement.style.setProperty('--aes-accent-link-color', color);
+        document.documentElement.style.setProperty('--aes-accent-active-bg', colorToRgba(color, 0.15));
+        document.documentElement.style.setProperty('--aes-accent-scrollbar', colorToRgba(color, 0.5));
+        document.documentElement.style.setProperty('--aes-accent-scrollbar-hover', colorToRgba(color, 0.75));
+        document.documentElement.style.setProperty('--aes-accent-scrollbar-dark', colorToRgba(color, 0.58));
+        document.documentElement.style.setProperty('--aes-accent-scrollbar-dark-hover', colorToRgba(color, 0.82));
+        document.documentElement.style.setProperty('--aes-accent-icon-filter', colorToSpriteFilter(color));
+        document.documentElement.style.setProperty('--aes-titlebar-icon-filter', colorToTitlebarIconFilter(color));
+    }
+
+    function applyAutotaskBrandColor() {
+        const body = document.body;
+        const enabled = featuresEnabled() && !!state.autotaskBrandColorEnabled;
+        const color = normalizeAutotaskBrandColor(state.autotaskBrandColor);
+        state.autotaskBrandColor = color;
+        AES.state.autotaskBrandColor = color;
+
+        if (enabled) {
+            document.documentElement.classList.add('aes-brand-link-colors');
+            applyAesAccentColorVariables(color);
+            if (body) {
+                if (!state.autotaskBrandColorOverrideApplied) {
+                    state.autotaskBrandColorOriginal = body.style.getPropertyValue('--brand-primary-color') || '';
+                    state.autotaskBrandColorOverrideApplied = true;
+                }
+                if ((body.style.getPropertyValue('--brand-primary-color') || '').trim().toLowerCase() !== color) {
+                    body.style.setProperty('--brand-primary-color', color);
+                }
+            }
+            broadcastImprovedScrollbarsState();
+            return;
+        }
+
+        document.documentElement.classList.remove('aes-brand-link-colors');
+        clearAesAccentColorVariables();
+        if (body && state.autotaskBrandColorOverrideApplied) {
+            if (state.autotaskBrandColorOriginal) {
+                body.style.setProperty('--brand-primary-color', state.autotaskBrandColorOriginal);
+            } else {
+                body.style.removeProperty('--brand-primary-color');
+            }
+        }
+        state.autotaskBrandColorOriginal = null;
+        state.autotaskBrandColorOverrideApplied = false;
+        broadcastImprovedScrollbarsState();
+    }
+
+    function autotaskLogoOverrideActive() {
+        return featuresEnabled()
+            && !!state.autotaskLogoOverrideEnabled
+            && typeof state.autotaskLogoDataUrl === 'string'
+            && state.autotaskLogoDataUrl.startsWith('data:image/svg+xml');
+    }
+
+    function restoreAutotaskLogo(img) {
+        if (!img || img.dataset.aesAutotaskLogoOverride !== 'true') return;
+        const originalSrc = img.dataset.aesAutotaskLogoOriginalSrc || '';
+        if (originalSrc && img.getAttribute('src') !== originalSrc) {
+            img.setAttribute('src', originalSrc);
+        }
+        if (Object.prototype.hasOwnProperty.call(img.dataset, 'aesAutotaskLogoOriginalStyle')) {
+            const originalStyle = img.dataset.aesAutotaskLogoOriginalStyle;
+            if (originalStyle) img.setAttribute('style', originalStyle);
+            else img.removeAttribute('style');
+        }
+        delete img.dataset.aesAutotaskLogoOverride;
+        delete img.dataset.aesAutotaskLogoOriginalSrc;
+        delete img.dataset.aesAutotaskLogoOriginalStyle;
+        delete img.dataset.aesAutotaskLogoWidth;
+        delete img.dataset.aesAutotaskLogoHeight;
+    }
+
+    function constrainAutotaskLogo(img) {
+        if (!img) return;
+        let width = parseInt(img.dataset.aesAutotaskLogoWidth || '', 10);
+        let height = parseInt(img.dataset.aesAutotaskLogoHeight || '', 10);
+        if (!Number.isFinite(width) || width <= 0 || width > 320) {
+            const rect = img.getBoundingClientRect ? img.getBoundingClientRect() : null;
+            width = rect && rect.width > 0 && rect.width <= 320
+                ? Math.round(rect.width)
+                : AUTOTASK_CUSTOM_LOGO_FALLBACK_WIDTH;
+        }
+        if (!Number.isFinite(height) || height <= 0 || height > 80) {
+            const rect = img.getBoundingClientRect ? img.getBoundingClientRect() : null;
+            height = rect && rect.height > 0 && rect.height <= 80
+                ? Math.round(rect.height)
+                : AUTOTASK_CUSTOM_LOGO_FALLBACK_HEIGHT;
+        }
+        img.dataset.aesAutotaskLogoWidth = String(width);
+        img.dataset.aesAutotaskLogoHeight = String(height);
+        img.style.setProperty('display', 'block', 'important');
+        img.style.setProperty('width', width + 'px', 'important');
+        img.style.setProperty('max-width', width + 'px', 'important');
+        img.style.setProperty('height', height + 'px', 'important');
+        img.style.setProperty('max-height', height + 'px', 'important');
+        img.style.setProperty('box-sizing', 'border-box', 'important');
+        img.style.setProperty('padding', '0 25px 0 16px', 'important');
+        img.style.setProperty('object-fit', 'contain', 'important');
+    }
+
+    function applyAutotaskLogoOverride() {
+        const active = autotaskLogoOverrideActive();
+        const logos = Array.from(document.querySelectorAll(AUTOTASK_FULL_LOGO_SELECTOR));
+        if (!active) {
+            logos.forEach(restoreAutotaskLogo);
+            return;
+        }
+
+        logos.forEach(function (img) {
+            if (img.dataset.aesAutotaskLogoOverride !== 'true') {
+                const rect = img.getBoundingClientRect ? img.getBoundingClientRect() : null;
+                const width = rect && rect.width > 0 ? Math.round(rect.width) : 0;
+                const height = rect && rect.height > 0 ? Math.round(rect.height) : 0;
+                img.dataset.aesAutotaskLogoOriginalSrc = img.getAttribute('src') || '';
+                img.dataset.aesAutotaskLogoOriginalStyle = img.getAttribute('style') || '';
+                img.dataset.aesAutotaskLogoOverride = 'true';
+                if (width && width <= 320) img.dataset.aesAutotaskLogoWidth = String(width);
+                if (height && height <= 80) img.dataset.aesAutotaskLogoHeight = String(height);
+            }
+            constrainAutotaskLogo(img);
+            if (img.getAttribute('src') !== state.autotaskLogoDataUrl) {
+                img.setAttribute('src', state.autotaskLogoDataUrl);
+            }
+        });
+    }
+
+    function scheduleAutotaskLogoOverrideApply() {
+        if (state.autotaskLogoRaf) return;
+        state.autotaskLogoRaf = window.requestAnimationFrame(function () {
+            state.autotaskLogoRaf = 0;
+            applyAutotaskLogoOverride();
+        });
+    }
+
+    function installAutotaskLogoOverrideWatcher() {
+        applyAutotaskLogoOverride();
+        if (state.autotaskLogoObserver || !document.body) return;
+        state.autotaskLogoObserver = new MutationObserver(scheduleAutotaskLogoOverrideApply);
+        state.autotaskLogoObserver.observe(document.body, {
+            attributes: true,
+            attributeFilter: ['src'],
+            childList: true,
+            subtree: true,
+        });
+    }
+
     function scheduleAutotaskThemeApply() {
         if (state.themeRaf) return;
         state.themeRaf = window.requestAnimationFrame(function () {
             state.themeRaf = 0;
             applyAutotaskTheme(false);
+            applyAutotaskBrandColor();
         });
     }
 
@@ -5924,7 +7068,22 @@
     }
 
     function broadcastImprovedScrollbarsState() {
-        const payload = { __ns: AES.MSG_NS, type: 'improved-scrollbars', enabled: improvedScrollbarsActive() };
+        const rootStyle = getComputedStyle(document.documentElement);
+        const payload = {
+            __ns: AES.MSG_NS,
+            type: 'improved-scrollbars',
+            enabled: improvedScrollbarsActive(),
+            brandLinksEnabled: featuresEnabled() && !!state.autotaskBrandColorEnabled,
+            accentColor: rootStyle.getPropertyValue('--aes-accent-link-color').trim()
+                || rootStyle.getPropertyValue('--aes-accent-color').trim()
+                || DEFAULT_AUTOTASK_BRAND_COLOR,
+            scrollbar: rootStyle.getPropertyValue('--aes-accent-scrollbar').trim() || colorToRgba('#7da7c9', 0.5),
+            scrollbarHover: rootStyle.getPropertyValue('--aes-accent-scrollbar-hover').trim() || colorToRgba('#7da7c9', 0.75),
+            scrollbarDark: rootStyle.getPropertyValue('--aes-accent-scrollbar-dark').trim() || colorToRgba('#7da7c9', 0.58),
+            scrollbarDarkHover: rootStyle.getPropertyValue('--aes-accent-scrollbar-dark-hover').trim() || colorToRgba('#7da7c9', 0.82),
+            iconFilter: rootStyle.getPropertyValue('--aes-accent-icon-filter').trim() || 'none',
+            titlebarIconFilter: rootStyle.getPropertyValue('--aes-titlebar-icon-filter').trim() || 'none',
+        };
         function postToFrames(win) {
             try {
                 for (let i = 0; i < win.frames.length; i++) {
@@ -6290,16 +7449,68 @@
         state.settingsButton.style.display = state.nativeSettingsAvailable ? 'none' : '';
     }
 
-    function getDirectMenuItemLabels(menu) {
+    function getDirectMenuItems(menu) {
         if (!menu) return [];
-        return Array.from(menu.children)
-            .filter(function (child) {
-                return !!child && child.getAttribute('role') === 'menuitem';
-            })
-            .map(function (child) {
-                return cleanEarlyAccessText(child.textContent).toLowerCase();
+        return Array.from(menu.children).filter((child) => child && child.matches && child.matches('li[role="menuitem"]'));
+    }
+
+    function getDirectMenuItemLabels(menu) {
+        return getDirectMenuItems(menu)
+            .map((item) => String(item.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase())
+            .filter(Boolean);
+    }
+
+    function getDirectMenuItemIconClasses(menu) {
+        return getDirectMenuItems(menu)
+            .map((item) => {
+                const icon = item.querySelector('span[class*="fa-"]');
+                return icon ? String(icon.className || '').toLowerCase() : '';
             })
             .filter(Boolean);
+    }
+
+    const COLLAPSED_NATIVE_MENU_ICONS = [
+        'fa-house',
+        'fa-user-group',
+        'fa-file-contract',
+        'fa-calendar-clock',
+        'fa-folder',
+        'fa-ticket',
+        'fa-clock-five',
+        'fa-boxes-stacked',
+        'fa-chart-pie',
+        'fa-gear'
+    ];
+
+    function scoreCollapsedNativeAutotaskMenu(menu) {
+        const directItems = getDirectMenuItems(menu);
+        if (directItems.length < 6) return 0;
+
+        const iconClasses = getDirectMenuItemIconClasses(menu);
+        const iconMatches = COLLAPSED_NATIVE_MENU_ICONS.filter((iconName) => {
+            return iconClasses.some((className) => className.includes(iconName));
+        }).length;
+        if (iconMatches < 5) return 0;
+
+        let score = iconMatches * 10 + directItems.length;
+        const joinedIcons = iconClasses.join(' ');
+        if (joinedIcons.includes('fa-house')) score += 4;
+        if (joinedIcons.includes('fa-ticket')) score += 4;
+        if (joinedIcons.includes('fa-gear')) score += 2;
+
+        const widthHost = menu.closest('[style*="--side-panel-width"]');
+        const widthStyle = widthHost ? String(widthHost.getAttribute('style') || '') : '';
+        const hasCollapsedWidth = /--side-panel-width:\s*56px/i.test(widthStyle);
+        if (!hasCollapsedWidth) return 0;
+        score += 6;
+
+        const labels = getDirectMenuItemLabels(menu);
+        if (labels.length >= 3) score -= 12;
+        return score;
+    }
+
+    function isCollapsedNativeAutotaskMenu(menu) {
+        return scoreCollapsedNativeAutotaskMenu(menu) >= 50 && getDirectMenuItemLabels(menu).length < 3;
     }
 
     function findNativeAutotaskMenu() {
@@ -6315,31 +7526,37 @@
             'timesheets',
             'inventory',
             'reports',
-            'admin',
+            'admin'
         ];
 
         for (const menu of menus) {
             if (state.bar && state.bar.contains(menu)) continue;
-            const directLabels = getDirectMenuItemLabels(menu);
-            if (!directLabels.includes('admin')) continue;
-            const rootMatches = expectedRootLabels.filter(function (label) {
-                return directLabels.includes(label);
-            }).length;
-            if (rootMatches < 5) continue;
 
-            const itemCount = directLabels.length;
-            let score = rootMatches * 10 + itemCount;
-            if (directLabels.includes('home')) score += 4;
-            if (directLabels.includes('service desk')) score += 4;
-            if (directLabels.includes('contracts')) score += 2;
+            const directLabels = getDirectMenuItemLabels(menu);
+            let score = 0;
+
+            if (directLabels.includes('admin')) {
+                const rootMatches = expectedRootLabels.filter((label) => directLabels.includes(label)).length;
+                if (rootMatches >= 5) {
+                    const itemCount = directLabels.length;
+                    score = rootMatches * 10 + itemCount;
+                    if (directLabels.includes('home')) score += 4;
+                    if (directLabels.includes('service desk')) score += 4;
+                    if (directLabels.includes('contracts')) score += 2;
+                }
+            }
+
+            const collapsedScore = scoreCollapsedNativeAutotaskMenu(menu);
+            if (collapsedScore > score) score = collapsedScore;
+
             if (score > bestScore) {
                 bestScore = score;
                 best = menu;
             }
         }
-
         return bestScore >= 50 ? best : null;
     }
+
 
     function removeStaleNativeSettingsItems(keepMenu) {
         // Sweep up any existing AES Settings items that ended up in a menu
@@ -6354,67 +7571,104 @@
         }
     }
 
-    function createNativeSettingsMenuItem(referenceItem) {
-        const item = document.createElement('li');
+    function createNativeSettingsMenuItem(referenceItem, collapsed) {
+        const item = (!collapsed && referenceItem) ? referenceItem.cloneNode(true) : document.createElement('li');
         item.id = 'aes-native-settings-menu-item';
         item.setAttribute('role', 'menuitem');
-        item.setAttribute('data-aes-native-settings-item', 'true');
         item.setAttribute('tabindex', '0');
-        item.className = referenceItem && referenceItem.className
-            ? sanitizeNativeSettingsMenuItemClass(referenceItem.className)
-            : 'relative min-h-8 w-full grid items-center gap-col-2 px-2 py-1 select-none outline-none grid-cols-[auto_1fr] cursor-pointer color-text-primary bg-background-primary';
-        item.style.cssText = referenceItem && referenceItem.getAttribute('style')
-            ? referenceItem.getAttribute('style')
-            : 'padding-inline: 1rem; padding-left: calc(1rem);';
+        item.dataset.aesNativeSettingsItem = 'true';
+        item.dataset.aesNativeSettingsCollapsed = collapsed ? 'true' : 'false';
+        item.title = 'Autotask Enhancement Suite';
+        item.setAttribute('aria-label', 'Autotask Enhancement Suite');
+        item.removeAttribute('data-onyx-external-id');
+        item.removeAttribute('onclick');
 
-        const icon = document.createElement('span');
-        icon.className = 'fa-puzzle-piece fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary';
+        if (item.querySelectorAll) {
+            item.querySelectorAll('[id]').forEach((node) => node.removeAttribute('id'));
+            item.querySelectorAll('[data-onyx-external-id]').forEach((node) => node.removeAttribute('data-onyx-external-id'));
+            item.querySelectorAll('[onclick]').forEach((node) => node.removeAttribute('onclick'));
+        }
 
-        const outer = document.createElement('div');
-        outer.className = 'min-w-0 flex items-center gap-1';
+        if (!referenceItem || collapsed) {
+            item.className = collapsed
+                ? 'relative min-h-8 w-full flex justify-center px-2 py-1 outline-none cursor-pointer bg-background-primary hover:bg-background-hover focus-visible:bg-background-hover'
+                : 'relative min-h-8 w-full flex items-center px-2 py-1 outline-none cursor-pointer bg-background-primary hover:bg-background-hover focus-visible:bg-background-hover';
+            if (collapsed) {
+                item.style.paddingInline = '1rem';
+                item.style.paddingLeft = 'calc(1rem)';
+            } else {
+                item.style.paddingInline = '1rem';
+                item.style.paddingLeft = 'calc(1rem + 0px)';
+            }
+        } else {
+            item.className = sanitizeNativeSettingsMenuItemClass(item.className);
+        }
 
-        const title = document.createElement('div');
-        title.className = 'break-words text-menu-header fw-normal';
+        if (collapsed) {
+            const icon = document.createElement('span');
+            icon.className = 'fa-puzzle-piece fa-regular flex justify-center items-center flex-shrink-0 w-1.5rem h-1.5rem override-$icon-override-font-size:font-size-3.5 line-height-5.5 override-$icon-override-color:color-icon-primary';
+            item.appendChild(icon);
+        } else if (referenceItem) {
+            const icon = item.querySelector('span[class*="fa-"]');
+            if (icon) {
+                icon.className = 'fa-puzzle-piece fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary';
+                icon.textContent = '';
+            }
 
-        const text = document.createElement('span');
-        text.textContent = 'Autotask Enhancement Suite';
+            const textLeaves = Array.from(item.querySelectorAll('span, div')).filter((node) => {
+                if (icon && (node === icon || node.contains(icon))) return false;
+                if (node.children && node.children.length) return false;
+                return String(node.textContent || '').trim();
+            });
+            const labelNode = textLeaves[0] || null;
+            if (labelNode) {
+                labelNode.textContent = 'Autotask Enhancement Suite';
+                for (let i = 1; i < textLeaves.length; i++) textLeaves[i].textContent = '';
+            } else {
+                const title = document.createElement('span');
+                title.textContent = 'Autotask Enhancement Suite';
+                item.appendChild(title);
+            }
+        } else {
+            const icon = document.createElement('span');
+            icon.className = 'fa-puzzle-piece fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem mr-2 text-icon-secondary';
+            item.appendChild(icon);
 
-        const spacer = document.createElement('div');
-        spacer.className = 'flex-grow flex items-center justify-end gap-2';
+            const outer = document.createElement('div');
+            outer.className = 'flex flex-col min-w-0 flex-1';
 
-        title.appendChild(text);
-        outer.appendChild(title);
-        outer.appendChild(spacer);
-        item.appendChild(icon);
-        item.appendChild(outer);
+            const title = document.createElement('span');
+            title.className = 'truncate text-sm text-text-primary';
+            title.textContent = 'Autotask Enhancement Suite';
+            outer.appendChild(title);
 
-        item.addEventListener('click', function (event) {
+            item.appendChild(outer);
+
+            const spacer = document.createElement('span');
+            spacer.className = 'flex-1';
+            item.appendChild(spacer);
+        }
+
+        const activate = (event) => {
             event.preventDefault();
             event.stopPropagation();
             toggleSettingsModal();
+        };
+        item.addEventListener('click', activate);
+        item.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') activate(event);
         });
-        item.addEventListener('keydown', function (event) {
-            if (event.key !== 'Enter' && event.key !== ' ') return;
-            event.preventDefault();
-            event.stopPropagation();
-            toggleSettingsModal();
+        item.addEventListener('mouseenter', () => {
+            item.classList.remove('bg-background-primary');
+            item.classList.add('bg-background-hover');
         });
-        item.addEventListener('mouseenter', function () {
-            item.dataset.aesNativeSettingsHoverBg = item.style.backgroundColor || '';
-            // Match Autotask's native sidebar item hover. Autotask's own dark
-            // theme uses #48505A; light theme uses #E5E5E5. The shell mirrors
-            // Autotask's theme via `html.aes-dark` (set when body has the
-            // `--is-theme-dark: 1` custom property), so use that as the gate.
-            const dark = document.documentElement.classList.contains('aes-dark');
-            item.style.setProperty('background-color', dark ? '#48505A' : '#E5E5E5', 'important');
+        item.addEventListener('mouseleave', () => {
+            item.classList.remove('bg-background-hover');
+            item.classList.add('bg-background-primary');
         });
-        item.addEventListener('mouseleave', function () {
-            item.style.backgroundColor = item.dataset.aesNativeSettingsHoverBg || '';
-            delete item.dataset.aesNativeSettingsHoverBg;
-        });
-
         return item;
     }
+
 
     function sanitizeNativeSettingsMenuItemClass(className) {
         return String(className || '')
@@ -6436,60 +7690,69 @@
     function ensureNativeSettingsMenuItem() {
         const menu = findNativeAutotaskMenu();
         if (!menu) {
-            // No top-level menu currently in the DOM — clean up any orphan
-            // items left in submenus / detached nodes so they don't linger.
             removeStaleNativeSettingsItems(null);
-            state.nativeSettingsAvailable = false;
             state.nativeSettingsMenuItem = null;
+            state.nativeSettingsAvailable = false;
             updateSettingsEntryVisibility();
             return;
         }
-
-        // Strip any existing items that are NOT in the chosen menu, then
-        // make sure exactly one item is the last child of the chosen menu.
+        const collapsed = isCollapsedNativeAutotaskMenu(menu);
         removeStaleNativeSettingsItems(menu);
-
-        const existingInMenu = Array.from(
-            menu.querySelectorAll('[data-aes-native-settings-item="true"]')
-        );
-        // If duplicates somehow ended up in the same menu, keep one and drop
-        // the rest.
+        const existingInMenu = Array.from(menu.querySelectorAll('[data-aes-native-settings-item="true"]'));
         for (let i = 1; i < existingInMenu.length; i++) existingInMenu[i].remove();
         let item = existingInMenu[0] || null;
-
+        if (item && item.dataset.aesNativeSettingsCollapsed !== (collapsed ? 'true' : 'false')) {
+            item.remove();
+            item = null;
+        }
         if (!item) {
-            const referenceItem = Array.from(menu.querySelectorAll('li[role="menuitem"]'))
-                .filter(li => li.id !== 'aes-native-settings-menu-item')
-                .pop();
-            item = createNativeSettingsMenuItem(referenceItem);
-            menu.appendChild(item);
-        } else if (item.parentElement !== menu) {
-            menu.appendChild(item);
-        } else if (item.nextElementSibling) {
+            const nativeItems = Array.from(menu.children).filter((child) => {
+                return child && child.matches && child.matches('li[role="menuitem"]') && child.dataset.aesNativeSettingsItem !== 'true';
+            });
+            const referenceItem = nativeItems[nativeItems.length - 1] || null;
+            item = createNativeSettingsMenuItem(referenceItem, collapsed);
             menu.appendChild(item);
         }
-
         item.className = sanitizeNativeSettingsMenuItemClass(item.className);
+        item.dataset.aesNativeSettingsCollapsed = collapsed ? 'true' : 'false';
+        item.title = 'Autotask Enhancement Suite';
+        item.setAttribute('aria-label', 'Autotask Enhancement Suite');
         state.nativeSettingsMenuItem = item;
         state.nativeSettingsAvailable = true;
         updateSettingsEntryVisibility();
     }
 
+
     function installNativeSettingsMenuItemWatcher() {
         ensureNativeSettingsMenuItem();
         if (state.nativeSettingsObserver || !document.body) return;
-        state.nativeSettingsObserver = new MutationObserver(function () {
-            if (state.nativeSettingsRaf) return;
+        state.nativeSettingsObserver = new MutationObserver(function (mutations) {
+            const shouldRefresh = Array.from(mutations || []).some(function (mutation) {
+                if (!mutation) return false;
+                if (mutation.type === 'childList') return true;
+                if (mutation.type !== 'attributes') return false;
+                const target = mutation.target;
+                if (state.nativeSettingsMenuItem && target &&
+                    (target === state.nativeSettingsMenuItem || state.nativeSettingsMenuItem.contains(target))) return false;
+                if (mutation.attributeName === 'aria-expanded') return true;
+                if (mutation.attributeName === 'style') {
+                    const styleValue = target && target.getAttribute ? String(target.getAttribute('style') || '') : '';
+                    return styleValue.includes('--side-panel-width');
+                }
+                return false;
+            });
+            if (!shouldRefresh || state.nativeSettingsRaf) return;
             state.nativeSettingsRaf = window.requestAnimationFrame(function () {
                 state.nativeSettingsRaf = 0;
                 ensureNativeSettingsMenuItem();
             });
         });
-        state.nativeSettingsObserver.observe(document.body, { childList: true, subtree: true });
+        state.nativeSettingsObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'aria-expanded'] });
     }
 
     function installThemeWatcher() {
         applyAutotaskTheme(true);
+        applyAutotaskBrandColor();
         if (state.themeObserver || !document.body) return;
         state.themeObserver = new MutationObserver(scheduleAutotaskThemeApply);
         state.themeObserver.observe(document.body, {
@@ -6635,9 +7898,24 @@
         if (typeof AES.state.roundedPageFramesEnabled === 'boolean') {
             state.roundedPageFramesEnabled = AES.state.roundedPageFramesEnabled;
         }
+        if (typeof AES.state.autotaskBrandColorEnabled === 'boolean') {
+            state.autotaskBrandColorEnabled = AES.state.autotaskBrandColorEnabled;
+        }
+        if (typeof AES.state.autotaskBrandColor === 'string') {
+            state.autotaskBrandColor = normalizeAutotaskBrandColor(AES.state.autotaskBrandColor);
+            AES.state.autotaskBrandColor = state.autotaskBrandColor;
+        }
+        if (typeof AES.state.autotaskLogoOverrideEnabled === 'boolean') {
+            state.autotaskLogoOverrideEnabled = AES.state.autotaskLogoOverrideEnabled;
+        }
+        if (typeof AES.state.autotaskLogoDataUrl === 'string') {
+            state.autotaskLogoDataUrl = AES.state.autotaskLogoDataUrl;
+        }
         if (typeof AES.state.improvedScrollbarsEnabled === 'boolean') {
             state.improvedScrollbarsEnabled = AES.state.improvedScrollbarsEnabled;
         }
+        applyAutotaskBrandColor();
+        applyAutotaskLogoOverride();
         applyPageFrameClass();
         syncImprovedScrollbarsState();
         state.tabLine2Fields = normalizeTabLineSettings(AES.state.tabLine2Fields, 2);
@@ -6646,7 +7924,10 @@
         AES.state.tabBarWidth = state.tabBarWidth;
         applyBarOrientationClass();
         applyExtensionEnabledState(false);
-        maybeShowReleaseNotesModalOnUpdate();
+        const welcomeNoticeShown = maybeShowWelcomeNoticeModal();
+        if (!welcomeNoticeShown) {
+            maybeShowReleaseNotesModalOnUpdate();
+        }
         window.setTimeout(maybeCheckGithubReleaseUpdate, 3000);
         if (featuresEnabled()) {
             await restoreTabs();
@@ -6660,6 +7941,7 @@
         installThemeWatcher();
         installEarlyAccessLabelWatcher();
         installResourcePlannerShortcutWatcher();
+        installAutotaskLogoOverrideWatcher();
         installNativeSettingsMenuItemWatcher();
         startMetadataRefreshTimer();
         if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();

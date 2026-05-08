@@ -18,6 +18,97 @@
     let improvedScrollbarsEnabled = false;
     let mapButtonEnhancementStarted = false;
 
+    function normalizeBrandColor(value) {
+        const raw = String(value || '').trim();
+        const short = raw.match(/^#([0-9a-f]{3})$/i);
+        if (short) {
+            return '#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase();
+        }
+        return /^#[0-9a-f]{6}$/i.test(raw) ? raw.toLowerCase() : '#376a94';
+    }
+
+    function hexToRgb(hex) {
+        const normalized = String(hex || '').trim().replace('#', '');
+        if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
+        return {
+            r: parseInt(normalized.slice(0, 2), 16),
+            g: parseInt(normalized.slice(2, 4), 16),
+            b: parseInt(normalized.slice(4, 6), 16)
+        };
+    }
+
+    function colorToRgba(hex, alpha) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return '';
+        return 'rgba(' + rgb.r + ', ' + rgb.g + ', ' + rgb.b + ', ' + alpha + ')';
+    }
+
+    function colorToSpriteFilter(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return 'none';
+        const max = Math.max(rgb.r, rgb.g, rgb.b);
+        const min = Math.min(rgb.r, rgb.g, rgb.b);
+        const lightness = (max + min) / 510;
+        let hue = 0;
+        const delta = max - min;
+        if (delta) {
+            if (max === rgb.r) hue = ((rgb.g - rgb.b) / delta) % 6;
+            else if (max === rgb.g) hue = (rgb.b - rgb.r) / delta + 2;
+            else hue = (rgb.r - rgb.g) / delta + 4;
+            hue *= 60;
+            if (hue < 0) hue += 360;
+        }
+        const saturation = max === min
+            ? 0
+            : delta / (255 - Math.abs((max + min) - 255));
+        const brightness = Math.max(0.35, Math.min(1.65, 0.72 + lightness));
+        const saturate = Math.max(0, Math.min(6, 0.55 + saturation * 4.2));
+        return 'sepia(1) saturate(' + saturate.toFixed(2) + ') hue-rotate(' + (hue - 45).toFixed(0) + 'deg) brightness(' + brightness.toFixed(2) + ')';
+    }
+
+    function colorNeedsLightForeground(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return false;
+        const luminance = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+        return luminance < 0.54;
+    }
+
+    function colorToTitlebarIconFilter(hex) {
+        return colorNeedsLightForeground(hex) ? 'brightness(0) invert(1)' : 'none';
+    }
+
+    function applyEarlyBrandSettings(settings) {
+        if (!settings || settings.extensionEnabled === false || !settings.autotaskBrandColorEnabled) return;
+        const color = normalizeBrandColor(settings.autotaskBrandColor);
+        handleImprovedScrollbarsMessage({
+            enabled: improvedScrollbarsEnabled,
+            brandLinksEnabled: true,
+            accentColor: color,
+            iconFilter: colorToSpriteFilter(color),
+            titlebarIconFilter: colorToTitlebarIconFilter(color),
+            scrollbar: colorToRgba(color, 0.5),
+            scrollbarHover: colorToRgba(color, 0.75),
+            scrollbarDark: colorToRgba(color, 0.58),
+            scrollbarDarkHover: colorToRgba(color, 0.82)
+        });
+    }
+
+    function bootstrapBrandingFromStorage() {
+        try {
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.get(AES.SETTINGS_STORAGE_KEY, function (result) {
+                    const settings = result && result[AES.SETTINGS_STORAGE_KEY];
+                    applyEarlyBrandSettings(settings);
+                });
+                return;
+            }
+        } catch (e) {}
+        try {
+            const raw = localStorage.getItem(AES.SETTINGS_STORAGE_KEY);
+            applyEarlyBrandSettings(raw ? JSON.parse(raw) : null);
+        } catch (e) {}
+    }
+
     function isAesPeekFrame() {
         try {
             const fe = window.frameElement;
@@ -100,15 +191,28 @@
                 path.includes('installedproduct') ||
                 path.includes('contract_products')
             )) return true;
-            return path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
+            return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+                path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
+                path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+                path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
+                path === '/mvc/projects/projectnote.mvc/newprojectnote' ||
+                path === '/projects/calendar/prjcalendar.asp' ||
+                path === '/mvc/file/attachment.mvc/projectattachment' ||
+                path === '/mvc/projects/teammember.mvc/add' ||
+                path === '/autotask/views/projects/project_cost.aspx' ||
+                path === '/mvc/timesheets/expense.mvc/createnewprojectexpense' ||
+                path === '/projects/wizards/transformations/copyattributes/popwiz_frames.asp' ||
+                path === '/projects/reports' ||
+                path.startsWith('/projects/reports/') ||
+                path === '/autotask35/dataselectorhandlers/ticketdataselectorpopup.aspx' ||
                 path === '/mvc/projects/importticket.mvc/copytickettoproject' ||
                 path === '/servicedesk/popups/forward/svcforward.asp' ||
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
                 path === '/popups/work/svcdetail.asp' ||
+                path === '/popups/searches/srcclient.asp' ||
                 path === '/administrator/roles/tabroleview.asp' ||
                 path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
-                path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties' ||
                 path === '/mvc/contracts/contract.mvc/edit' ||
                 path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
                 path === '/mvc/contracts/contractnote.mvc/newcontractnote' ||
@@ -141,10 +245,19 @@
         const style = document.createElement('style');
         style.id = STYLE_ID;
         style.textContent = [
+            'html {',
+            '    --aes-accent-link-color: #376A94;',
+            '    --aes-accent-icon-filter: none;',
+            '    --aes-titlebar-icon-filter: none;',
+            '    --aes-accent-scrollbar: rgba(125, 167, 201, 0.5);',
+            '    --aes-accent-scrollbar-hover: rgba(125, 167, 201, 0.75);',
+            '    --aes-accent-scrollbar-dark: rgba(125, 167, 201, 0.58);',
+            '    --aes-accent-scrollbar-dark-hover: rgba(125, 167, 201, 0.82);',
+            '}',
             'html.aes-improved-scrollbars,',
             'html.aes-improved-scrollbars body,',
             'html.aes-improved-scrollbars * {',
-            '    scrollbar-color: rgba(125, 167, 201, 0.5) transparent !important;',
+            '    scrollbar-color: var(--aes-accent-scrollbar) transparent !important;',
             '    scrollbar-width: thin !important;',
             '    scrollbar-gutter: auto !important;',
             '}',
@@ -175,7 +288,7 @@
             'html.aes-improved-scrollbars::-webkit-scrollbar-thumb,',
             'html.aes-improved-scrollbars body::-webkit-scrollbar-thumb,',
             'html.aes-improved-scrollbars *::-webkit-scrollbar-thumb {',
-            '    background-color: rgba(125, 167, 201, 0.5) !important;',
+            '    background-color: var(--aes-accent-scrollbar) !important;',
             '    border-radius: 999px !important;',
             '    border: 1px solid transparent !important;',
             '    background-clip: content-box !important;',
@@ -183,7 +296,7 @@
             'html.aes-improved-scrollbars::-webkit-scrollbar-thumb:hover,',
             'html.aes-improved-scrollbars body::-webkit-scrollbar-thumb:hover,',
             'html.aes-improved-scrollbars *::-webkit-scrollbar-thumb:hover {',
-            '    background-color: rgba(125, 167, 201, 0.75) !important;',
+            '    background-color: var(--aes-accent-scrollbar-hover) !important;',
             '    background-clip: content-box !important;',
             '}',
             'html.aes-improved-scrollbars::-webkit-scrollbar-corner,',
@@ -205,7 +318,7 @@
             '    height: 0 !important;',
             '}',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme {',
-            '    scrollbar-color: rgba(125, 167, 201, 0.58) #0f141a !important;',
+            '    scrollbar-color: var(--aes-accent-scrollbar-dark) #0f141a !important;',
             '}',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-track,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-track,',
@@ -215,18 +328,143 @@
             'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-thumb,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-thumb,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-thumb {',
-            '    background-color: rgba(125, 167, 201, 0.58) !important;',
+            '    background-color: var(--aes-accent-scrollbar-dark) !important;',
             '    border-color: #0f141a !important;',
             '}',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-thumb:hover,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-thumb:hover,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-thumb:hover {',
-            '    background-color: rgba(125, 167, 201, 0.82) !important;',
+            '    background-color: var(--aes-accent-scrollbar-dark-hover) !important;',
             '}',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme::-webkit-scrollbar-corner,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme body::-webkit-scrollbar-corner,',
             'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-corner {',
             '    background: transparent !important;',
+            '}',
+            'html:not(.aes-ticket-detail-page) .ToolBar {',
+            '    margin-top: 10px !important;',
+            '}',
+            'html.aes-brand-link-colors a[href],',
+            'html.aes-brand-link-colors a.c-link,',
+            'html.aes-brand-link-colors .c-link,',
+            'html.aes-brand-link-colors .Link,',
+            'html.aes-brand-link-colors td.Link,',
+            'html.aes-brand-link-colors th.Link,',
+            'html.aes-brand-link-colors .TextCell.Link,',
+            'html.aes-brand-link-colors [onclick*="NewWindowPage"].Link,',
+            'html.aes-brand-link-colors [onclick*="__openPage"].Link,',
+            'html.aes-brand-link-colors .color-text-link,',
+            'html.aes-brand-link-colors [class~="color-text-link"],',
+            'html.aes-brand-link-colors .LinkButton2,',
+            'html.aes-brand-link-colors .LinkButton2 .Text2,',
+            'html.aes-brand-link-colors .LinkButtonContainer .Text2 {',
+            '    color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors [class~="bg-background-selected"] {',
+            '    background: var(--aes-accent-link-color) !important;',
+            '    background-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors [class~="color-text-selected"] {',
+            '    color: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .o-tab.o-tab--is-selected:not(.o-tab--container-variant),',
+            'html.aes-brand-link-colors .o-tab[aria-selected="true"]:not(.o-tab--container-variant),',
+            'html.aes-brand-link-colors .o-tab.is-selected:not(.o-tab--container-variant) {',
+            '    border-bottom-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .o-tab.o-tab--container-variant.o-tab--is-selected,',
+            'html.aes-brand-link-colors .o-tab.o-tab--container-variant[aria-selected="true"],',
+            'html.aes-brand-link-colors .o-tab.o-tab--container-variant.is-selected {',
+            '    border-top-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .Button.SelectedState,',
+            'html.aes-brand-link-colors .Button2.SelectedState,',
+            'html.aes-brand-link-colors a.Button.SelectedState,',
+            'html.aes-brand-link-colors a.Button2.SelectedState {',
+            '    border-bottom-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked,',
+            'html.aes-brand-link-colors .Checkbox2 .Checked {',
+            '    background-color: var(--aes-accent-link-color) !important;',
+            '    border-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors input[type="checkbox"]:checked {',
+            '    accent-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .o-checkbox-box--has-selection,',
+            'html.aes-brand-link-colors .o-checkbox-box--is-selected {',
+            '    color: var(--aes-accent-link-color) !important;',
+            '    border-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked .Checkmark,',
+            'html.aes-brand-link-colors .Checkbox2 .Checked .Checkmark,',
+            'html.aes-brand-link-colors .Checkbox2 .TabIndexHack.Checked .Checkmark path,',
+            'html.aes-brand-link-colors .Checkbox2 .Checked .Checkmark path {',
+            '    color: #ffffff !important;',
+            '    fill: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .o-checkbox-box--has-selection span,',
+            'html.aes-brand-link-colors .o-checkbox-box--is-selected span {',
+            '    color: var(--aes-accent-link-color) !important;',
+            '    fill: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .Button2.SuggestiveBackground,',
+            'html.aes-brand-link-colors .Button.SuggestiveBackground,',
+            'html.aes-brand-link-colors .Button2.Primary,',
+            'html.aes-brand-link-colors .Button.Primary {',
+            '    background: var(--aes-accent-link-color) !important;',
+            '    background-color: var(--aes-accent-link-color) !important;',
+            '    border-color: var(--aes-accent-link-color) !important;',
+            '    color: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .Button2.SuggestiveBackground .Text2,',
+            'html.aes-brand-link-colors .Button.SuggestiveBackground .Text,',
+            'html.aes-brand-link-colors .Button2.Primary .Text2,',
+            'html.aes-brand-link-colors .Button.Primary .Text {',
+            '    color: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation,',
+            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation {',
+            '    background: var(--aes-accent-link-color) !important;',
+            '    background-color: var(--aes-accent-link-color) !important;',
+            '    border-color: var(--aes-accent-link-color) !important;',
+            '    color: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .Text,',
+            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .SecondaryText,',
+            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .Text,',
+            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .SecondaryText {',
+            '    color: #ffffff !important;',
+            '}',
+            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarButton:hover,',
+            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarButton:hover {',
+            '    background-color: rgba(255, 255, 255, 0.18) !important;',
+            '}',
+            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarIcon,',
+            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarIcon,',
+            'html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Star,',
+            'html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Help,',
+            'html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Star,',
+            'html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Help {',
+            '    filter: var(--aes-titlebar-icon-filter, none) !important;',
+            '}',
+            'html.aes-brand-link-colors .EntityPageColorBar,',
+            'html.aes-brand-link-colors .EntityPageColorBar.Ticket {',
+            '    background: var(--aes-accent-link-color) !important;',
+            '    background-color: var(--aes-accent-link-color) !important;',
+            '    border-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .TabButton.Active,',
+            'html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active {',
+            '    border-bottom-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .TabButton.Active .Text,',
+            'html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active .Text {',
+            '    color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .TabButton.Active .Icon,',
+            'html.aes-brand-link-colors .TabButton.EntityPageTabIcon.Active .Icon {',
+            '    filter: var(--aes-accent-icon-filter, none) !important;',
             '}',
         ].join('\n');
         function attach() {
@@ -1062,16 +1300,32 @@
     function extractInvoiceViewerInfo() {
         const params = new URLSearchParams(location.search);
         const invoiceId = params.get('invoiceId') || params.get('invoiceID') || params.get('invoiceid') || '';
+        const batchId = params.get('batchId') || params.get('batchID') || params.get('batchid') || '';
         const titleEl = document.querySelector('.TitleBarItem.Title .Text, .Title .Text');
         const titleFromPage = cleanText(titleEl && titleEl.textContent);
-        const title = titleFromPage || (invoiceId ? 'Invoice ' + invoiceId : 'Invoice');
+        const selectedInvoiceOption = document.querySelector('.ToolBarItem.Pager select option[selected], .ToolBarItem.Pager select option:checked, .ToolBarItem.Pager select');
+        const optionText = cleanText(selectedInvoiceOption && (selectedInvoiceOption.selectedOptions && selectedInvoiceOption.selectedOptions[0]
+            ? selectedInvoiceOption.selectedOptions[0].textContent
+            : selectedInvoiceOption.textContent));
+        let organization = '';
+        let purchaseOrder = '';
+        const poMatch = optionText.match(/^(.*?)\s*\(PO:\s*(.*?)\)\s*$/i);
+        if (poMatch) {
+            organization = cleanText(poMatch[1]);
+            purchaseOrder = cleanText(poMatch[2]);
+        } else {
+            organization = optionText;
+        }
+        const title = titleFromPage || organization || (invoiceId ? 'Invoice ' + invoiceId : batchId ? 'Invoice Batch ' + batchId : 'Invoice');
         return {
             title: title.slice(0, 120),
-            number: invoiceId ? 'ID ' + invoiceId : 'Invoice',
-            contact: '',
+            number: purchaseOrder || (invoiceId ? 'ID ' + invoiceId : batchId ? 'Batch ' + batchId : 'Invoice'),
+            contact: organization,
             metadataFields: {
                 type: 'Invoice',
                 id: invoiceId ? 'ID ' + invoiceId : '',
+                purchaseOrder: purchaseOrder,
+                organization: organization,
             },
         };
     }
@@ -1373,6 +1627,26 @@
         };
     }
 
+
+    function extractTicketActivityInfo() {
+        const info = extractGenericInfo('Notes and Time Entries');
+        const ticketNumber = cleanText(document.querySelector('.Left .IdentificationTextContainer .IdentificationText, .IdentificationText')?.textContent);
+        const ticketTitle = cleanText(document.querySelector('.Left > .Title .Text, .IdentificationTextContainer + .Title .Text')?.textContent);
+        const organizationMatch = ticketTitle.match(/\(([^()]*)\)\s*$/);
+        const organization = cleanText(organizationMatch && organizationMatch[1]);
+
+        info.number = ticketNumber || info.number || '';
+        info.contact = organization || info.contact || '';
+        info.hoverFields = ticketNumber ? [{ label: 'Ticket number', value: ticketNumber.slice(0, 40) }] : [];
+        info.metadataFields = Object.assign({}, info.metadataFields || {}, {
+            type: 'Notes and Time Entries',
+            number: info.number,
+            ticketTitle: ticketTitle,
+            organization: organization,
+        });
+        return info;
+    }
+
     function extractSecondaryName(text) {
         const txt = cleanText(text);
         if (!txt) return '';
@@ -1443,6 +1717,10 @@
         if (p === '/mvc/servicedesk/ticketdetail.mvc') {
             return extractTicketInfo();
         }
+        if (p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+            p === '/mvc/servicedesk/note.mvc/newticketnotepage') {
+            return extractTicketActivityInfo();
+        }
         if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editinvoicetemplate') {
             return extractInvoiceTemplateInfo();
         }
@@ -1452,7 +1730,9 @@
         if (p === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') {
             return extractAdminTitlebarPageInfo('Invoice Email Template', 'Invoice Email Template');
         }
-        if (p === '/mvc/contracts/invoiceviewer.mvc') {
+        if (p === '/mvc/contracts/invoiceviewer.mvc' ||
+            p === '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer' ||
+            p === '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer') {
             return extractInvoiceViewerInfo();
         }
         if (p === '/autotask/views/template/customizenotificationtemplate.aspx') {
@@ -1620,6 +1900,15 @@
 
     function handleImprovedScrollbarsMessage(data) {
         improvedScrollbarsEnabled = featureEnabled && !!data.enabled;
+        const root = document.documentElement;
+        if (data.accentColor) root.style.setProperty('--aes-accent-link-color', data.accentColor);
+        if (data.iconFilter) root.style.setProperty('--aes-accent-icon-filter', data.iconFilter);
+        if (data.titlebarIconFilter) root.style.setProperty('--aes-titlebar-icon-filter', data.titlebarIconFilter);
+        if (data.scrollbar) root.style.setProperty('--aes-accent-scrollbar', data.scrollbar);
+        if (data.scrollbarHover) root.style.setProperty('--aes-accent-scrollbar-hover', data.scrollbarHover);
+        if (data.scrollbarDark) root.style.setProperty('--aes-accent-scrollbar-dark', data.scrollbarDark);
+        if (data.scrollbarDarkHover) root.style.setProperty('--aes-accent-scrollbar-dark-hover', data.scrollbarDarkHover);
+        root.classList.toggle('aes-brand-link-colors', featureEnabled && !!data.brandLinksEnabled);
         document.documentElement.classList.toggle('aes-improved-scrollbars', improvedScrollbarsEnabled);
     }
 
@@ -1628,6 +1917,11 @@
     }
 
     AES.initIframeBridge = function initIframeBridge() {
+        document.documentElement.classList.toggle(
+            'aes-ticket-detail-page',
+            AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketdetail.mvc'
+        );
+
         window.addEventListener('message', function (event) {
             const data = event.data;
 
@@ -1657,6 +1951,9 @@
             if (data.type === 'open-peek' && data.url && isPeekPopupUrl(data.url)) {
                 postToTop({ type: 'open-peek', url: data.url });
             }
+            if (data.type === 'native-open' && data.url && AES.isNativeHomeUrl(data.url)) {
+                postToTop({ type: 'native-open', url: data.url });
+            }
             if (data.type === 'map' && data.url) {
                 postToTop({ type: 'map', url: data.url });
             }
@@ -1672,6 +1969,7 @@
         injectPageBridge();
         applyShellBarBodyPadding();
         injectScrollbarStyles();
+        bootstrapBrandingFromStorage();
         requestAllShellStates();
         window.setTimeout(requestAllShellStates, 500);
         window.setTimeout(requestAllShellStates, 1500);
