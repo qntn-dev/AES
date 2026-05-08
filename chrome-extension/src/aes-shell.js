@@ -169,7 +169,11 @@
         hoverAnchorEl: null,
         hoverShowTimer: 0,
         hoverHideTimer: 0,
+        umbrellaInfoTooltip: null,
+        umbrellaInfoTooltipHideTimer: 0,
         homeTabEl: null,
+        homeMetadataType: '',
+        homeMetadataFields: {},
         nativeFrame: null,
         nativeLastUrl: '',
         homePersistedUrl: '',
@@ -435,6 +439,7 @@
 
     const ICONS = {
         home: faIcon('fa-house fa-regular'),
+        umbrellacontract: faIcon('fa-umbrella fa-regular'),
         ticket: faIcon('fa-ticket fa-regular'),
         ticketactivity: faIcon('fa-note-sticky fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
@@ -519,6 +524,10 @@
         return AES.normalizeHandledPath(AES.pathOf(url || '')) === '/contracts/views/contractview.asp';
     }
 
+    function isContractEditUrl(url) {
+        return AES.normalizeHandledPath(AES.pathOf(url || '')) === '/mvc/contracts/contract.mvc/edit';
+    }
+
     function shouldMoveLegacyContractRedirectToHome(tab, loadedUrl) {
         if (!tab || !loadedUrl) return false;
         return isLegacyContractViewUrl(tab.url)
@@ -567,12 +576,72 @@
 
     function showContractProbeOverlay() {
         state.contractProbeLoading = true;
+        if (!state.contractProbeLoader) {
+            const loader = document.createElement('div');
+            loader.className = 'at-tabs-loader at-tabs-contract-probe-loader';
+            loader.setAttribute('aria-label', 'Loading');
+            loader.style.position = 'fixed';
+            loader.style.inset = 'auto';
+            loader.style.zIndex = '2147483000';
+            loader.style.pointerEvents = 'auto';
+            document.body.appendChild(loader);
+            state.contractProbeLoader = loader;
+        }
+        positionContractProbeLoader();
+        state.contractProbeLoader.classList.add('show');
         updateLoaderVisibility();
     }
 
     function hideContractProbeOverlay() {
         state.contractProbeLoading = false;
+        if (state.contractProbeLoader) {
+            state.contractProbeLoader.classList.remove('show');
+        }
         updateLoaderVisibility();
+    }
+
+    function positionContractProbeLoader() {
+        const loader = state.contractProbeLoader;
+        if (!loader) return;
+        const candidates = [
+            state.activeId === null ? (state.nativeFrame || findContentIframe()) : null,
+            state.activeId === null ? state.homeCover : null,
+            state.viewport,
+        ];
+        const target = candidates.find(function (el) {
+            if (!el || !el.getBoundingClientRect) return false;
+            const rect = el.getBoundingClientRect();
+            return rect.width > 24 && rect.height > 24;
+        });
+        let rect = target && target.getBoundingClientRect
+            ? target.getBoundingClientRect()
+            : { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
+
+        if (state.bar && state.bar.getBoundingClientRect) {
+            const barRect = state.bar.getBoundingClientRect();
+            const verticalOverlap = Math.max(0, Math.min(rect.bottom || (rect.top + rect.height), barRect.bottom) - Math.max(rect.top, barRect.top));
+            const horizontalOverlap = Math.max(0, Math.min(rect.right || (rect.left + rect.width), barRect.right) - Math.max(rect.left, barRect.left));
+            if (verticalOverlap > 0 && horizontalOverlap > 0) {
+                if (barRect.right <= rect.left + rect.width / 2) {
+                    const delta = Math.max(0, barRect.right - rect.left);
+                    rect = { left: rect.left + delta, top: rect.top, width: Math.max(0, rect.width - delta), height: rect.height };
+                } else if (barRect.left >= rect.left + rect.width / 2) {
+                    const width = Math.max(0, barRect.left - rect.left);
+                    rect = { left: rect.left, top: rect.top, width: width, height: rect.height };
+                } else if (barRect.bottom <= rect.top + rect.height / 2) {
+                    const delta = Math.max(0, barRect.bottom - rect.top);
+                    rect = { left: rect.left, top: rect.top + delta, width: rect.width, height: Math.max(0, rect.height - delta) };
+                } else if (barRect.top >= rect.top + rect.height / 2) {
+                    const height = Math.max(0, barRect.top - rect.top);
+                    rect = { left: rect.left, top: rect.top, width: rect.width, height: height };
+                }
+            }
+        }
+
+        loader.style.left = rect.left + 'px';
+        loader.style.top = rect.top + 'px';
+        loader.style.width = Math.max(0, rect.width) + 'px';
+        loader.style.height = Math.max(0, rect.height) + 'px';
     }
 
     function createTabPaneLoader() {
@@ -627,6 +696,98 @@
         } catch (e) {
             tab.iframeEl.src = tab.iframeEl.src || tab.url;
         }
+    }
+
+    const UMBRELLA_CONTRACT_FRAME_RELOAD_KEY = 'aes-umbrella-contract-frame-reload';
+    const UMBRELLA_CONTRACT_DISCLAIMER = 'Umbrella Contracts are not compatible with features of Autotask Enhancement Suite. These contracts will always open on the Homepage since they are built on a different framework.';
+
+    function isUmbrellaContractHomeUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            return parsed.pathname.toLowerCase() === '/autotaskonyx/landingpage' &&
+                parsed.searchParams.get('view') === 'umbrella-contract-details';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function markUmbrellaContractFrameReload() {
+        try {
+            sessionStorage.setItem(UMBRELLA_CONTRACT_FRAME_RELOAD_KEY, String(Date.now()));
+        } catch (e) {}
+    }
+
+    function hasPendingUmbrellaContractFrameReload() {
+        try {
+            const raw = sessionStorage.getItem(UMBRELLA_CONTRACT_FRAME_RELOAD_KEY);
+            const timestamp = Number(raw || 0);
+            return !!(timestamp && Date.now() - timestamp < 30000);
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function clearUmbrellaContractFrameReload() {
+        try {
+            sessionStorage.removeItem(UMBRELLA_CONTRACT_FRAME_RELOAD_KEY);
+        } catch (e) {}
+    }
+
+    function reloadLoadedFramesAfterUmbrellaContract() {
+        if (!state.tabs || !state.tabs.length) return false;
+        // Returns true only after every entry has been visited and its iframe
+        // has a non-empty src; that's the contract the caller relies on to
+        // decide whether the pending flag may be cleared.
+        let allTabsHandled = true;
+        state.tabs.forEach(function (tab) {
+            if (!tab) return;
+            if (!tab.iframeEl) {
+                allTabsHandled = false;
+                return;
+            }
+            const wasDeferred = tab.loadStarted === false
+                || tab.iframeEl.dataset.aesLoadStarted === 'false';
+            tab.aesReloadAfterUmbrellaContract = false;
+            tab.loading = true;
+            tab.loadStarted = true;
+            tab.iframeEl.dataset.aesLoadStarted = 'true';
+            tab.iframeEl.removeAttribute('data-aes-deferred-src');
+            updateTabEl(tab);
+            const currentSrc = tab.iframeEl.src || '';
+            try {
+                if (wasDeferred || !currentSrc || currentSrc === 'about:blank') {
+                    // Lazy iframe — kick off the initial navigation. Don't
+                    // try contentWindow.location.reload(): it will throw on
+                    // an unattached document and give us nothing useful.
+                    tab.iframeEl.src = tab.url;
+                } else {
+                    tab.iframeEl.contentWindow.location.reload();
+                }
+            } catch (e) {
+                tab.iframeEl.src = tab.url;
+            }
+            // Final safety: if anything above left the iframe without a real
+            // src, force one so the tab actually starts navigating instead
+            // of staying invisibly deferred.
+            if (!tab.iframeEl.src || tab.iframeEl.src === 'about:blank') {
+                tab.iframeEl.src = tab.url;
+                if (!tab.iframeEl.src || tab.iframeEl.src === 'about:blank') {
+                    allTabsHandled = false;
+                }
+            }
+        });
+        updateLoaderVisibility();
+        saveTabs();
+        return allTabsHandled;
+    }
+
+    function reloadLoadedFramesAfterUmbrellaContractWhenReady() {
+        if (!hasPendingUmbrellaContractFrameReload()) return;
+        if (reloadLoadedFramesAfterUmbrellaContract()) {
+            clearUmbrellaContractFrameReload();
+            return;
+        }
+        window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 250);
     }
 
     function updateLoaderVisibility() {
@@ -794,6 +955,13 @@
         updateLoaderVisibility();
     }
 
+    function ensureTabFreshAfterUmbrellaContract(tab) {
+        if (!tab || !tab.aesReloadAfterUmbrellaContract) return;
+        tab.aesReloadAfterUmbrellaContract = false;
+        if (tab.loadStarted === false || (tab.iframeEl && tab.iframeEl.dataset.aesLoadStarted === 'false')) return;
+        refreshTabIframe(tab);
+    }
+
     function hexToRgb(hex) {
         const normalized = String(hex || '').trim().replace('#', '');
         if (!/^[0-9a-f]{6}$/i.test(normalized)) return null;
@@ -954,8 +1122,7 @@
         try { url = frame.contentWindow.location.href; }
         catch (e) { url = frame.getAttribute('src') || ''; }
         if (!url || url === 'about:blank') return;
-        const nativeTitle = homeTitleForNativeUrl(url);
-        if (nativeTitle) setHomeTitle(nativeTitle);
+        syncHomeStateForNativeUrl(url, frame);
 
         if (state.activeId === null && AES.isHandledUrl(url)) {
             if (url !== state.nativeLastUrl) {
@@ -988,6 +1155,39 @@
             activateHome();
         }
         state.nativeLastUrl = url;
+    }
+
+    function syncHomeStateForNativeUrl(url, frame) {
+        if (!url || url === 'about:blank') return;
+        if (isUmbrellaContractHomeUrl(url)) {
+            syncUmbrellaContractHomeMetadata(url, frame);
+            scheduleUmbrellaContractHomeMetadataSync(url, frame);
+            if (hasPendingUmbrellaContractFrameReload()) {
+                window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+            }
+        } else {
+            clearHomeMetadata();
+            const nativeTitle = homeTitleForNativeUrl(url);
+            if (nativeTitle) setHomeTitle(nativeTitle);
+            else {
+                const doc = nativeDocumentFromFrame(frame);
+                const title = extractPageTitle(doc);
+                if (title) setHomeTitle(title);
+            }
+        }
+    }
+
+    function syncNativeHomeRouteFromCurrentFrame() {
+        if (state.activeId !== null) return;
+        const frame = state.nativeFrame || findContentIframe();
+        if (!frame) return;
+        const url = currentNativeFrameUrl();
+        if (!url || url === 'about:blank' || url === state.nativeLastUrl) return;
+        syncHomeStateForNativeUrl(url, frame);
+        state.nativeLastUrl = url;
+        state.homePersistedUrl = url;
+        if (hasResolvedHomeTitle()) state.homePersistedTitle = state.homeTitle;
+        saveTabs();
     }
 
     function currentNativeFrameUrl() {
@@ -2519,6 +2719,9 @@
         let href = '';
         try { href = new URL(url, window.location.origin).href; }
         catch (e) { return; }
+        if (isUmbrellaContractHomeUrl(href)) {
+            markUmbrellaContractFrameReload();
+        }
         activateHome();
         state.homePersistedUrl = href;
         state.homePersistedTitle = '';
@@ -2555,10 +2758,14 @@
             const activeSplitPair = pair && pair.includes(id) ? pair : null;
             if (activeSplitPair) {
                 activeSplitPair.forEach(function (splitId) {
-                    ensureTabIframeLoaded(tabById(splitId));
+                    const splitTab = tabById(splitId);
+                    ensureTabIframeLoaded(splitTab);
+                    ensureTabFreshAfterUmbrellaContract(splitTab);
                 });
             } else {
-                ensureTabIframeLoaded(tabById(id));
+                const activeTab = tabById(id);
+                ensureTabIframeLoaded(activeTab);
+                ensureTabFreshAfterUmbrellaContract(activeTab);
             }
         }
         syncTabPaneState();
@@ -2769,6 +2976,29 @@
         const value = String(fields[key] || '').trim();
         if (value) return value;
         return line === 2 && type !== 'unknown' ? fields.type : '';
+    }
+
+    function homeMetadataLineValue(line) {
+        if (line === 3 && horizontalCompactTabsActive()) return '';
+        const type = normalizeTabType(state.homeMetadataType || '');
+        if (!type) return '';
+        const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
+        const options = getLineOptionsForType(type);
+        let key = settings && settings[type] || getDefaultLineField(type, line);
+        if (!options.includes(key)) key = getDefaultLineField(type, line);
+        if (key === 'none') return '';
+        const fields = Object.assign({}, normalizeMetadataFields(state.homeMetadataFields));
+        fields.type = fields.type || tabTypeLabel(type);
+        const value = String(fields[key] || '').trim();
+        if (value) return value;
+        return line === 2 ? fields.type : '';
+    }
+
+    function homeTabRowCount() {
+        let rows = 1;
+        if (homeMetadataLineValue(2)) rows += 1;
+        if (homeMetadataLineValue(3)) rows += 1;
+        return Math.max(1, Math.min(2, rows));
     }
 
     function tabLineFieldKey(tab, line) {
@@ -3134,7 +3364,6 @@
     function renderHomeTab() {
         const el = document.createElement('div');
         el.className = 'at-tab home active';
-        el.style.setProperty('--aes-tab-rows', '1');
         if (state.homeLoading && state.activeId === null) el.classList.add('loading');
 
         const icon = document.createElement('span');
@@ -3145,16 +3374,48 @@
         spinner.className = 'home-spinner';
         spinner.setAttribute('aria-hidden', 'true');
 
+        const meta = document.createElement('div');
+        meta.className = 'meta home-meta';
+
         const label = document.createElement('span');
-        label.className = 'home-label';
+        label.className = 'line title home-label';
         label.textContent = state.homeTitle || 'Home';
+
+        const line2 = document.createElement('div');
+        line2.className = 'line number home-line-2';
+
+        const line3 = document.createElement('div');
+        line3.className = 'line contact home-line-3';
+
+        const umbrellaInfo = document.createElement('span');
+        umbrellaInfo.className = 'home-umbrella-info fa-circle-info fa-regular';
+        umbrellaInfo.tabIndex = 0;
+        umbrellaInfo.setAttribute('aria-label', UMBRELLA_CONTRACT_DISCLAIMER);
+        umbrellaInfo.setAttribute('role', 'img');
+        umbrellaInfo.addEventListener('pointerenter', function () {
+            showUmbrellaInfoTooltip(umbrellaInfo);
+        });
+        umbrellaInfo.addEventListener('pointerleave', function () {
+            hideUmbrellaInfoTooltip(false);
+        });
+        umbrellaInfo.addEventListener('focus', function () {
+            showUmbrellaInfoTooltip(umbrellaInfo);
+        });
+        umbrellaInfo.addEventListener('blur', function () {
+            hideUmbrellaInfoTooltip(false);
+        });
+
+        meta.appendChild(label);
+        meta.appendChild(line2);
+        meta.appendChild(line3);
 
         el.appendChild(icon);
         el.appendChild(spinner);
-        el.appendChild(label);
-        el.title = label.textContent;
+        el.appendChild(meta);
+        el.appendChild(umbrellaInfo);
         el.addEventListener('click', activateHome);
         state.homeTabEl = el;
+        updateHomeTabMetadata();
     }
 
     function tabRowCount(tab) {
@@ -3185,12 +3446,8 @@
             }
             return;
         }
-        if (state.homeTabEl) {
-            const label = state.homeTabEl.querySelector('.home-label');
-            if (label) label.textContent = next;
-            state.homeTabEl.title = next;
-        }
         state.homeTitle = next;
+        updateHomeTabMetadata();
         // A real native title means the Home tab has meaningful metadata again.
         // Let that win over late/stale nav-start messages so the tab cannot
         // get stuck showing only the spinner.
@@ -3200,6 +3457,185 @@
             if (state.homePersistedUrl) saveTabs();
         }
         clearHomeLoading();
+    }
+
+    function updateHomeTabMetadata() {
+        if (!state.homeTabEl) return;
+        const title = state.homeTitle || 'Home';
+        const line2Value = homeMetadataLineValue(2);
+        const line3Value = homeMetadataLineValue(3);
+        const label = state.homeTabEl.querySelector('.home-label');
+        const line2 = state.homeTabEl.querySelector('.home-line-2');
+        const line3 = state.homeTabEl.querySelector('.home-line-3');
+        const icon = state.homeTabEl.querySelector('.icon');
+        const isUmbrellaContract = state.homeMetadataType === 'umbrellacontract';
+        state.homeTabEl.classList.toggle('umbrella-contract', isUmbrellaContract);
+        if (!isUmbrellaContract) hideUmbrellaInfoTooltip(true);
+        if (icon) appendIconMarkup(icon, isUmbrellaContract ? ICONS.umbrellacontract : ICONS.home);
+        if (label) label.textContent = title;
+        if (line2) {
+            line2.textContent = line2Value;
+            line2.style.display = line2Value ? '' : 'none';
+        }
+        if (line3) {
+            line3.textContent = line3Value;
+            line3.style.display = line3Value ? '' : 'none';
+        }
+        if (isUmbrellaContract) {
+            state.homeTabEl.removeAttribute('title');
+        } else {
+            state.homeTabEl.title = [title, line2Value, line3Value].filter(Boolean).join('\n') || title;
+        }
+        state.homeTabEl.style.setProperty('--aes-tab-rows', String(state.homeMetadataType ? homeTabRowCount() : 1));
+    }
+
+    function clearHomeMetadata() {
+        if (!state.homeMetadataType && !Object.keys(state.homeMetadataFields || {}).length) return;
+        state.homeMetadataType = '';
+        state.homeMetadataFields = {};
+        updateHomeTabMetadata();
+    }
+
+    function normalizeHomeMetadataText(value) {
+        return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+
+    function nativeDocumentFromFrame(frame) {
+        if (!frame) return null;
+        try {
+            return frame.contentDocument || frame.contentWindow.document || null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function umbrellaMetadataValueForLabel(doc, labelText) {
+        if (!doc) return '';
+        const wanted = normalizeHomeMetadataText(labelText).toLowerCase();
+        const labels = doc.querySelectorAll('.o-label__text, label.o-label__text, label');
+        for (const label of labels) {
+            if (normalizeHomeMetadataText(label.textContent).toLowerCase() !== wanted) continue;
+            const labelCell = label.closest('.o-flex-child') || label.parentElement;
+            const valueCell = labelCell ? labelCell.nextElementSibling : null;
+            if (!valueCell) return '';
+            const preferred = valueCell.querySelector('.c-avatar ~ .c-text, a.c-link, .c-link, .c-editable-data__data-content .c-text, .c-text.o-font--body-regular');
+            const value = normalizeHomeMetadataText(preferred ? preferred.textContent : valueCell.textContent);
+            return value;
+        }
+        return '';
+    }
+
+    function extractUmbrellaContractHomeMetadata(doc) {
+        if (!doc) return {};
+        const titleEl = doc.querySelector('.c-text.o-font--page-title-bold.c-text--primary-color, .o-font--page-title-bold');
+        return {
+            title: normalizeHomeMetadataText(titleEl && titleEl.textContent),
+            organization: umbrellaMetadataValueForLabel(doc, 'Organization'),
+            accountManager: umbrellaMetadataValueForLabel(doc, 'Account Manager'),
+            contact: umbrellaMetadataValueForLabel(doc, 'Contact'),
+        };
+    }
+
+    function syncUmbrellaContractHomeMetadata(url, source) {
+        if (!isUmbrellaContractHomeUrl(url)) return false;
+        const doc = source && source.nodeType === 9 ? source : nativeDocumentFromFrame(source || state.nativeFrame || findContentIframe()) || document;
+        const metadata = extractUmbrellaContractHomeMetadata(doc);
+        const documentTitle = normalizeHomeMetadataText(doc && doc.title);
+        const existingTitle = normalizeHomeMetadataText(state.homeTitle);
+        const looksLikeContractSearch = /^contract search$/i.test(metadata.title || '') ||
+            /^contract search$/i.test(documentTitle || '') ||
+            /^contract search$/i.test(existingTitle || '');
+        const hasUmbrellaDetailMetadata = !!(metadata.title || metadata.organization || metadata.accountManager || metadata.contact);
+        if (looksLikeContractSearch && !hasUmbrellaDetailMetadata) {
+            clearHomeMetadata();
+            setHomeTitle('Contract Search');
+            return false;
+        }
+        const title = metadata.title || (existingTitle && existingTitle !== 'Home' ? existingTitle : 'Umbrella Contract');
+        state.homeMetadataType = 'umbrellacontract';
+        state.homeMetadataFields = {
+            type: 'Umbrella Contract',
+            organization: metadata.organization || '',
+            accountManager: metadata.accountManager || '',
+            contact: metadata.contact || '',
+        };
+        setHomeTitle(title);
+        return !!(metadata.title || metadata.organization || metadata.accountManager || metadata.contact);
+    }
+
+    function ensureUmbrellaInfoTooltip() {
+        if (state.umbrellaInfoTooltip) return state.umbrellaInfoTooltip;
+        const tooltip = document.createElement('div');
+        tooltip.className = 'at-tabs-umbrella-info-tooltip';
+        tooltip.setAttribute('role', 'tooltip');
+        tooltip.textContent = UMBRELLA_CONTRACT_DISCLAIMER;
+        document.body.appendChild(tooltip);
+        state.umbrellaInfoTooltip = tooltip;
+        return tooltip;
+    }
+
+    function positionUmbrellaInfoTooltip(tooltip, anchorEl) {
+        if (!tooltip || !anchorEl) return;
+        const rect = anchorEl.getBoundingClientRect();
+        const tooltipRect = tooltip.getBoundingClientRect();
+        const margin = 8;
+        const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        let top = rect.bottom + margin;
+        let left = rect.left - tooltipRect.width + rect.width;
+        if (isVerticalBar()) {
+            top = rect.top;
+            left = rect.right + margin;
+        }
+        if (left + tooltipRect.width + margin > vw) left = vw - tooltipRect.width - margin;
+        if (left < margin) left = margin;
+        if (top + tooltipRect.height + margin > vh) top = rect.top - tooltipRect.height - margin;
+        if (top < margin) top = margin;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+    }
+
+    function showUmbrellaInfoTooltip(anchorEl) {
+        if (!anchorEl || hoverCardSuppressed()) return;
+        if (state.umbrellaInfoTooltipHideTimer) {
+            window.clearTimeout(state.umbrellaInfoTooltipHideTimer);
+            state.umbrellaInfoTooltipHideTimer = 0;
+        }
+        const tooltip = ensureUmbrellaInfoTooltip();
+        tooltip.style.left = '-9999px';
+        tooltip.style.top = '0px';
+        tooltip.classList.add('visible');
+        window.requestAnimationFrame(function () {
+            if (!state.umbrellaInfoTooltip || !anchorEl.isConnected) return;
+            positionUmbrellaInfoTooltip(tooltip, anchorEl);
+        });
+    }
+
+    function hideUmbrellaInfoTooltip(immediate) {
+        if (state.umbrellaInfoTooltipHideTimer) {
+            window.clearTimeout(state.umbrellaInfoTooltipHideTimer);
+            state.umbrellaInfoTooltipHideTimer = 0;
+        }
+        const hide = function () {
+            if (state.umbrellaInfoTooltip) state.umbrellaInfoTooltip.classList.remove('visible');
+        };
+        if (immediate) {
+            hide();
+            return;
+        }
+        state.umbrellaInfoTooltipHideTimer = window.setTimeout(function () {
+            state.umbrellaInfoTooltipHideTimer = 0;
+            hide();
+        }, 90);
+    }
+
+    function scheduleUmbrellaContractHomeMetadataSync(url, source) {
+        if (!isUmbrellaContractHomeUrl(url)) return;
+        [150, 500, 1200, 2500].forEach(function (delay) {
+            window.setTimeout(function () {
+                syncUmbrellaContractHomeMetadata(url, source);
+            }, delay);
+        });
     }
 
     function homeTitleForNativeUrl(url) {
@@ -3224,20 +3660,26 @@
         state.homeTabEl.classList.toggle('loading', !!(state.homeLoading && state.activeId === null));
     }
 
-    function extractTopLevelPageTitle() {
+    function extractPageTitle(root) {
+        const scope = root || document;
         const selectors = [
             'span.text-page-title',
+            '.c-text.o-font--page-title-bold.c-text--primary-color',
             '.c-text.o-font--page-title-medium.c-text--primary-color',
             '.PageHeadingContainer .Title .Text',
             '.EntityHeadingContainer .Title > .Text',
             'h1',
         ];
         for (const selector of selectors) {
-            const el = document.querySelector(selector);
+            const el = scope.querySelector ? scope.querySelector(selector) : null;
             const text = (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
             if (text) return text;
         }
         return '';
+    }
+
+    function extractTopLevelPageTitle() {
+        return extractPageTitle(document);
     }
 
     function updateHomeTitleFromTopLevelPage(skipFrameCheck) {
@@ -3246,9 +3688,14 @@
         const nativeTitle = homeTitleForNativeUrl(location.href);
         if (nativeTitle) {
             clearHomeLoading();
-            setHomeTitle(nativeTitle);
+            syncUmbrellaContractHomeMetadata(location.href, document);
+            scheduleUmbrellaContractHomeMetadataSync(location.href, document);
+            if (hasPendingUmbrellaContractFrameReload()) {
+                window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+            }
             return;
         }
+        clearHomeMetadata();
         const title = extractTopLevelPageTitle();
         if (!title) return;
         clearHomeLoading();
@@ -6372,6 +6819,10 @@
             openUrlOnHome(url);
             return;
         }
+        if (isContractEditUrl(url)) {
+            openContractEditWithProbe(url);
+            return;
+        }
         if (shouldOpenUrlInPeek(url)) {
             const allowConversion = shouldAllowProgrammaticPeekConversion(url);
             openUrlInPeek(url, allowConversion ? { allowOpenInTab: true, allowSplit: true } : undefined);
@@ -6466,6 +6917,7 @@
             if (isLegacyContractViewUrl(loadedUrl || targetUrl)) {
                 if (legacySettleTimer) window.clearTimeout(legacySettleTimer);
                 legacySettleTimer = window.setTimeout(function () {
+                    hideContractProbeOverlay();
                     settle('tab', targetUrl);
                 }, 900);
             }
@@ -6476,6 +6928,97 @@
             probeFrame.src = targetUrl;
         } catch (e) {
             settle('tab', targetUrl);
+        }
+    }
+
+    function openContractEditWithProbe(url, openerWindow) {
+        let targetUrl = '';
+        try { targetUrl = new URL(url || '', location.origin).href; }
+        catch (e) { return; }
+
+        if (state.contractEditProbeUrl === targetUrl) {
+            showContractProbeOverlay();
+            return;
+        }
+
+        state.contractEditProbeUrl = targetUrl;
+        showContractProbeOverlay();
+
+        const finish = function (mode, resolvedUrl) {
+            if (state.contractEditProbeUrl !== targetUrl) return;
+            state.contractEditProbeUrl = '';
+            hideContractProbeOverlay();
+
+            if (mode === 'home' && resolvedUrl) {
+                openUrlOnHome(resolvedUrl);
+                return;
+            }
+
+            const allowConversion = shouldAllowProgrammaticPeekConversion(targetUrl);
+            const options = {
+                allowOpenInTab: allowConversion,
+                allowSplit: allowConversion,
+            };
+            if (openerWindow) options.openerWindow = openerWindow;
+            openUrlInPeek(targetUrl, options);
+        };
+
+        let settled = false;
+        let legacySettleTimer = 0;
+        const probeFrame = document.createElement('iframe');
+        state.contractEditProbeFrame = probeFrame;
+        probeFrame.setAttribute('aria-hidden', 'true');
+        probeFrame.style.position = 'fixed';
+        probeFrame.style.left = '-10000px';
+        probeFrame.style.top = '0';
+        probeFrame.style.width = '1px';
+        probeFrame.style.height = '1px';
+        probeFrame.style.opacity = '0';
+        probeFrame.style.pointerEvents = 'none';
+
+        const cleanup = function () {
+            if (legacySettleTimer) {
+                window.clearTimeout(legacySettleTimer);
+                legacySettleTimer = 0;
+            }
+            try { probeFrame.remove(); } catch (e) {}
+            if (state.contractEditProbeFrame === probeFrame) state.contractEditProbeFrame = null;
+        };
+
+        const settle = function (mode, resolvedUrl) {
+            if (settled) return;
+            settled = true;
+            window.clearTimeout(timeoutId);
+            cleanup();
+            finish(mode, resolvedUrl);
+        };
+
+        const timeoutId = window.setTimeout(function () {
+            settle('peek', targetUrl);
+        }, 7000);
+
+        probeFrame.addEventListener('load', function () {
+            if (settled) return;
+            const loadedUrl = currentFrameUrl(probeFrame);
+            if (loadedUrl && AES.isNativeHomeUrl && AES.isNativeHomeUrl(loadedUrl)) {
+                settle('home', loadedUrl);
+                return;
+            }
+
+            if (isContractEditUrl(loadedUrl || targetUrl)) {
+                if (legacySettleTimer) window.clearTimeout(legacySettleTimer);
+                legacySettleTimer = window.setTimeout(function () {
+                    hideContractProbeOverlay();
+                    settle('peek', targetUrl);
+                }, 900);
+            }
+        });
+
+        try {
+            document.body.appendChild(probeFrame);
+            probeFrame.src = targetUrl;
+        } catch (e) {
+            settle('peek', targetUrl);
         }
     }
 
@@ -6655,6 +7198,10 @@
         }
 
         if (data.type === 'open-peek' && data.url) {
+            if (isContractEditUrl(data.url)) {
+                openContractEditWithProbe(data.url, event.source);
+                return;
+            }
             const allowConversion = shouldAllowProgrammaticPeekConversion(data.url);
             openUrlInPeek(data.url, {
                 openerWindow: event.source,
@@ -6738,7 +7285,14 @@
             // native-frame source match instead of trusting "not a tab".
             if (findTabFromWindow(event.source)) return;
             if (!findNativeFrameFromWindow(event.source)) return;
-            setHomeTitle(homeTitleForNativeUrl(currentNativeFrameUrl()) || data.title);
+            const nativeUrl = currentNativeFrameUrl();
+            if (isUmbrellaContractHomeUrl(nativeUrl)) {
+                syncUmbrellaContractHomeMetadata(nativeUrl, findNativeFrameFromWindow(event.source));
+                scheduleUmbrellaContractHomeMetadataSync(nativeUrl, findNativeFrameFromWindow(event.source));
+                return;
+            }
+            clearHomeMetadata();
+            setHomeTitle(homeTitleForNativeUrl(nativeUrl) || data.title);
             return;
         }
     }
@@ -6808,15 +7362,28 @@
     function maybePromoteTopLevelLandingRoute() {
         if (!featuresEnabled()) return;
         if (!state.viewport) return;
+        syncNativeHomeRouteFromCurrentFrame();
         const topHref = location.href;
         const firstObservation = !state.lastObservedTopHref;
         const hrefChanged = topHref !== state.lastObservedTopHref;
         state.lastObservedTopHref = topHref;
 
+        // Onyx's same-document pushState to an Umbrella Contract page never
+        // routes through openUrlOnHome / handleNativeFrameLoad, so neither
+        // path has a chance to mark the eager-reload flag — leaving every
+        // other deferred AES tab parked. Catch that case here: when the top
+        // URL changes to an umbrella page, mark the flag and schedule the
+        // reloader so the rest of the tab strip starts loading in the
+        // background. The flag is also durable across full reloads.
+        if (hrefChanged && !firstObservation && isUmbrellaContractHomeUrl(topHref)) {
+            markUmbrellaContractFrameReload();
+            window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+        }
+
         const handledUrl = AES.extractHandledUrlFromLandingPageUrl(topHref);
         if (!handledUrl) {
             const active = state.activeId === null ? null : tabById(state.activeId);
-            if (active && shouldMoveLegacyContractRedirectToHome(active, topHref)) {
+            if (hrefChanged && !firstObservation && active && shouldMoveLegacyContractRedirectToHome(active, topHref)) {
                 state.homePersistedUrl = topHref;
                 state.homePersistedTitle = '';
                 activateHome();
@@ -7930,7 +8497,11 @@
         }
         window.setTimeout(maybeCheckGithubReleaseUpdate, 3000);
         if (featuresEnabled()) {
+            const reloadFramesAfterUmbrellaContract = hasPendingUmbrellaContractFrameReload();
             await restoreTabs();
+            if (reloadFramesAfterUmbrellaContract) {
+                window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+            }
             installTabsMetadataSyncWatcher();
             if (state.tabs.length) clearHomeLoading();
             if (!state.tabs.length) activateHome();

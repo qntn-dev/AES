@@ -15,7 +15,7 @@
 
 const CUSTOMIZABLE_TAB_TYPES = [
     'ticket', 'ticketactivity', 'account', 'person', 'device', 'note', 'opportunity',
-    'salesorder', 'quote', 'contract', 'invoice', 'project', 'projecttask', 'timesheet',
+    'salesorder', 'quote', 'contract', 'umbrellacontract', 'invoice', 'project', 'projecttask', 'timesheet',
     'inventory', 'purchaseorder', 'charge', 'group', 'unknown',
 ];
 const CUSTOM_FIELD_OPTIONS = [
@@ -27,6 +27,7 @@ const CUSTOM_FIELD_OPTIONS = [
     { value: 'organization', label: 'Organization' },
     { value: 'vendor', label: 'Vendor' },
     { value: 'externalPoNumber', label: 'External P.O. #' },
+    { value: 'accountManager', label: 'Account Manager' },
     { value: 'contact', label: 'Contact' },
     { value: 'status', label: 'Status' },
     { value: 'priority', label: 'Priority' },
@@ -65,6 +66,7 @@ const TAB_LINE_OPTIONS_BY_TYPE = {
     purchaseorder: ['type', 'id', 'externalPoNumber', 'vendor', 'organization', 'none'],
     quote: ['type', 'id', 'quoteName', 'organization', 'none'],
     contract: ['type', 'id', 'contractType', 'contractCategory', 'purchaseOrderNumber', 'organization', 'none'],
+    umbrellacontract: ['type', 'organization', 'accountManager', 'contact', 'none'],
     invoice: ['type', 'id', 'purchaseOrder', 'organization', 'none'],
     project: ['type', 'id', 'organization', 'none'],
     projecttask: ['type', 'number', 'organization', 'contact', 'status', 'priority', 'lastActivity', 'primaryResource', 'none'],
@@ -88,6 +90,7 @@ const TAB_LINE_DEFAULT_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
+    umbrellacontract: { line2: 'type', line3: 'organization' },
     invoice: { line2: 'purchaseOrder', line3: 'organization' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
@@ -111,6 +114,7 @@ const TAB_LINE_RECOMMENDED_BY_TYPE = {
     purchaseorder: { line2: 'vendor', line3: 'externalPoNumber' },
     quote: { line2: 'id', line3: 'quoteName' },
     contract: { line2: 'contractType', line3: 'organization' },
+    umbrellacontract: { line2: 'type', line3: 'organization' },
     invoice: { line2: 'purchaseOrder', line3: 'organization' },
     project: { line2: 'id', line3: 'organization' },
     projecttask: { line2: 'organization', line3: 'contact' },
@@ -134,6 +138,7 @@ const TAB_TYPE_LABELS = {
     purchaseorder: 'Purchase Order',
     quote: 'Quote',
     contract: 'Contract',
+    umbrellacontract: 'Umbrella Contracts',
     invoice: 'Invoice',
     project: 'Project',
     projecttask: 'Task',
@@ -157,6 +162,7 @@ const CUSTOMIZATION_TAB_TYPE_ICONS = {
     purchaseorder: '<span class="fa-receipt fa-regular flex justify-center items-center flex-shrink-0 w-1rem h-1rem override-$icon-override-font-size:font-size-3 line-height-5 override-$icon-override-color:color-icon-primary" aria-hidden="true"></span>',
     quote: '<span class="fa-file-invoice-dollar fa-regular" aria-hidden="true"></span>',
     contract: '<span class="fa-file-contract fa-regular" aria-hidden="true"></span>',
+    umbrellacontract: '<span class="fa-umbrella fa-regular" aria-hidden="true"></span>',
     invoice: '<span class="fa-file-invoice fa-regular" aria-hidden="true"></span>',
     project: '<span class="fa-folder fa-regular" aria-hidden="true"></span>',
     projecttask: '<span class="fa-folder-tree fa-regular" aria-hidden="true"></span>',

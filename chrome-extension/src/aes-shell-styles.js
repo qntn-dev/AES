@@ -927,6 +927,52 @@
                 font-weight: 500;
             }
             .at-tab.home .close { display: none; }
+            .at-tab.home .home-umbrella-info {
+                display: none;
+                width: 18px;
+                height: 18px;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 auto;
+                align-self: flex-start;
+                margin-top: 2px;
+                border-radius: 4px;
+                color: #f59e0b;
+                font-size: 13px;
+                line-height: 1;
+                cursor: help;
+                pointer-events: auto;
+            }
+            .at-tab.home .home-umbrella-info:hover {
+                background: rgba(245, 158, 11, 0.14);
+                color: #d97706;
+            }
+            .at-tab.home.umbrella-contract .home-umbrella-info {
+                display: inline-flex;
+            }
+            .at-tabs-umbrella-info-tooltip {
+                position: fixed;
+                z-index: 1460;
+                max-width: 320px;
+                padding: 9px 11px;
+                border: 1px solid #fdba74;
+                border-radius: 9px;
+                background: #fff7ed;
+                color: #7c2d12;
+                box-shadow: 0 12px 28px rgba(15, 23, 42, 0.2);
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                font-size: 12px;
+                font-weight: 500;
+                line-height: 1.4;
+                pointer-events: none;
+                opacity: 0;
+                transform: translateY(-2px);
+                transition: opacity 90ms ease, transform 90ms ease;
+            }
+            .at-tabs-umbrella-info-tooltip.visible {
+                opacity: 1;
+                transform: translateY(0);
+            }
             .at-tab.home .home-spinner {
                 display: none;
                 width: 14px;
@@ -940,7 +986,7 @@
             }
             .at-tab.home.loading .icon { display: none; }
             .at-tab.home.loading .home-spinner { display: inline-block; }
-            .at-tab.home.loading .home-label { display: none; }
+            .at-tab.home.loading .home-meta { display: none; }
             .at-tabs-spacer {
                 flex: 1 1 auto;
                 min-width: 18px;
