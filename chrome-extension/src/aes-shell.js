@@ -265,24 +265,39 @@
         version: '0.9.0',
         sections: [
             {
+                title: 'Highlights',
+                items: [
+                    'AES now supports all Project related tabs and windows!',
+                    'Make Autotask feel like your own workspace with our new Branding settings!',
+                    'Major Umbrella Contracts fix',
+                ],
+            },
+            {
                 title: 'New features',
                 items: [
                     'Full compatibility of the Projects module with AES.',
+                    'Added Autotask Branding options, so you can make Autotask feel like your own workspace with custom colors, your own logo, and matching UI highlights throughout the interface.',
                     'Added a welcome message with a link to the correct Autotask settings, so users can make sure time entries and notes do not open in a separate window and break AES.',
                 ],
             },
             {
                 title: 'Improvements',
                 items: [
+                    'Invoices now stay contained within AES more reliably, including Batch History and Process Invoices flows.',
+                    'Labour Adjustment popups now open in AES Peek.',
+                    'Aligned more UI details with Autotask, including font and icon sizing for a cleaner native feel.',
                     'Time Entries and Ticket Notes can now be their own tabs with relevant metadata, in case the setting is disabled in Autotask.',
                     'Relevant Peek windows now refresh the original page when closing via Autotask Save & Quit-like buttons.',
                     'AES Settings button now also shows when the Autotask navigation bar is collapsed.',
+                    'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout; it now floats cleanly above the AES tab bar instead.',
                 ],
             },
             {
                 title: 'Bug Fixes',
                 items: [
                     'Fixed tabs not reopening correctly after a browser closure in case this setting is enabled.',
+                    'Fixed Umbrella Contracts breaking the whole extension/Autotask page. The extension now first checks if an open contract is an Umbrella Contract, if so it will open on the Home page. If it is a legacy contract it will still open as a tab. Since Umbrella Contracts are built on the new framework we are unable to open this within an AES Tab.',
+                    'Fixed invoices not generating AES tabs when opened from places other than invoice history.',
                 ],
             },
         ],
@@ -699,7 +714,7 @@
     }
 
     const UMBRELLA_CONTRACT_FRAME_RELOAD_KEY = 'aes-umbrella-contract-frame-reload';
-    const UMBRELLA_CONTRACT_DISCLAIMER = 'Umbrella Contracts are not compatible with features of Autotask Enhancement Suite. These contracts will always open on the Homepage since they are built on a different framework.';
+    const UMBRELLA_CONTRACT_DISCLAIMER = 'Umbrella Contracts have limited compatibility with AES. They cannot be opened as a separate tab because they are built on the Autotask Onyx Framework. You can still Peek other tabs.';
 
     function isUmbrellaContractHomeUrl(url) {
         try {
@@ -4691,23 +4706,29 @@
         description.textContent = 'This extension enhances the Autotask PSA experience by adding a native-looking tabbar preventing Autotask from creating loads of browser tabs.';
         body.appendChild(description);
 
-        const important = document.createElement('p');
-        important.className = 'at-tabs-release-notes-intro';
-        important.textContent = 'Important note: The extension only functions correctly when the setting "Open ticket/task time entries and notes inside ticket/task window" within your Profile Settings is turned ON.';
-        body.appendChild(important);
+        const feedback = document.createElement('p');
+        feedback.className = 'at-tabs-release-notes-intro';
+        feedback.append(
+            'This extension is being very actively developed so expect bugs and visual issues or even complete Autotask crashes. Please provide feedback of these cases in the Issues page of the GitHub repo or email me directly via ',
+            Object.assign(document.createElement('a'), {
+                href: 'mailto:feedback@qntn-dev.nl',
+                textContent: 'feedback@qntn-dev.nl',
+            })
+        );
+        body.appendChild(feedback);
 
         const actions = document.createElement('div');
         actions.className = 'at-tabs-release-notes-actions';
 
-        const settingsButton = document.createElement('button');
-        settingsButton.type = 'button';
-        settingsButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
-        settingsButton.textContent = 'Open Profile Settings';
-        settingsButton.addEventListener('click', function () {
+        const githubButton = document.createElement('button');
+        githubButton.type = 'button';
+        githubButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
+        githubButton.textContent = 'Open GitHub Issues';
+        githubButton.addEventListener('click', function () {
             markWelcomeNoticeAsSeen();
             closeReleaseNotesModal(true);
             try {
-                openTab(new URL('/Mvc/User/Preferences.mvc/Index', window.location.origin).href);
+                window.open('https://github.com/qntn-dev/AES/issues', '_blank', 'noopener,noreferrer');
             } catch (e) {}
         });
 
@@ -4720,7 +4741,7 @@
             closeReleaseNotesModal(true);
         });
 
-        actions.appendChild(settingsButton);
+        actions.appendChild(githubButton);
         actions.appendChild(confirmButton);
         header.appendChild(title);
         header.appendChild(close);
