@@ -17,6 +17,8 @@
     let featureEnabled = !(AES.featuresEnabled && !AES.featuresEnabled());
     let improvedScrollbarsEnabled = false;
     let mapButtonEnhancementStarted = false;
+    let brandEntityTitlebarObserver = null;
+    let brandEntityTitlebarRaf = 0;
 
     function normalizeBrandColor(value) {
         const raw = String(value || '').trim();
@@ -341,9 +343,6 @@
             'html.aes-improved-scrollbars.aes-autotask-dark-theme *::-webkit-scrollbar-corner {',
             '    background: transparent !important;',
             '}',
-            'html:not(.aes-ticket-detail-page) .ToolBar {',
-            '    margin-top: 10px !important;',
-            '}',
             'html.aes-brand-link-colors a[href],',
             'html.aes-brand-link-colors a.c-link,',
             'html.aes-brand-link-colors .c-link,',
@@ -423,25 +422,25 @@
             'html.aes-brand-link-colors .Button.Primary .Text {',
             '    color: #ffffff !important;',
             '}',
-            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation,',
-            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation {',
+            'html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar,',
+            'html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar {',
             '    background: var(--aes-accent-link-color) !important;',
             '    background-color: var(--aes-accent-link-color) !important;',
             '    border-color: var(--aes-accent-link-color) !important;',
             '    color: #ffffff !important;',
             '}',
-            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .Text,',
-            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .SecondaryText,',
-            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .Text,',
-            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .SecondaryText {',
+            'html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .Text,',
+            'html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .SecondaryText,',
+            'html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .Text,',
+            'html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .SecondaryText {',
             '    color: #ffffff !important;',
             '}',
-            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarButton:hover,',
-            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarButton:hover {',
+            'html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .TitleBarButton:hover,',
+            'html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .TitleBarButton:hover {',
             '    background-color: rgba(255, 255, 255, 0.18) !important;',
             '}',
-            'html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarIcon,',
-            'html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarIcon,',
+            'html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .TitleBarIcon,',
+            'html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .TitleBarIcon,',
             'html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Star,',
             'html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Help,',
             'html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Star,',
@@ -472,6 +471,54 @@
         }
         if (document.head || document.documentElement) attach();
         else document.addEventListener('DOMContentLoaded', attach, { once: true });
+    }
+
+    const BRANDABLE_ENTITY_TITLEBAR_TITLES = new Set([
+        'organization',
+        'contact',
+        'ticket',
+        'opportunity',
+        'device'
+    ]);
+
+    function updateBrandEntityTitlebars() {
+        brandEntityTitlebarRaf = 0;
+        const bars = document.querySelectorAll('.Active.TitleBar, .TitleBar.Active');
+        bars.forEach(function (bar) {
+            const titleEl = bar.querySelector('.TitleBarItem.Title > .Text, .Title > .Text, .TitleBarItem.Title .Text');
+            const title = cleanText(titleEl && titleEl.textContent).toLowerCase();
+            bar.classList.toggle('aes-brand-entity-titlebar', BRANDABLE_ENTITY_TITLEBAR_TITLES.has(title));
+        });
+    }
+
+    function scheduleBrandEntityTitlebarUpdate() {
+        if (brandEntityTitlebarRaf) return;
+        brandEntityTitlebarRaf = requestAnimationFrame(updateBrandEntityTitlebars);
+    }
+
+    function startBrandEntityTitlebarWatcher() {
+        scheduleBrandEntityTitlebarUpdate();
+        if (brandEntityTitlebarObserver || !(document.body || document.documentElement)) return;
+        brandEntityTitlebarObserver = new MutationObserver(scheduleBrandEntityTitlebarUpdate);
+        brandEntityTitlebarObserver.observe(document.body || document.documentElement, {
+            childList: true,
+            subtree: true,
+            characterData: true,
+        });
+    }
+
+    function stopBrandEntityTitlebarWatcher() {
+        if (brandEntityTitlebarObserver) {
+            brandEntityTitlebarObserver.disconnect();
+            brandEntityTitlebarObserver = null;
+        }
+        if (brandEntityTitlebarRaf) {
+            cancelAnimationFrame(brandEntityTitlebarRaf);
+            brandEntityTitlebarRaf = 0;
+        }
+        document.querySelectorAll('.aes-brand-entity-titlebar').forEach(function (bar) {
+            bar.classList.remove('aes-brand-entity-titlebar');
+        });
     }
 
     // Push this iframe's own content down by BAR_H so the shell bar in the
@@ -1909,6 +1956,8 @@
         if (data.scrollbarDark) root.style.setProperty('--aes-accent-scrollbar-dark', data.scrollbarDark);
         if (data.scrollbarDarkHover) root.style.setProperty('--aes-accent-scrollbar-dark-hover', data.scrollbarDarkHover);
         root.classList.toggle('aes-brand-link-colors', featureEnabled && !!data.brandLinksEnabled);
+        if (featureEnabled && !!data.brandLinksEnabled) startBrandEntityTitlebarWatcher();
+        else stopBrandEntityTitlebarWatcher();
         document.documentElement.classList.toggle('aes-improved-scrollbars', improvedScrollbarsEnabled);
     }
 

@@ -3119,25 +3119,25 @@
             html.aes-brand-link-colors .Button.Primary .Text {
                 color: #ffffff !important;
             }
-            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation,
-            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation {
+            html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar,
+            html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar {
                 background: var(--aes-accent-color) !important;
                 background-color: var(--aes-accent-color) !important;
                 border-color: var(--aes-accent-color) !important;
                 color: #ffffff !important;
             }
-            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .Text,
-            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .SecondaryText,
-            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .Text,
-            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .SecondaryText {
+            html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .Text,
+            html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .SecondaryText,
+            html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .Text,
+            html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .SecondaryText {
                 color: #ffffff !important;
             }
-            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarButton:hover,
-            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarButton:hover {
+            html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .TitleBarButton:hover,
+            html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .TitleBarButton:hover {
                 background-color: rgba(255, 255, 255, 0.18) !important;
             }
-            html.aes-brand-link-colors .Active.TitleBar.TitleBarNavigation .TitleBarIcon,
-            html.aes-brand-link-colors .TitleBar.Active.TitleBarNavigation .TitleBarIcon,
+            html.aes-brand-link-colors .Active.TitleBar.aes-brand-entity-titlebar .TitleBarIcon,
+            html.aes-brand-link-colors .TitleBar.Active.aes-brand-entity-titlebar .TitleBarIcon,
             html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Star,
             html.aes-brand-link-colors .Active.TitleBar .TitleBarIcon.Help,
             html.aes-brand-link-colors .TitleBar.Active .TitleBarIcon.Star,

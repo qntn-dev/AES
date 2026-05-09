@@ -2871,6 +2871,8 @@
     }
 
     function tabTypeForUrl(url) {
+        const innerUrl = AES.extractInnerUrlFromLandingPageUrl && AES.extractInnerUrlFromLandingPageUrl(url);
+        if (innerUrl && innerUrl !== url) return tabTypeForUrl(innerUrl);
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
         if (p === '/mvc/servicedesk/ticketnew.mvc') return 'ticket';
@@ -3050,6 +3052,8 @@
     }
 
     function fallbackTabMetadataForUrl(url) {
+        const innerUrl = AES.extractInnerUrlFromLandingPageUrl && AES.extractInnerUrlFromLandingPageUrl(url);
+        if (innerUrl && innerUrl !== url) return fallbackTabMetadataForUrl(innerUrl);
         const path = AES.pathOf(url);
         let parsed = null;
         try { parsed = new URL(url, location.origin); } catch (e) {}
