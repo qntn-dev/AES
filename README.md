@@ -97,6 +97,10 @@ Then reload the extension in your browser.
 
 See [PRIVACY_POLICY.md](PRIVACY_POLICY.md) for the repository privacy policy used for store/distribution documentation.
 
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
+
 ## Project Structure
 
 - `chrome-extension/`: loadable Chrome extension build
