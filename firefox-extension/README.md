@@ -1,6 +1,6 @@
-# Autotask Enhancement Suite for Firefox
+# AES: Tabs for Autotask (Firefox)
 
-Firefox build of the Autotask Enhancement Suite extension.
+Firefox build of the AES: Tabs for Autotask extension.
 
 ## Temporary Install
 

@@ -1,8 +1,10 @@
-# Autotask Enhancement Suite
+# AES: Tabs for Autotask
 
-Autotask Enhancement Suite is a browser extension that improves the Autotask web interface with a native-feeling tab system, smarter navigation, optional UI enhancements, phone links, map helpers, and other workflow improvements.
+AES: Tabs for Autotask is a browser extension that improves the Autotask web interface with a native-feeling tab system, smarter navigation, optional UI enhancements, phone links, map helpers, and other workflow improvements.
 
 It is built for people who spend a lot of time in Autotask and want a smoother, less cluttered workflow without constantly jumping between browser tabs and popup windows.
+
+Autotask is a registered trademark of Kaseya. AES: Tabs for Autotask is an independent open-source project developed by qntn-dev and is not affiliated with, sponsored by, endorsed by, or partnered with Kaseya or Datto.
 
 ## Features
 
@@ -32,6 +34,8 @@ AES supports browser managed storage for deploying Branding defaults through ent
 
 This is mainly intended for setting a company-wide Branding color. Logo deployment is also supported, but only as an SVG data URL, which is usually less convenient to maintain in policy tooling.
 
+Managed Branding is intended for internal organizational deployment, so administrators can give their own users a consistent company preference across managed browsers. It is not intended to remove, impersonate, or misrepresent Kaseya, Datto, or Autotask branding.
+
 Supported managed policy keys:
 
 - `autotaskBrandColor`: Hex color such as `#b23a48` or `b23a48`
@@ -58,7 +62,7 @@ For Chromium-based browsers, deploy these keys as extension managed storage for 
 
 ## Manual Installation
 
-Autotask Enhancement Suite is currently awaiting approval from Mozilla for release in the Firefox Add-ons store. Until then, install it manually with the steps below.
+AES: Tabs for Autotask is currently awaiting approval from Mozilla for release in the Firefox Add-ons store. Until then, install it manually with the steps below.
 
 ### Chrome
 

@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Autotask Enhancement Suite",
+  "name": "AES: Tabs for Autotask",
   "description": "Enhancements for Autotask, including the custom tab shell for tickets, accounts, contracts, and clickable phone numbers.",
-  "version": "0.10.0",
+  "version": "0.11.0",
   "browser_specific_settings": {
     "gecko": {
       "id": "autotask-enhancement-suite@quintenvannoorloos.nl",
@@ -35,6 +35,7 @@
       ],
       "all_frames": true,
       "js": [
+        "src/aes-local-flags.js",
         "src/aes-routes.js",
         "src/aes-shared.js",
         "src/aes-storage.js",
@@ -52,6 +53,7 @@
     }
   ],
   "permissions": [
+    "declarativeNetRequest",
     "storage",
     "tabs"
   ],
@@ -60,6 +62,7 @@
   },
   "background": {
     "scripts": [
+      "src/aes-local-flags.js",
       "src/aes-routes.js",
       "src/aes-background.js"
     ]
@@ -80,7 +83,7 @@
     }
   ],
   "action": {
-    "default_title": "Autotask Enhancement Suite",
+    "default_title": "AES: Tabs for Autotask",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

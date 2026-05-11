@@ -316,18 +316,59 @@
     function postOpen(url) {
         if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
-        if (!targetUrl || !isHandledUrl(targetUrl)) return false;
-        window.postMessage({ __ns: MSG_NS, type: 'open', url: targetUrl }, location.origin);
+        if (!targetUrl) return false;
+        if (isUmbrellaContractUrl(targetUrl)) {
+            window.postMessage({ __ns: MSG_NS, type: 'umbrella-open', url: targetUrl }, location.origin);
+            return true;
+        }
+        if (!isHandledUrl(targetUrl)) return false;
+        window.postMessage({
+            __ns: MSG_NS,
+            type: isLegacyContractViewUrl(targetUrl) ? 'contract-open' : 'open',
+            url: targetUrl,
+        }, location.origin);
         return true;
     }
 
     function postOpenDuplicate(url) {
         if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
+        if (targetUrl && isUmbrellaContractUrl(targetUrl)) {
+            pendingDuplicateOpenUntil = 0;
+            window.postMessage({ __ns: MSG_NS, type: 'umbrella-open-duplicate', url: targetUrl }, location.origin);
+            return true;
+        }
         if (!targetUrl || !isHandledUrl(targetUrl)) return false;
         pendingDuplicateOpenUntil = 0;
-        window.postMessage({ __ns: MSG_NS, type: 'open-duplicate', url: targetUrl }, location.origin);
+        window.postMessage({
+            __ns: MSG_NS,
+            type: isLegacyContractViewUrl(targetUrl) ? 'contract-open-duplicate' : 'open-duplicate',
+            url: targetUrl,
+        }, location.origin);
         return true;
+    }
+
+    function isLegacyContractViewUrl(url) {
+        return pathOf(url) === '/contracts/views/contractview.asp';
+    }
+
+    function isUmbrellaContractUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            return parsed.pathname.toLowerCase() === '/autotaskonyx/landingpage' &&
+                parsed.searchParams.get('view') === 'umbrella-contract-details';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function extractNativeUrlFromPageObject(pageObject) {
+        const strings = [];
+        collectStrings(pageObject, strings, 0);
+        const rawUrl = strings.find(function (value) {
+            return isUmbrellaContractUrl(absoluteUrl(value));
+        });
+        return rawUrl ? absoluteUrl(rawUrl) : '';
     }
 
     function isPendingMapOpen() {
@@ -346,7 +387,7 @@
 
     function armUserNavigationFromEvent(event) {
         if (!featureEnabled || !event || event.isTrusted === false) return;
-        if (extractHandledNavigationUrlFromEventTarget(event.target)) {
+        if (extractNativeNavigationUrlFromEventTarget(event.target) || extractHandledNavigationUrlFromEventTarget(event.target)) {
             pendingUserNavigationUntil = Date.now() + 1500;
         }
     }
@@ -545,6 +586,33 @@
         return '';
     }
 
+    function extractNativeNavigationUrlFromEventTarget(target) {
+        const anchor = target && target.closest ? target.closest('a[href]') : null;
+        if (anchor) {
+            const hrefUrl = absoluteUrl(anchor.href || anchor.getAttribute('href') || '');
+            if (hrefUrl && isUmbrellaContractUrl(hrefUrl)) return hrefUrl;
+        }
+
+        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick]') : null;
+        if (!el) return '';
+        const onclickText = el.getAttribute('onclick') || '';
+        const newWindowMatch = onclickText.match(
+            /NewWindowPage\s*\(\s*'[^']*'\s*,\s*'([^']+)'/
+        );
+        if (newWindowMatch) {
+            const hrefUrl = absoluteUrl(newWindowMatch[1] || '');
+            if (hrefUrl && isUmbrellaContractUrl(hrefUrl)) return hrefUrl;
+        }
+
+        const windowOpenMatch = onclickText.match(/window\.open\s*\(\s*['"]([^'"]+)['"]/i);
+        if (windowOpenMatch) {
+            const hrefUrl = absoluteUrl(windowOpenMatch[1] || '');
+            if (hrefUrl && isUmbrellaContractUrl(hrefUrl)) return hrefUrl;
+        }
+
+        return '';
+    }
+
     document.addEventListener('pointerdown', armMapOpenFromEvent, true);
     document.addEventListener('pointerdown', armUserNavigationFromEvent, true);
     window.addEventListener('message', function (event) {
@@ -564,6 +632,15 @@
     document.addEventListener('mousedown', function (event) {
         if (!featureEnabled) return;
         if (event.button !== 1) return;
+        const nativeTargetUrl = extractNativeNavigationUrlFromEventTarget(event.target);
+        if (nativeTargetUrl) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            postOpen(nativeTargetUrl);
+            return;
+        }
+
         const targetUrl = extractHandledNavigationUrlFromEventTarget(event.target);
         if (!targetUrl) return;
         pendingDuplicateOpenUntil = Date.now() + 1500;
@@ -637,6 +714,7 @@
         if (!hasUserNavigationActivation()) return originalAnchorClick.apply(this, arguments);
         if (postPeek(this.href)) return;
         if (postMap(this.href)) return;
+        if (postOpen(this.href)) return;
         return originalAnchorClick.apply(this, arguments);
     };
 
@@ -651,6 +729,8 @@
             if (!hasUserNavigationActivation() && !isPendingDuplicateOpen() && !isPendingMapOpen()) {
                 return originalOpenPage.apply(this, arguments);
             }
+            const nativeUrl = extractNativeUrlFromPageObject(pageObject);
+            if (nativeUrl && postOpen(nativeUrl)) return false;
             const peekUrl = extractHandledUrlFromPageObject(pageObject);
             if (peekUrl && postPeek(peekUrl)) return false;
             if (isPendingMapOpen()) {

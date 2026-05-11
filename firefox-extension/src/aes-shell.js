@@ -116,6 +116,7 @@
         tabsSyncLastSeenAt: 0,
         tabsSyncHasOwnedTabs: false,
         tabsSyncWatcherInstalled: false,
+        tabsRestored: false,
         nextId: 1,
         bar: null,
         viewport: null,
@@ -137,6 +138,11 @@
         draggingTabId: null,
         dragOverTabId: null,
         dragInsertAfter: false,
+        dragSplitIndicator: null,
+        dragSplitPane: null,
+        dragSplitSide: '',
+        dragSplitInsertionIndex: 0,
+        dragSplitHideTimer: 0,
         nativeReservedContainer: null,
         nonIframeReservedContainer: null,
         settingsModal: null,
@@ -186,6 +192,7 @@
         homeMetadataFields: {},
         nativeFrame: null,
         nativeLastUrl: '',
+        nativeShellSuppressUrl: '',
         homePersistedUrl: '',
         homePersistedTitle: '',
         lastObservedTopHref: '',
@@ -249,6 +256,7 @@
         autotaskLogoRaf: 0,
         skipPeekBackdropCloseWarning: !!(AES.state && AES.state.skipPeekBackdropCloseWarning),
         peekMoveResizeEnabled: !!(AES.state && AES.state.peekMoveResizeEnabled),
+        experimentalUmbrellaContractFrameTabs: !!(AES.state && AES.state.experimentalUmbrellaContractFrameTabs),
         tabLine2Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine2Fields, 2),
         tabLine3Fields: normalizeTabLineSettings(AES.state && AES.state.tabLine3Fields, 3),
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
@@ -276,76 +284,88 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
-        version: '0.10.0',
+        version: '0.11.0',
         sections: [
             {
-                title: 'AES Tip',
+                title: 'In progress',
                 items: [
-                    'Did you know it is possible to open multiple tickets at once by clicking with your scroll wheel?',
-                ],
-            },
-            {
-                title: 'Highlights',
-                items: [
-                    'Biggest update so far primarily focusing on bug fixes and improvements.',
-                    'Inventory Management compatibility.',
-                    'Browser-like tabs replacing Compact Mode.',
-                    'Loads of bug fixes.',
-                ],
-            },
-            {
-                title: 'New Features',
-                items: [
-                    'Changed compact tabs to Browser-like tabs. When this mode is active, tabs act more like normal browser tabs and AES does not manipulate the tab titles. This also maximizes space on the vertical tab bar.',
-                    'Added a collapse button to the Vertical Tab Bar, providing an easy way to collapse the tabs to an icon-only style inspired by Microsoft Edge.',
-                    'New Branding color picker with saveable presets.',
-                    'Added managed Branding policy support so admins can deploy a company-wide Autotask brand color and logo through Intune, Group Policy, or browser managed storage.',
-                ],
-            },
-            {
-                title: 'Compatibility',
-                intro: 'Added and improved AES Tab support for more Autotask areas:',
-                items: [
-                    'Service Calls.',
-                    'Inventory-related tabs.',
-                    'Project Tasks.',
-                    'Knowledge Base Articles.',
-                ],
-            },
-            {
-                title: 'Improvements',
-                items: [
-                    'Branding colors now apply to more Autotask and AES surfaces, including tabs, loaders, settings controls, Onyx page accents, and header icons.',
-                    'Branding settings now clearly show when the brand color or logo is managed by the organization and disable local editing for those managed values.',
-                    'Tab bar location and tab size are now separate settings.',
-                    'Added short subtitles to settings to make each option easier to understand.',
-                    'Made hover cards more consistent by showing metadata rows even when the value is empty.',
-                    'Created more space for tab titles by removing the static close (X) button; the button will now only appear on active tabs or when hovering over a tab.',
-                    'Enhanced the Tab Title overflow effect by using shadows instead of three dots.',
-                    'AES Tab border is now aligned to the Autotask Tab border style (3px -> 4px).',
-                    'The Resource Planner replacement in the top bar now disappears when the window is too narrow, preventing overlap.',
-                    'Hover Cards are now properly aligned.',
-                    'Limited the color picker for Branding to readable colors only to prevent visual issues.',
-                ],
-            },
-            {
-                title: 'Bug Fixes',
-                items: [
-                    'Fixed Branding not applying consistently in light/dark mode.',
-                    'Fixed dropdowns showing multiple arrows in the background.',
-                    'Fixed AES Tabs not automatically reloading after refreshing Autotask.',
-                    'Fixed new Legacy Contracts opening in browser tabs instead of AES Tabs.',
-                    'Fixed a bug where adding Services to a Contract did not automatically close the Peek window.',
-                    'Fixed opening Stocked Items crashing Autotask.',
-                    'Fixed Edit Ticket in the hover menu opening a separate browser tab.',
-                    'Fixed Metadata not showing the proper values when pressing Edit Ticket.',
-                    'Fixed a regression where +New Ticket would open in a browser tab instead of an AES Tab since v0.9.0.',
+                    'Release notes for 0.11.0 are not written yet.',
                 ],
             },
         ],
     };
     const RELEASE_NOTES_HISTORY = [
         RELEASE_NOTES,
+        {
+            version: '0.10.0',
+            sections: [
+                {
+                    title: 'AES Tip',
+                    items: [
+                        'Did you know it is possible to open multiple tickets at once by clicking with your scroll wheel?',
+                    ],
+                },
+                {
+                    title: 'Highlights',
+                    items: [
+                        'Biggest update so far primarily focusing on bug fixes and improvements.',
+                        'Inventory Management compatibility.',
+                        'Browser-like tabs replacing Compact Mode.',
+                        'Loads of bug fixes.',
+                    ],
+                },
+                {
+                    title: 'New Features',
+                    items: [
+                        'Changed compact tabs to Browser-like tabs. When this mode is active, tabs act more like normal browser tabs and AES does not manipulate the tab titles. This also maximizes space on the vertical tab bar.',
+                        'Added a collapse button to the Vertical Tab Bar, providing an easy way to collapse the tabs to an icon-only style inspired by Microsoft Edge.',
+                        'New Branding color picker with saveable presets.',
+                        'Added managed Branding policy support so admins can deploy a company-wide Autotask brand color and logo through Intune, Group Policy, or browser managed storage.',
+                    ],
+                },
+                {
+                    title: 'Compatibility',
+                    intro: 'Added and improved AES Tab support for more Autotask areas:',
+                    items: [
+                        'Service Calls.',
+                        'Inventory-related tabs.',
+                        'Project Tasks.',
+                        'Knowledge Base Articles.',
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'Branding colors now apply to more Autotask and AES surfaces, including tabs, loaders, settings controls, Onyx page accents, and header icons.',
+                        'Branding settings now clearly show when the brand color or logo is managed by the organization and disable local editing for those managed values.',
+                        'Tab bar location and tab size are now separate settings.',
+                        'Added short subtitles to settings to make each option easier to understand.',
+                        'Made hover cards more consistent by showing metadata rows even when the value is empty.',
+                        'Created more space for tab titles by removing the static close (X) button; the button will now only appear on active tabs or when hovering over a tab.',
+                        'Enhanced the Tab Title overflow effect by using shadows instead of three dots.',
+                        'AES Tab border is now aligned to the Autotask Tab border style (3px -> 4px).',
+                        'The Resource Planner replacement in the top bar now disappears when the window is too narrow, preventing overlap.',
+                        'Hover Cards are now properly aligned.',
+                        'Limited the color picker for Branding to readable colors only to prevent visual issues.',
+                        'Renamed the extension to AES: Tabs for Autotask for better compliancy with Chrome Web Store guidelines and trademarks.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Fixed Branding not applying consistently in light/dark mode.',
+                        'Fixed dropdowns showing multiple arrows in the background.',
+                        'Fixed AES Tabs not automatically reloading after refreshing Autotask.',
+                        'Fixed new Legacy Contracts opening in browser tabs instead of AES Tabs.',
+                        'Fixed a bug where adding Services to a Contract did not automatically close the Peek window.',
+                        'Fixed opening Stocked Items crashing Autotask.',
+                        'Fixed Edit Ticket in the hover menu opening a separate browser tab.',
+                        'Fixed Metadata not showing the proper values when pressing Edit Ticket.',
+                        'Fixed a regression where +New Ticket would open in a browser tab instead of an AES Tab since v0.9.0.',
+                    ],
+                },
+            ],
+        },
         {
             version: '0.9.0',
             sections: [
@@ -634,6 +654,7 @@
 
     function shouldMoveLegacyContractRedirectToHome(tab, loadedUrl) {
         if (!tab || !loadedUrl) return false;
+        if (useExperimentalUmbrellaContractFrameTabs() && isUmbrellaContractHomeUrl(loadedUrl)) return false;
         return isLegacyContractViewUrl(tab.url)
             && AES.isNativeHomeUrl
             && AES.isNativeHomeUrl(loadedUrl);
@@ -755,6 +776,38 @@
         return loaderEl;
     }
 
+    function removeTabRuntimeElements(tab) {
+        if (!tab) return;
+        try { if (tab.iframeEl) tab.iframeEl.remove(); } catch (e) {}
+        try { if (tab.loaderEl) tab.loaderEl.remove(); } catch (e) {}
+        tab.iframeEl = null;
+        tab.loaderEl = null;
+    }
+
+    function ensureTabRuntimeForUrl(tab, options) {
+        if (!tab) return tab;
+        const opts = options || {};
+        const nativeShell = isNativeShellTabUrl(tab.url);
+        tab.nativeShell = nativeShell;
+        if (nativeShell) {
+            removeTabRuntimeElements(tab);
+            tab.loading = false;
+            tab.loadStarted = true;
+            return tab;
+        }
+        if (!tab.iframeEl && state.viewport) {
+            const iframeEl = createTabIframe(tab.url, { deferLoad: !!opts.deferLoad });
+            const loaderEl = createTabPaneLoader();
+            state.viewport.appendChild(iframeEl);
+            state.viewport.appendChild(loaderEl);
+            tab.iframeEl = iframeEl;
+            tab.loaderEl = loaderEl;
+            tab.loading = opts.deferLoad ? false : true;
+            tab.loadStarted = !opts.deferLoad;
+        }
+        return tab;
+    }
+
     function requestTabMetadataRefresh(tab) {
         if (!tab || !tab.iframeEl || !tab.iframeEl.contentWindow) return;
         try {
@@ -870,8 +923,12 @@
         return normalizeMetadataFields(merged);
     }
 
+    function mergeMetadataFields(existingFields, incomingFields) {
+        return mergeMetadataFieldsPreservingExisting(existingFields, incomingFields);
+    }
+
     const UMBRELLA_CONTRACT_FRAME_RELOAD_KEY = 'aes-umbrella-contract-frame-reload';
-    const UMBRELLA_CONTRACT_DISCLAIMER = 'Umbrella Contracts have limited compatibility with AES. They cannot be opened as a separate tab because they are built on the Autotask Onyx Framework. You can still Peek other tabs.';
+    const UMBRELLA_CONTRACT_DISCLAIMER = 'Experimental native AES tab: Umbrella Contracts are rendered by Autotask Onyx directly on the page, so AES keeps the page native while giving it a tab identity.';
 
     function isUmbrellaContractHomeUrl(url) {
         try {
@@ -880,6 +937,51 @@
                 parsed.searchParams.get('view') === 'umbrella-contract-details';
         } catch (e) {
             return false;
+        }
+    }
+
+    function localUmbrellaContractFrameExperimentAvailable() {
+        return !!(
+            globalThis.__AES_LOCAL_FLAGS__ &&
+            globalThis.__AES_LOCAL_FLAGS__.umbrellaContractFrameExperiment
+        );
+    }
+
+    function useExperimentalUmbrellaContractFrameTabs() {
+        return localUmbrellaContractFrameExperimentAvailable() && !!state.experimentalUmbrellaContractFrameTabs;
+    }
+
+    function syncUmbrellaContractFrameRules(enabled) {
+        if (!localUmbrellaContractFrameExperimentAvailable()) enabled = false;
+        return sendRuntimeMessage({
+            __aesUmbrellaContractFrameRules: true,
+            type: 'set-enabled',
+            enabled: !!enabled,
+        });
+    }
+
+    function isNativeShellTabUrl(url) {
+        return false;
+    }
+
+    function isNativeShellTab(tab) {
+        return !!(tab && isNativeShellTabUrl(tab.url));
+    }
+
+    function activeUsesNonIframeContent() {
+        return state.activeId === null || isNativeShellTab(tabById(state.activeId));
+    }
+
+    function umbrellaContractIdFromUrl(url) {
+        try {
+            const parsed = new URL(url || '', location.origin);
+            const rawViewData = parsed.searchParams.get('view-data') || '';
+            if (!rawViewData) return '';
+            const data = JSON.parse(atob(rawViewData));
+            const contractId = data && data.contractId;
+            return contractId === undefined || contractId === null ? '' : String(contractId);
+        } catch (e) {
+            return '';
         }
     }
 
@@ -913,6 +1015,10 @@
         let allTabsHandled = true;
         state.tabs.forEach(function (tab) {
             if (!tab) return;
+            if (isNativeShellTab(tab)) {
+                tab.aesReloadAfterUmbrellaContract = false;
+                return;
+            }
             if (!tab.iframeEl) {
                 allTabsHandled = false;
                 return;
@@ -1023,6 +1129,7 @@
             tab.syncKey = createRandomId('tab-');
         }
         tab.url = canonicalTabUrl(tab.url);
+        tab.nativeShell = isNativeShellTabUrl(tab.url);
         tab.pinned = !!tab.pinned;
         tab.color = TAB_COLOR_PRESETS.includes(tab.color) ? tab.color : '';
         tab.pageWarning = !!tab.pageWarning;
@@ -1639,10 +1746,11 @@
         for (const saved of payload.tabs) {
             if (!saved.url) continue;
             const savedUrl = canonicalTabUrl(saved.url);
-            const iframeEl = createTabIframe(savedUrl, { deferLoad: true });
-            const loaderEl = createTabPaneLoader();
-            state.viewport.appendChild(iframeEl);
-            state.viewport.appendChild(loaderEl);
+            const nativeShell = isNativeShellTabUrl(savedUrl);
+            const iframeEl = nativeShell ? null : createTabIframe(savedUrl, { deferLoad: true });
+            const loaderEl = nativeShell ? null : createTabPaneLoader();
+            if (iframeEl) state.viewport.appendChild(iframeEl);
+            if (loaderEl) state.viewport.appendChild(loaderEl);
             state.tabs.push(normalizeTabState({
                 id: state.nextId++,
                 syncKey: saved.syncKey || '',
@@ -1663,8 +1771,9 @@
                 iframeEl,
                 loaderEl,
                 tabEl: null,
-                loading: true,
-                loadStarted: false,
+                nativeShell: nativeShell,
+                loading: !nativeShell,
+                loadStarted: nativeShell ? true : false,
             }));
         }
         state.tabsSyncHasOwnedTabs = state.tabs.length > 0;
@@ -1722,10 +1831,11 @@
 
     function createLazyTabFromSaved(saved) {
         const savedUrl = canonicalTabUrl(saved.url);
-        const iframeEl = createTabIframe(savedUrl, { deferLoad: true });
-        const loaderEl = createTabPaneLoader();
-        state.viewport.appendChild(iframeEl);
-        state.viewport.appendChild(loaderEl);
+        const nativeShell = isNativeShellTabUrl(savedUrl);
+        const iframeEl = nativeShell ? null : createTabIframe(savedUrl, { deferLoad: true });
+        const loaderEl = nativeShell ? null : createTabPaneLoader();
+        if (iframeEl) state.viewport.appendChild(iframeEl);
+        if (loaderEl) state.viewport.appendChild(loaderEl);
         return normalizeTabState({
             id: state.nextId++,
             syncKey: saved.syncKey || '',
@@ -1746,8 +1856,9 @@
             iframeEl: iframeEl,
             loaderEl: loaderEl,
             tabEl: null,
+            nativeShell: nativeShell,
             loading: false,
-            loadStarted: false,
+            loadStarted: nativeShell ? true : false,
         });
     }
 
@@ -1767,7 +1878,9 @@
         tab.pageWarning = !!saved.pageWarning;
         tab.hoverFields = normalizeHoverFields(saved.hoverFields);
         tab.metadataFields = normalizeMetadataFields(saved.metadataFields);
-        return normalizeTabState(tab);
+        normalizeTabState(tab);
+        ensureTabRuntimeForUrl(tab, { deferLoad: true });
+        return tab;
     }
 
     function takeReusableTab(saved, pools) {
@@ -2123,7 +2236,7 @@
             }
         );
 
-        if (!state.roundedPageFramesEnabled || !state.nonIframeReservedContainer || state.activeId !== null) return;
+        if (!state.roundedPageFramesEnabled || !state.nonIframeReservedContainer || !activeUsesNonIframeContent()) return;
         const clippingEnabled = state.roundedPageFramesEnabled;
         const selectors = [
             '[class~="bg-background-primary"][class~="h-full"][class~="flex"]',
@@ -2299,7 +2412,7 @@
             clearNonIframeReservation();
             return;
         }
-        if (state.shellHidden || !state.showTabBarOnNonIframePages || state.activeId !== null) {
+        if (state.shellHidden || !state.showTabBarOnNonIframePages || !activeUsesNonIframeContent()) {
             clearNonIframeReservation();
             return;
         }
@@ -2527,12 +2640,16 @@
             const container = findNonIframeContentContainer();
             applyNonIframeReservation(container);
             const base = readNoIframeBase(container);
+            const activeNativeShell = isNativeShellTab(tabById(state.activeId));
             state.bar.style.display = '';
-            state.viewport.style.display = state.activeId === null ? 'none' : '';
+            state.viewport.style.display = activeUsesNonIframeContent() ? 'none' : '';
             if (state.homeCover) state.homeCover.style.display = 'none';
             if (state.activeId === null) {
                 ensureNonIframeTitleWatcher();
                 updateHomeTitleFromTopLevelPage(true);
+            } else if (activeNativeShell) {
+                stopNonIframeTitleWatcher();
+                syncActiveNativeShellTabMetadata();
             } else {
                 stopNonIframeTitleWatcher();
             }
@@ -2690,7 +2807,7 @@
                 for (const mutation of mutations) {
                     if (isShellOwnedMutationTarget(mutation.target)) continue;
                     if (mutation.type === 'childList') {
-                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && state.activeId === null) {
+                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && activeUsesNonIframeContent()) {
                             scheduleNonIframeRoundedSurfaceStyles();
                         }
                         const nodes = [...mutation.addedNodes, ...mutation.removedNodes];
@@ -2702,7 +2819,7 @@
                         continue;
                     }
                     if (mutation.type === 'attributes') {
-                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && state.activeId === null) {
+                        if (state.roundedPageFramesEnabled && state.nonIframeReservedContainer && activeUsesNonIframeContent()) {
                             scheduleNonIframeRoundedSurfaceStyles();
                         }
                         if (noIframeTestMode) continue;
@@ -2800,6 +2917,100 @@
         return ids.length >= 2 ? ids : null;
     }
 
+    function ensureSplitFrameControls(tab) {
+        if (!tab || !state.viewport) return null;
+        if (tab.splitControlsEl && tab.splitControlsEl.isConnected) return tab.splitControlsEl;
+
+        const controls = document.createElement('div');
+        controls.className = 'at-tabs-split-frame-controls hidden';
+        controls.setAttribute('aria-hidden', 'true');
+
+        const detachButton = document.createElement('button');
+        detachButton.type = 'button';
+        detachButton.className = 'at-tabs-split-frame-button detach';
+        detachButton.title = 'Detach this tab from split view';
+        detachButton.setAttribute('aria-label', 'Detach this tab from split view');
+        const detachIcon = document.createElement('span');
+        detachIcon.className = 'at-tabs-split-frame-detach-icon';
+        detachIcon.setAttribute('aria-hidden', 'true');
+        detachButton.appendChild(detachIcon);
+        detachButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            detachTabFromSplit(tab.id);
+        });
+
+        const closeButton = document.createElement('button');
+        closeButton.type = 'button';
+        closeButton.className = 'at-tabs-split-frame-button close';
+        closeButton.title = 'Close this tab';
+        closeButton.setAttribute('aria-label', 'Close this tab');
+        const closeIcon = document.createElement('span');
+        closeIcon.className = 'at-tabs-split-frame-close-icon';
+        closeIcon.setAttribute('aria-hidden', 'true');
+        closeButton.appendChild(closeIcon);
+        closeButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            closeTab(tab.id);
+        });
+
+        controls.appendChild(closeButton);
+        controls.appendChild(detachButton);
+        state.viewport.appendChild(controls);
+        tab.splitControlsEl = controls;
+        return controls;
+    }
+
+    function syncSplitFrameControls(tab, visible, paneIndex, paneCount) {
+        const controls = tab && (tab.splitControlsEl || (visible ? ensureSplitFrameControls(tab) : null));
+        if (!controls) return;
+
+        controls.classList.toggle('hidden', !visible);
+        controls.setAttribute('aria-hidden', visible ? 'false' : 'true');
+        for (let i = 0; i < 4; i++) {
+            controls.classList.toggle('split-controls-index-' + i, visible && paneIndex === i);
+        }
+        for (let count = 2; count <= 4; count++) {
+            controls.classList.toggle('split-controls-count-' + count, visible && paneCount === count);
+        }
+    }
+
+    function detachTabFromSplit(tabId) {
+        const group = getSplitGroupIds();
+        if (!group.includes(tabId)) return false;
+
+        const remaining = group.filter(function (id) { return id !== tabId; });
+        state.splitResizing = false;
+
+        if (remaining.length >= 2 && remaining.includes(state.activeId)) {
+            state.splitPairIds = remaining.slice(0, 4);
+            state.splitRatios = normalizeSplitRatios([], state.splitPairIds.length);
+            state.splitId = state.splitPairIds.find(function (id) { return id !== state.activeId; }) || null;
+            syncTabPaneState();
+            updateLoaderVisibility();
+            ensureActiveTabVisible();
+            updateTabScrollButtons();
+            saveTabs();
+            return true;
+        }
+
+        state.splitPairIds = null;
+        state.splitId = null;
+        state.splitPairColor = '';
+        state.splitRatios = [];
+        if (state.activeId === tabId) {
+            activateTab(tabId, { recordPrevious: false });
+        } else {
+            syncTabPaneState();
+            updateLoaderVisibility();
+            ensureActiveTabVisible();
+            updateTabScrollButtons();
+            saveTabs();
+        }
+        return true;
+    }
+
     function syncTabPaneState() {
         if (!state.viewport) return;
 
@@ -2864,14 +3075,16 @@
                 applyTabColorStyle(tab);
             }
 
-            tab.iframeEl.classList.toggle('primary-pane', splitActive && isPrimary);
-            tab.iframeEl.classList.toggle('split-pane', isSplit);
-            tab.iframeEl.classList.toggle('left-pane', isLeftPane);
-            tab.iframeEl.classList.toggle('right-pane', isRightPane);
-            for (let i = 0; i < 4; i++) {
-                tab.iframeEl.classList.toggle('split-pane-index-' + i, splitPaneIndex === i);
+            if (tab.iframeEl) {
+                tab.iframeEl.classList.toggle('primary-pane', splitActive && isPrimary);
+                tab.iframeEl.classList.toggle('split-pane', isSplit);
+                tab.iframeEl.classList.toggle('left-pane', isLeftPane);
+                tab.iframeEl.classList.toggle('right-pane', isRightPane);
+                for (let i = 0; i < 4; i++) {
+                    tab.iframeEl.classList.toggle('split-pane-index-' + i, splitPaneIndex === i);
+                }
+                tab.iframeEl.classList.toggle('hidden', splitActive ? !visibleSet.has(tab.id) : !isPrimary);
             }
-            tab.iframeEl.classList.toggle('hidden', splitActive ? !visibleSet.has(tab.id) : !isPrimary);
             if (tab.loaderEl) {
                 tab.loaderEl.classList.toggle('left-pane', isLeftPane);
                 tab.loaderEl.classList.toggle('right-pane', isRightPane);
@@ -2880,6 +3093,7 @@
                 }
             tab.loaderEl.classList.toggle('hidden', splitActive ? !visibleSet.has(tab.id) : !(state.roundedPageFramesEnabled && isPrimary));
             }
+            syncSplitFrameControls(tab, !!(tab.iframeEl && splitActive && isVisibleSplitPane), splitPaneIndex, visibleSplitIds.length);
         }
     }
 
@@ -2902,11 +3116,272 @@
     }
 
     function canAddTabToSplit(tabId) {
+        if (isNativeShellTab(tabById(tabId)) || isNativeShellTab(tabById(state.activeId))) return false;
         if (state.activeId === null || state.activeId === tabId || !tabById(tabId)) return false;
         const group = getSplitGroupIds();
         if (!group.length) return true;
         if (!splitGroupIncludesActive(group)) return true;
         return !group.includes(tabId) && group.length < 4;
+    }
+
+    function getDragSplitBaseIds(draggedId) {
+        const active = tabById(state.activeId);
+        if (!active) return [];
+        const group = getSplitGroupIds();
+        if (splitGroupIncludesActive(group)) {
+            return group.filter(function (id) { return id !== draggedId; }).slice(0, 3);
+        }
+        return [active.id];
+    }
+
+    function dragSplitInsertionIndexFromEvent(event, baseIds) {
+        if (!state.viewport || !Array.isArray(baseIds) || !baseIds.length) return 0;
+        const rect = state.viewport.getBoundingClientRect();
+        if (!rect.width) return baseIds.length;
+        const slotCount = Math.min(baseIds.length + 1, 4);
+        if (slotCount <= 2) {
+            return event.clientX < rect.left + (rect.width / 2) ? 0 : 1;
+        }
+        const ratio = Math.max(0, Math.min(0.999, (event.clientX - rect.left) / rect.width));
+        return Math.max(0, Math.min(slotCount - 1, Math.floor(ratio * slotCount)));
+    }
+
+    function dragSplitSideFromInsertionIndex(insertionIndex, previewCount) {
+        if (insertionIndex <= 0) return 'left';
+        if (insertionIndex >= previewCount - 1) return 'right';
+        return 'middle';
+    }
+
+    function dragSplitLabelForSlot(insertionIndex, previewCount) {
+        const side = dragSplitSideFromInsertionIndex(insertionIndex, previewCount);
+        if (side === 'left') return 'Split left';
+        if (side === 'right') return 'Split right';
+        return 'Split between';
+    }
+
+    function removeDragSplitIndexClasses(el) {
+        if (!el) return;
+        for (let i = 0; i < 4; i++) {
+            el.classList.remove('drag-split-preview-index-' + i);
+        }
+    }
+
+    function dragSplitPreviewPercent(value) {
+        const rounded = Math.round(value * 10000) / 10000;
+        if (Number.isInteger(rounded)) return String(rounded);
+        return String(rounded).replace(/0+$/, '').replace(/\.$/, '');
+    }
+
+    function dragSplitSlotMetrics(index, count) {
+        const slotCount = Math.max(2, Math.min(4, count || 2));
+        const slotWidth = 100 / slotCount;
+        const left = index <= 0
+            ? '8px'
+            : 'calc(' + dragSplitPreviewPercent(slotWidth * index) + '% + 6px)';
+        const isEdge = index <= 0 || index >= slotCount - 1;
+        const width = 'calc(' + dragSplitPreviewPercent(slotWidth) + '% - ' + (isEdge ? '14px' : '12px') + ')';
+        return { left: left, width: width };
+    }
+
+    function setDragSplitSlotMetrics(el, index, count) {
+        if (!el) return;
+        const metrics = dragSplitSlotMetrics(index, count);
+        el.style.setProperty('--aes-drag-preview-left', metrics.left);
+        el.style.setProperty('--aes-drag-preview-width', metrics.width);
+    }
+
+    function clearDragSplitSlotMetrics(el) {
+        if (!el) return;
+        el.style.removeProperty('--aes-drag-preview-left');
+        el.style.removeProperty('--aes-drag-preview-width');
+    }
+
+    function clearDragSplitLayoutPreview() {
+        if (state.viewport) {
+            state.viewport.classList.remove(
+                'drag-split-preview',
+                'drag-split-preview-count-2',
+                'drag-split-preview-count-3',
+                'drag-split-preview-count-4',
+                'drag-split-slot-left',
+                'drag-split-slot-middle',
+                'drag-split-slot-right'
+            );
+        }
+        if (state.dragSplitPane) {
+            removeDragSplitIndexClasses(state.dragSplitPane);
+            clearDragSplitSlotMetrics(state.dragSplitPane);
+            state.dragSplitPane.removeAttribute('data-label');
+        }
+        for (const tab of state.tabs) {
+            if (tab.iframeEl) {
+                tab.iframeEl.classList.remove('drag-split-preview-member');
+                removeDragSplitIndexClasses(tab.iframeEl);
+                clearDragSplitSlotMetrics(tab.iframeEl);
+            }
+            if (tab.loaderEl) {
+                tab.loaderEl.classList.remove('drag-split-preview-member');
+                removeDragSplitIndexClasses(tab.loaderEl);
+                clearDragSplitSlotMetrics(tab.loaderEl);
+            }
+        }
+        state.dragSplitInsertionIndex = 0;
+    }
+
+    function applyDragSplitLayoutPreview(baseIds, insertionIndex) {
+        clearDragSplitLayoutPreview();
+        if (!state.viewport || !state.dragSplitPane || !Array.isArray(baseIds) || !baseIds.length) return 0;
+
+        const previewCount = Math.min(baseIds.length + 1, 4);
+        const slotIndex = Math.max(0, Math.min(previewCount - 1, insertionIndex));
+        const side = dragSplitSideFromInsertionIndex(slotIndex, previewCount);
+        state.dragSplitInsertionIndex = slotIndex;
+        state.dragSplitSide = side;
+
+        state.viewport.classList.add(
+            'drag-split-preview',
+            'drag-split-preview-count-' + previewCount,
+            'drag-split-slot-' + side
+        );
+
+        state.dragSplitPane.classList.add('drag-split-preview-index-' + slotIndex);
+        setDragSplitSlotMetrics(state.dragSplitPane, slotIndex, previewCount);
+        state.dragSplitPane.setAttribute('data-label', dragSplitLabelForSlot(slotIndex, previewCount));
+
+        baseIds.forEach(function (id, index) {
+            const tab = tabById(id);
+            const previewIndex = index >= slotIndex ? index + 1 : index;
+            if (!tab || previewIndex >= previewCount) return;
+            if (tab.iframeEl) {
+                tab.iframeEl.classList.add('drag-split-preview-member', 'drag-split-preview-index-' + previewIndex);
+                setDragSplitSlotMetrics(tab.iframeEl, previewIndex, previewCount);
+            }
+            if (tab.loaderEl) {
+                tab.loaderEl.classList.add('drag-split-preview-member', 'drag-split-preview-index-' + previewIndex);
+                setDragSplitSlotMetrics(tab.loaderEl, previewIndex, previewCount);
+            }
+        });
+
+        return slotIndex;
+    }
+
+    function hideDragSplitPreview() {
+        if (state.dragSplitHideTimer) {
+            clearTimeout(state.dragSplitHideTimer);
+            state.dragSplitHideTimer = 0;
+        }
+        clearDragSplitLayoutPreview();
+        if (!state.dragSplitIndicator) return;
+        state.dragSplitIndicator.classList.remove('is-visible', 'side-left', 'side-right');
+        state.dragSplitSide = '';
+    }
+
+    function disarmDragSplitIndicator() {
+        hideDragSplitPreview();
+        if (state.dragSplitIndicator) {
+            state.dragSplitIndicator.classList.remove('is-armed');
+        }
+        if (state.viewport) {
+            state.viewport.classList.remove('drag-split-armed');
+        }
+    }
+
+    function armDragSplitIndicator(tabId) {
+        if (!state.dragSplitIndicator || !state.viewport || !canAddTabToSplit(tabId)) {
+            disarmDragSplitIndicator();
+            return;
+        }
+        state.dragSplitIndicator.classList.add('is-armed');
+        state.viewport.classList.add('drag-split-armed');
+    }
+
+    function updateDragSplitIndicator(event) {
+        const draggedId = state.draggingTabId;
+        if (draggedId === null || !state.dragSplitIndicator || !canAddTabToSplit(draggedId)) {
+            disarmDragSplitIndicator();
+            return false;
+        }
+        const baseIds = getDragSplitBaseIds(draggedId);
+        if (!baseIds.length) {
+            disarmDragSplitIndicator();
+            return false;
+        }
+
+        if (state.dragSplitHideTimer) {
+            clearTimeout(state.dragSplitHideTimer);
+            state.dragSplitHideTimer = 0;
+        }
+
+        const insertionIndex = dragSplitInsertionIndexFromEvent(event, baseIds);
+        const slotIndex = applyDragSplitLayoutPreview(baseIds, insertionIndex);
+        const previewCount = Math.min(baseIds.length + 1, 4);
+        const side = dragSplitSideFromInsertionIndex(slotIndex, previewCount);
+        state.dragSplitIndicator.classList.add('is-visible');
+        state.dragSplitIndicator.classList.toggle('side-left', side === 'left');
+        state.dragSplitIndicator.classList.toggle('side-right', side === 'right');
+        state.dragOverTabId = null;
+        state.dragInsertAfter = false;
+        for (const tab of state.tabs) {
+            if (!tab.tabEl) continue;
+            tab.tabEl.classList.remove('drop-before', 'drop-after');
+        }
+        return true;
+    }
+
+    function handleDragSplitOver(event) {
+        if (!updateDragSplitIndicator(event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) {
+            event.dataTransfer.dropEffect = 'move';
+        }
+    }
+
+    function handleDragSplitLeave(event) {
+        if (!state.dragSplitIndicator || event.currentTarget.contains(event.relatedTarget)) return;
+        if (state.dragSplitHideTimer) clearTimeout(state.dragSplitHideTimer);
+        state.dragSplitHideTimer = setTimeout(function () {
+            hideDragSplitPreview();
+        }, 90);
+    }
+
+    function enableSplitScreenFromDrag(tabId, insertionIndex) {
+        if (!canAddTabToSplit(tabId)) return false;
+        const active = tabById(state.activeId);
+        const split = tabById(tabId);
+        if (!active || !split) return false;
+
+        const baseGroup = getDragSplitBaseIds(tabId);
+        const nextGroup = baseGroup.slice(0, 3);
+        const slotIndex = Math.max(0, Math.min(nextGroup.length, Number.isFinite(insertionIndex) ? insertionIndex : nextGroup.length));
+        nextGroup.splice(slotIndex, 0, tabId);
+        state.splitPairIds = nextGroup.slice(0, 4);
+
+        state.splitRatios = normalizeSplitRatios([], state.splitPairIds.length);
+        state.splitId = state.splitPairIds.find(function (id) { return id !== active.id; }) || tabId;
+        state.splitPairColor = TAB_COLOR_PRESETS.includes(state.splitPairColor)
+            ? state.splitPairColor
+            : TAB_COLOR_PRESETS.includes(active && active.color)
+            ? active.color
+            : (TAB_COLOR_PRESETS.includes(split && split.color) ? split.color : '');
+        state.splitRatio = normalizeSplitRatio(state.splitRatio);
+        activateTab(active.id, { recordPrevious: false });
+        return true;
+    }
+
+    function handleDragSplitDrop(event) {
+        const draggedId = state.draggingTabId;
+        if (draggedId === null || !state.dragSplitIndicator) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const baseIds = getDragSplitBaseIds(draggedId);
+        const insertionIndex = Number.isFinite(state.dragSplitInsertionIndex)
+            ? state.dragSplitInsertionIndex
+            : dragSplitInsertionIndexFromEvent(event, baseIds);
+        state.draggingTabId = null;
+        clearTabDragIndicators();
+        disarmDragSplitIndicator();
+        enableSplitScreenFromDrag(draggedId, insertionIndex);
     }
 
     function enableSplitScreen(tabId) {
@@ -3115,7 +3590,15 @@
         let href = '';
         try { href = new URL(url, window.location.origin).href; }
         catch (e) { return; }
+        if (isNativeShellTabUrl(href)) {
+            openNativeShellTab(href);
+            return;
+        }
         if (isUmbrellaContractHomeUrl(href)) {
+            if (useExperimentalUmbrellaContractFrameTabs()) {
+                openTabDirect(href);
+                return;
+            }
             markUmbrellaContractFrameReload();
         }
         activateHome();
@@ -3152,20 +3635,22 @@
         }
         if (opts.load !== false) {
             const activeSplitPair = pair && pair.includes(id) ? pair : null;
-            if (activeSplitPair) {
+            const activeTab = tabById(id);
+            if (isNativeShellTab(activeTab)) {
+                ensureNativeShellTabVisible(activeTab);
+            } else if (activeSplitPair) {
                 activeSplitPair.forEach(function (splitId) {
                     const splitTab = tabById(splitId);
                     ensureTabIframeLoaded(splitTab);
                     ensureTabFreshAfterUmbrellaContract(splitTab);
                 });
             } else {
-                const activeTab = tabById(id);
                 ensureTabIframeLoaded(activeTab);
                 ensureTabFreshAfterUmbrellaContract(activeTab);
             }
         }
         syncTabPaneState();
-        state.viewport.style.display = '';
+        state.viewport.style.display = isNativeShellTab(tabById(id)) ? 'none' : '';
         updateHomeTabActive();
         updateLoaderVisibility();
         requestSyncGeometry();
@@ -3177,9 +3662,17 @@
     function closeTab(id) {
         const idx = state.tabs.findIndex(t => t.id === id);
         if (idx === -1) return;
+        const splitGroupBeforeClose = state.splitPairIds && state.splitPairIds.includes(id)
+            ? state.splitPairIds.filter(candidateId => candidateId !== id && tabById(candidateId))
+            : [];
+        const splitGroupIndexBeforeClose = state.splitPairIds && state.splitPairIds.includes(id)
+            ? state.splitPairIds.indexOf(id)
+            : -1;
         const removed = state.tabs.splice(idx, 1)[0];
-        try { removed.iframeEl.remove(); } catch (e) {}
+        if (isNativeShellTab(removed)) state.nativeShellSuppressUrl = canonicalTabUrl(removed.url);
+        try { if (removed.iframeEl) removed.iframeEl.remove(); } catch (e) {}
         try { if (removed.loaderEl) removed.loaderEl.remove(); } catch (e) {}
+        try { if (removed.splitControlsEl) removed.splitControlsEl.remove(); } catch (e) {}
         if (state.splitId === id) state.splitId = null;
         if (state.splitPairIds && state.splitPairIds.includes(id)) {
             const nextGroup = state.splitPairIds.filter(candidateId => candidateId !== id);
@@ -3190,14 +3683,21 @@
         }
         state.activationHistory = state.activationHistory.filter(candidateId => candidateId !== id);
         if (state.activeId === id) {
-            const previousId = state.activationHistory.pop();
-            if (previousId === null) {
-                activateHome();
+            const fallbackSplitId = splitGroupBeforeClose.length
+                ? splitGroupBeforeClose[Math.min(Math.max(splitGroupIndexBeforeClose, 0), splitGroupBeforeClose.length - 1)]
+                : null;
+            if (fallbackSplitId && tabById(fallbackSplitId)) {
+                activateTab(fallbackSplitId, { recordPrevious: false });
             } else {
-                const previous = previousId ? tabById(previousId) : null;
-                const next = previous || state.tabs[Math.min(idx, state.tabs.length - 1)];
-                if (next) activateTab(next.id, { recordPrevious: false });
-                else activateHome();
+                const previousId = state.activationHistory.pop();
+                if (previousId === null) {
+                    activateHome();
+                } else {
+                    const previous = previousId ? tabById(previousId) : null;
+                    const next = previous || state.tabs[Math.min(idx, state.tabs.length - 1)];
+                    if (next) activateTab(next.id, { recordPrevious: false });
+                    else activateHome();
+                }
             }
         } else {
             syncTabPaneState();
@@ -3210,6 +3710,7 @@
 
     function findTabFromWindow(win) {
         for (const tab of state.tabs) {
+            if (!tab.iframeEl || !tab.iframeEl.contentWindow) continue;
             let w = win;
             try {
                 while (w) {
@@ -3252,6 +3753,7 @@
     }
 
     function tabTypeForUrl(url) {
+        if (isUmbrellaContractHomeUrl(url) || isNativeShellTabUrl(url)) return 'umbrellacontract';
         const innerUrl = AES.extractInnerUrlFromLandingPageUrl && AES.extractInnerUrlFromLandingPageUrl(url);
         if (innerUrl && innerUrl !== url) return tabTypeForUrl(innerUrl);
         const p = AES.normalizeHandledPath(AES.pathOf(url));
@@ -3274,7 +3776,8 @@
         if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') return 'person';
         if (p === '/autotask/views/crm/contact_group_management.aspx' ||
             p === '/autotask35/crm/contactgroupmanager.aspx') return 'group';
-        if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') return 'timesheet';
+        if (p === '/home/timeentry/wrkentryframes.asp' ||
+            p === '/timesheets/views/readonly/tmsreadonly_100.asp') return 'timesheet';
         if (p === '/mvc/inventory/costitem.mvc/shipping' ||
             p === '/mvc/inventory/receipthistory.mvc' ||
             p === '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder' ||
@@ -3331,6 +3834,7 @@
         const metadataType = String(tab && tab.metadataFields && tab.metadataFields.type || '').trim().toLowerCase();
         if (metadataType === 'admin' || metadataType === 'administration') return 'administration';
         if (metadataType === 'contract') return 'contract';
+        if (metadataType === 'umbrella contract' || metadataType === 'umbrella contracts') return 'umbrellacontract';
         if (metadataType === 'inventory product' || metadataType === 'product') return 'product';
         if (metadataType === 'organization') return 'account';
         if (metadataType === 'ticket') return 'ticket';
@@ -3455,6 +3959,7 @@
             id: /^ID\b/i.test(fallback.number || '') ? fallback.number : '',
             number: fallback.number || '',
             organization: fallback.contact || '',
+            date: fallback.date || '',
         };
     }
 
@@ -3465,6 +3970,16 @@
         let parsed = null;
         try { parsed = new URL(url, location.origin); } catch (e) {}
         const params = parsed ? parsed.searchParams : new URLSearchParams();
+
+        if (isUmbrellaContractHomeUrl(url)) {
+            const contractId = umbrellaContractIdFromUrl(url);
+            return {
+                title: 'Umbrella Contract',
+                number: contractId ? 'ID ' + contractId : '',
+                contact: '',
+                secondaryTitle: 'Umbrella Contract',
+            };
+        }
 
         if (path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage') {
             return {
@@ -3513,6 +4028,15 @@
                 title: 'Knowledge Base',
                 number: 'New Article',
                 contact: '',
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/home/timeentry/wrkentryframes.asp') {
+            const date = params.get('forDate') || params.get('fordate') || '';
+            return {
+                title: 'Timesheet',
+                number: 'Timesheet',
+                contact: '',
+                date: date,
             };
         }
         if (AES.normalizeHandledPath(path) === '/autotask/views/administration/companysetup/neweditallocationcode.aspx') {
@@ -3797,6 +4321,8 @@
     }
 
     function tabIconKey(tab) {
+        if (isNativeShellTab(tab)) return 'umbrellacontract';
+        if (isUmbrellaContractHomeUrl(tab?.url || '')) return 'umbrellacontract';
         const title = typeof tab?.title === 'string' ? tab.title.toLowerCase() : '';
         if (title.includes('livelink')) return 'livelink';
         const path = AES.normalizeHandledPath(AES.pathOf(tab?.url || ''));
@@ -4010,6 +4536,69 @@
         };
         setHomeTitle(title);
         return !!(metadata.title || metadata.organization || metadata.accountManager || metadata.contact);
+    }
+
+    function syncNativeShellTabMetadata(tab, source) {
+        if (!isNativeShellTab(tab)) return false;
+        const doc = source && source.nodeType === 9 ? source : document;
+        if (!isUmbrellaContractHomeUrl(tab.url)) return false;
+        const metadata = extractUmbrellaContractHomeMetadata(doc);
+        const fallback = fallbackTabMetadataForUrl(tab.url);
+        const title = metadata.title || tab.title || fallback.title || 'Umbrella Contract';
+        const contractId = umbrellaContractIdFromUrl(tab.url);
+        tab.title = title;
+        tab.number = tab.number || (contractId ? 'ID ' + contractId : '');
+        tab.contact = metadata.organization || tab.contact || '';
+        tab.metadataFields = mergeMetadataFieldsPreservingExisting(tab.metadataFields, {
+            type: 'Umbrella Contract',
+            secondaryTitle: title,
+            id: contractId ? 'ID ' + contractId : '',
+            number: contractId ? 'ID ' + contractId : '',
+            organization: metadata.organization || '',
+            accountManager: metadata.accountManager || '',
+            contact: metadata.contact || '',
+        });
+        tab.loading = false;
+        updateTabEl(tab);
+        updateLoaderVisibility();
+        saveTabs();
+        return !!(metadata.title || metadata.organization || metadata.accountManager || metadata.contact);
+    }
+
+    function syncActiveNativeShellTabMetadata() {
+        const active = tabById(state.activeId);
+        if (!isNativeShellTab(active)) return false;
+        return syncNativeShellTabMetadata(active, document);
+    }
+
+    function scheduleNativeShellTabMetadataSync(tab) {
+        if (!isNativeShellTab(tab)) return;
+        [100, 400, 1000, 2200].forEach(function (delay) {
+            window.setTimeout(function () {
+                if (tabById(tab.id) !== tab) return;
+                syncNativeShellTabMetadata(tab, document);
+            }, delay);
+        });
+    }
+
+    function ensureNativeShellTabVisible(tab) {
+        if (!isNativeShellTab(tab)) return false;
+        const targetUrl = canonicalTabUrl(tab.url);
+        tab.nativeShell = true;
+        if (isUmbrellaContractHomeUrl(targetUrl)) markUmbrellaContractFrameReload();
+        if (canonicalTabUrl(location.href) !== targetUrl) {
+            tab.loading = true;
+            updateTabEl(tab);
+            updateLoaderVisibility();
+            try { window.location.assign(targetUrl); } catch (e) {}
+            return true;
+        }
+        syncNativeShellTabMetadata(tab, document);
+        scheduleNativeShellTabMetadataSync(tab);
+        if (hasPendingUmbrellaContractFrameReload()) {
+            window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+        }
+        return true;
     }
 
     function ensureUmbrellaInfoTooltip() {
@@ -4652,6 +5241,7 @@
             clearTabDragIndicators();
             hideHoverCard(true);
             el.classList.add('dragging');
+            armDragSplitIndicator(tab.id);
             if (ev.dataTransfer) {
                 ev.dataTransfer.effectAllowed = 'move';
                 try { ev.dataTransfer.setData('text/plain', String(tab.id)); } catch (e) {}
@@ -4660,6 +5250,7 @@
         el.addEventListener('dragover', function (ev) {
             if (state.draggingTabId === null || state.draggingTabId === tab.id) return;
             ev.preventDefault();
+            hideDragSplitPreview();
             if (ev.dataTransfer) ev.dataTransfer.dropEffect = 'move';
             const rect = el.getBoundingClientRect();
             const after = isVerticalBar()
@@ -4681,11 +5272,13 @@
             const insertAfter = state.dragInsertAfter;
             state.draggingTabId = null;
             clearTabDragIndicators();
+            disarmDragSplitIndicator();
             reorderTabs(draggedId, targetId, insertAfter);
         });
         el.addEventListener('dragend', function () {
             state.draggingTabId = null;
             clearTabDragIndicators();
+            disarmDragSplitIndicator();
         });
         el.addEventListener('auxclick', closeTabOnMiddleClick);
 
@@ -5177,7 +5770,7 @@
 
         const title = document.createElement('div');
         title.className = 'at-tabs-release-notes-title';
-        title.textContent = 'Thank you for installing Autotask Enhancement Suite!';
+        title.textContent = 'Thank you for installing AES: Tabs for Autotask!';
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -5271,7 +5864,7 @@
 
         const title = document.createElement('div');
         title.className = 'at-tabs-release-notes-title';
-        title.textContent = 'Autotask Enhancement Suite Release Notes';
+        title.textContent = 'AES: Tabs for Autotask Release Notes';
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -5602,6 +6195,7 @@
             resizableTabBarEnabled: true,
             horizontalCompactTabsEnabled: false,
             roundedPageFramesEnabled: true,
+            experimentalUmbrellaContractFrameTabs: false,
             autotaskBrandColorEnabled: false,
             autotaskBrandColor: DEFAULT_AUTOTASK_BRAND_COLOR,
             autotaskBrandColorPresets: DEFAULT_AUTOTASK_BRAND_PRESETS.slice(),
@@ -5631,7 +6225,7 @@
 
         const title = document.createElement('div');
         title.className = 'at-tabs-settings-title';
-        title.textContent = 'Autotask Enhancement Suite - Settings';
+        title.textContent = 'AES: Tabs for Autotask - Settings';
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -5668,7 +6262,7 @@
         enabledReloadNote.appendChild(enabledReloadButton);
 
         const enabledControl = createSettingsToggleRow({
-            name: 'Enable Autotask Enhancement Suite',
+            name: 'Enable AES: Tabs for Autotask',
             info: 'Turn AES features on or off. Refresh Autotask after changing this.',
             checked: featuresEnabled(),
             onChange: function (input) {
@@ -6658,6 +7252,25 @@
         const peekMoveResizeRow = peekMoveResizeControl.row;
         const peekMoveResizeInput = peekMoveResizeControl.input;
 
+        const showLocalUmbrellaContractExperiment = localUmbrellaContractFrameExperimentAvailable();
+        let experimentalUmbrellaContractsRow = null;
+        let experimentalUmbrellaContractsInput = null;
+        if (showLocalUmbrellaContractExperiment) {
+            const experimentalUmbrellaContractsControl = createSettingsToggleRow({
+                name: 'Umbrella Contract iframe experiment',
+                info: 'Local-only experiment: try opening Umbrella Contracts as AES tabs by removing Autotask frame-blocking headers only for that Umbrella Contract sub-frame route.',
+                checked: !!state.experimentalUmbrellaContractFrameTabs,
+                onChange: function (input) {
+                    state.experimentalUmbrellaContractFrameTabs = input.checked;
+                    AES.state.experimentalUmbrellaContractFrameTabs = input.checked;
+                    void syncUmbrellaContractFrameRules(input.checked);
+                    void AES.saveSettings();
+                }
+            });
+            experimentalUmbrellaContractsRow = experimentalUmbrellaContractsControl.row;
+            experimentalUmbrellaContractsInput = experimentalUmbrellaContractsControl.input;
+        }
+
         const customizationSection = document.createElement('div');
         customizationSection.className = 'at-tabs-settings-section';
 
@@ -6793,6 +7406,8 @@
         uiSection.className = 'at-tabs-settings-section';
         const peekSection = document.createElement('div');
         peekSection.className = 'at-tabs-settings-section';
+        const experimentalSection = document.createElement('div');
+        experimentalSection.className = 'at-tabs-settings-section';
         const brandingSection = document.createElement('div');
         brandingSection.className = 'at-tabs-settings-section';
         const brandingWarning = document.createElement('div');
@@ -6836,6 +7451,7 @@
         uiSection.appendChild(phoneRow);
         peekSection.appendChild(peekConfirmRow);
         peekSection.appendChild(peekMoveResizeRow);
+        if (experimentalUmbrellaContractsRow) experimentalSection.appendChild(experimentalUmbrellaContractsRow);
         brandingSection.appendChild(brandingWarning);
         brandingSection.appendChild(brandColorRow);
         brandingSection.appendChild(logoRow);
@@ -6853,6 +7469,14 @@
             { id: 'branding', label: 'Branding', description: 'Experimental color and logo overrides for Autotask.', section: brandingSection },
             { id: 'customization', label: 'Metadata', description: 'Choose what metadata appears on each tab line.', section: customizationSection },
         ];
+        if (experimentalUmbrellaContractsRow) {
+            pageDefs.splice(4, 0, {
+                id: 'experimental',
+                label: 'Experimental',
+                description: 'Local-only compatibility experiments with extra guardrails.',
+                section: experimentalSection,
+            });
+        }
         const navButtons = [];
         const pageEls = [];
         function activateSettingsPage(id) {
@@ -6936,6 +7560,10 @@
             everywhereInput.checked = defaults.showTabBarOnNonIframePages;
             peekConfirmInput.checked = !defaults.skipPeekBackdropCloseWarning;
             peekMoveResizeInput.checked = defaults.peekMoveResizeEnabled;
+            if (experimentalUmbrellaContractsInput) {
+                experimentalUmbrellaContractsInput.checked = defaults.experimentalUmbrellaContractFrameTabs;
+            }
+            void syncUmbrellaContractFrameRules(defaults.experimentalUmbrellaContractFrameTabs);
             improvedScrollbarsInput.checked = defaults.improvedScrollbarsEnabled;
             phoneInput.checked = defaults.phoneLinksEnabled;
             setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
@@ -6969,7 +7597,10 @@
         const footer = document.createElement('div');
         footer.className = 'at-tabs-settings-footer';
         const footerText = document.createElement('span');
-        footerText.textContent = 'Developed by QNTN.dev with help of Generative AI';
+        footerText.style.fontSize = '10.5px';
+        footerText.style.lineHeight = '1.35';
+        footerText.style.maxWidth = '520px';
+        footerText.textContent = 'Autotask is a registered trademark of Kaseya. AES: Tabs for Autotask is an independent open-source project developed by qntn-dev and is not affiliated with, sponsored by, endorsed by, or partnered with Kaseya or Datto.';
         const resetButton = createSettingsFooterButton({
             text: 'Reset settings',
             title: 'Reset AES settings to defaults',
@@ -7950,9 +8581,33 @@
         openTabDirect(url);
     }
 
+    function openNativeShellTab(url, options) {
+        let targetUrl = '';
+        try { targetUrl = canonicalTabUrl(new URL(url || '', location.origin).href); }
+        catch (e) { return null; }
+        if (state.nativeShellSuppressUrl === targetUrl) state.nativeShellSuppressUrl = '';
+        const existing = state.tabs.find(function (tab) {
+            return isNativeShellTab(tab) && canonicalTabUrl(tab.url) === targetUrl;
+        });
+        if (existing) {
+            if (!options || options.activate !== false) activateTab(existing.id);
+            return existing;
+        }
+        return createAndAddTab(targetUrl, null, options);
+    }
+
     function openTabDirect(url) {
         if (!featuresEnabled()) return;
-        if (AES.isNativeHomeUrl && AES.isNativeHomeUrl(url)) {
+        if (isNativeShellTabUrl(url)) {
+            openNativeShellTab(url);
+            return;
+        }
+        if (isUmbrellaContractHomeUrl(url) && !useExperimentalUmbrellaContractFrameTabs()) {
+            openUrlOnHome(url);
+            return;
+        }
+        if (AES.isNativeHomeUrl && AES.isNativeHomeUrl(url) &&
+            !(isUmbrellaContractHomeUrl(url) && useExperimentalUmbrellaContractFrameTabs())) {
             openUrlOnHome(url);
             return;
         }
@@ -7973,10 +8628,20 @@
         createAndAddTab(url);
     }
 
+    function experimentalContractTabUrl(url) {
+        if (!useExperimentalUmbrellaContractFrameTabs()) return url;
+        return buildOnyxContractDetailsUrl(url) || url;
+    }
+
     function openLegacyContractWithProbe(url) {
         let targetUrl = '';
         try { targetUrl = new URL(url || '', location.origin).href; }
         catch (e) { return; }
+
+        if (useExperimentalUmbrellaContractFrameTabs()) {
+            openTabDirect(buildOnyxContractDetailsUrl(targetUrl) || targetUrl);
+            return;
+        }
 
         const existing = state.tabs.find(t => t.url === targetUrl);
         if (existing) {
@@ -7998,6 +8663,10 @@
             hideContractProbeOverlay();
 
             if (mode === 'home' && resolvedUrl) {
+                if (isUmbrellaContractHomeUrl(resolvedUrl) && useExperimentalUmbrellaContractFrameTabs()) {
+                    openTabDirect(resolvedUrl);
+                    return;
+                }
                 openUrlOnHome(resolvedUrl);
                 return;
             }
@@ -8073,6 +8742,16 @@
         try { targetUrl = new URL(url || '', location.origin).href; }
         catch (e) { return; }
 
+        if (useExperimentalUmbrellaContractFrameTabs()) {
+            const allowConversion = shouldAllowProgrammaticPeekConversion(targetUrl);
+            openUrlInPeek(targetUrl, {
+                openerWindow: openerWindow,
+                allowOpenInTab: allowConversion,
+                allowSplit: allowConversion,
+            });
+            return;
+        }
+
         if (state.contractEditProbeUrl === targetUrl) {
             showContractProbeOverlay();
             return;
@@ -8087,6 +8766,10 @@
             hideContractProbeOverlay();
 
             if (mode === 'home' && resolvedUrl) {
+                if (isUmbrellaContractHomeUrl(resolvedUrl) && useExperimentalUmbrellaContractFrameTabs()) {
+                    openTabDirect(resolvedUrl);
+                    return;
+                }
                 openUrlOnHome(resolvedUrl);
                 return;
             }
@@ -8175,10 +8858,11 @@
             return null;
         }
         const opts = options || {};
-        const iframeEl = createTabIframe(url);
-        const loaderEl = createTabPaneLoader();
-        state.viewport.appendChild(iframeEl);
-        state.viewport.appendChild(loaderEl);
+        const nativeShell = isNativeShellTabUrl(url);
+        const iframeEl = nativeShell ? null : createTabIframe(url);
+        const loaderEl = nativeShell ? null : createTabPaneLoader();
+        if (iframeEl) state.viewport.appendChild(iframeEl);
+        if (loaderEl) state.viewport.appendChild(loaderEl);
         const fallback = fallbackTabMetadataForUrl(url);
         const type = tabTypeForUrl(url);
 
@@ -8200,7 +8884,8 @@
             iframeEl: iframeEl,
             loaderEl: loaderEl,
             tabEl: null,
-            loading: true,
+            nativeShell: nativeShell,
+            loading: !nativeShell,
             loadStarted: true,
         };
         addTabToList(tab);
@@ -8334,10 +9019,60 @@
             return;
         }
 
+        if (data.type === 'umbrella-open' && data.url) {
+            try {
+                const targetUrl = AES.toAbsoluteUrl(data.url);
+                if (!isUmbrellaContractHomeUrl(targetUrl)) return;
+                if (useExperimentalUmbrellaContractFrameTabs()) {
+                    openTabDirect(targetUrl);
+                    return;
+                }
+                openUrlOnHome(targetUrl);
+            } catch (e) {}
+            return;
+        }
+
+        if (data.type === 'umbrella-open-duplicate' && data.url) {
+            try {
+                const targetUrl = AES.toAbsoluteUrl(data.url);
+                if (!isUmbrellaContractHomeUrl(targetUrl)) return;
+                if (useExperimentalUmbrellaContractFrameTabs()) {
+                    createAndAddTab(targetUrl, null, { activate: false });
+                    return;
+                }
+                openUrlOnHome(targetUrl);
+            } catch (e) {}
+            return;
+        }
+
+        if (data.type === 'contract-open' && data.url) {
+            try {
+                const targetUrl = experimentalContractTabUrl(AES.toAbsoluteUrl(data.url));
+                openTab(targetUrl);
+            } catch (e) {}
+            return;
+        }
+
+        if (data.type === 'contract-open-duplicate' && data.url) {
+            try {
+                const targetUrl = experimentalContractTabUrl(AES.toAbsoluteUrl(data.url));
+                createAndAddTab(targetUrl, null, { activate: false });
+            } catch (e) {}
+            return;
+        }
+
         if (data.type === 'native-open' && data.url) {
             try {
                 const targetUrl = AES.toAbsoluteUrl(data.url);
+                if (isUmbrellaContractHomeUrl(targetUrl) && useExperimentalUmbrellaContractFrameTabs()) {
+                    openTab(targetUrl);
+                    return;
+                }
                 if (!AES.isNativeHomeUrl(targetUrl)) return;
+                if (isNativeShellTabUrl(targetUrl)) {
+                    openNativeShellTab(targetUrl);
+                    return;
+                }
                 activateHome();
                 if (location.href !== targetUrl) location.assign(targetUrl);
             } catch (e) {}
@@ -8531,6 +9266,9 @@
         const firstObservation = !state.lastObservedTopHref;
         const hrefChanged = topHref !== state.lastObservedTopHref;
         state.lastObservedTopHref = topHref;
+        if (hrefChanged && state.nativeShellSuppressUrl && canonicalTabUrl(topHref) !== state.nativeShellSuppressUrl) {
+            state.nativeShellSuppressUrl = '';
+        }
 
         // Onyx's same-document pushState to an Umbrella Contract page never
         // routes through openUrlOnHome / handleNativeFrameLoad, so neither
@@ -8542,6 +9280,13 @@
         if (hrefChanged && !firstObservation && isUmbrellaContractHomeUrl(topHref)) {
             markUmbrellaContractFrameReload();
             window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
+        }
+
+        if (isUmbrellaContractHomeUrl(topHref)) {
+            syncUmbrellaContractHomeMetadata(topHref, document);
+            scheduleUmbrellaContractHomeMetadataSync(topHref, document);
+            state.lastObservedTopHandledUrl = '';
+            return;
         }
 
         const handledUrl = AES.extractHandledUrlFromLandingPageUrl(topHref);
@@ -9358,8 +10103,8 @@
         item.setAttribute('tabindex', '0');
         item.dataset.aesNativeSettingsItem = 'true';
         item.dataset.aesNativeSettingsCollapsed = collapsed ? 'true' : 'false';
-        item.title = 'Autotask Enhancement Suite';
-        item.setAttribute('aria-label', 'Autotask Enhancement Suite');
+        item.title = 'AES: Tabs for Autotask';
+        item.setAttribute('aria-label', 'AES: Tabs for Autotask');
         item.removeAttribute('data-onyx-external-id');
         item.removeAttribute('onclick');
 
@@ -9402,11 +10147,11 @@
             });
             const labelNode = textLeaves[0] || null;
             if (labelNode) {
-                labelNode.textContent = 'Autotask Enhancement Suite';
+                labelNode.textContent = 'AES: Tabs for Autotask';
                 for (let i = 1; i < textLeaves.length; i++) textLeaves[i].textContent = '';
             } else {
                 const title = document.createElement('span');
-                title.textContent = 'Autotask Enhancement Suite';
+                title.textContent = 'AES: Tabs for Autotask';
                 item.appendChild(title);
             }
         } else {
@@ -9419,7 +10164,7 @@
 
             const title = document.createElement('span');
             title.className = 'truncate text-sm text-text-primary';
-            title.textContent = 'Autotask Enhancement Suite';
+            title.textContent = 'AES: Tabs for Autotask';
             outer.appendChild(title);
 
             item.appendChild(outer);
@@ -9495,8 +10240,8 @@
         }
         item.className = sanitizeNativeSettingsMenuItemClass(item.className);
         item.dataset.aesNativeSettingsCollapsed = collapsed ? 'true' : 'false';
-        item.title = 'Autotask Enhancement Suite';
-        item.setAttribute('aria-label', 'Autotask Enhancement Suite');
+        item.title = 'AES: Tabs for Autotask';
+        item.setAttribute('aria-label', 'AES: Tabs for Autotask');
         state.nativeSettingsMenuItem = item;
         state.nativeSettingsAvailable = true;
         updateSettingsEntryVisibility();
@@ -9610,17 +10355,29 @@
             splitResizeHandles.push(splitResizeHandle);
         }
 
+        const dragSplitIndicator = document.createElement('div');
+        dragSplitIndicator.className = 'at-tabs-drag-split-indicator';
+        dragSplitIndicator.setAttribute('aria-hidden', 'true');
+        const dragSplitPane = document.createElement('div');
+        dragSplitPane.className = 'at-tabs-drag-split-pane';
+        dragSplitIndicator.appendChild(dragSplitPane);
+        dragSplitIndicator.addEventListener('dragenter', handleDragSplitOver);
+        dragSplitIndicator.addEventListener('dragover', handleDragSplitOver);
+        dragSplitIndicator.addEventListener('dragleave', handleDragSplitLeave);
+        dragSplitIndicator.addEventListener('drop', handleDragSplitDrop);
+
         const homeCover = document.createElement('div');
         homeCover.className = 'at-tabs-home-cover';
 
         const loader = document.createElement('div');
         loader.className = 'at-tabs-loader';
         viewport.appendChild(loader);
+        viewport.appendChild(dragSplitIndicator);
 
         const settingsButton = document.createElement('button');
         settingsButton.type = 'button';
         settingsButton.className = 'at-tabs-settings-button';
-        settingsButton.title = 'Autotask Enhancement Suite';
+        settingsButton.title = 'AES: Tabs for Autotask';
         appendIconMarkup(settingsButton, ICONS.settings);
         settingsButton.addEventListener('click', function (event) {
             event.stopPropagation();
@@ -9637,6 +10394,8 @@
         state.loader = loader;
         state.splitResizeHandle = splitResizeHandles[0];
         state.splitResizeHandles = splitResizeHandles;
+        state.dragSplitIndicator = dragSplitIndicator;
+        state.dragSplitPane = dragSplitPane;
         state.settingsButton = settingsButton;
         applySplitRatio();
 
@@ -9678,6 +10437,10 @@
         if (typeof AES.state.roundedPageFramesEnabled === 'boolean') {
             state.roundedPageFramesEnabled = AES.state.roundedPageFramesEnabled;
         }
+        if (typeof AES.state.experimentalUmbrellaContractFrameTabs === 'boolean') {
+            state.experimentalUmbrellaContractFrameTabs = AES.state.experimentalUmbrellaContractFrameTabs;
+        }
+        void syncUmbrellaContractFrameRules(state.experimentalUmbrellaContractFrameTabs);
         if (AES.state.defaultEnabledSettingsMigration !== 'hide-rounded-peek-2026-05-09') {
             state.hideEarlyAccessLabels = true;
             AES.state.hideEarlyAccessLabels = true;
@@ -9733,6 +10496,8 @@
             const reloadFramesAfterUmbrellaContract = hasPendingUmbrellaContractFrameReload()
                 || onUmbrellaUrlNow;
             await restoreTabs();
+            state.tabsRestored = true;
+            maybePromoteTopLevelLandingRoute();
             if (reloadFramesAfterUmbrellaContract) {
                 // Set the flag if it isn't already, so the WhenReady retry
                 // loop has something to clear on success.

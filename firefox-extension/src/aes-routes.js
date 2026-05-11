@@ -51,6 +51,7 @@
         '/autotask/autotaskextend/directory_view.aspx',
         '/autotask/views/crm/contact_group_management.aspx',
         '/autotask35/crm/contactgroupmanager.aspx',
+        '/home/timeentry/wrkentryframes.asp',
         '/timesheets/views/readonly/tmsreadonly_100.asp',
         '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx',
         '/mvc/crm/contractbillingruleassociation.mvc/editcontact',

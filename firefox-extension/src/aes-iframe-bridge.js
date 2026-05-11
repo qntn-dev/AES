@@ -780,6 +780,256 @@
         return (s || '').replace(/\s+/g, ' ').trim();
     }
 
+    function isUmbrellaContractFrameUrl(url) {
+        try {
+            const parsed = new URL(url || location.href, location.origin);
+            return parsed.pathname.toLowerCase() === '/autotaskonyx/landingpage' &&
+                parsed.searchParams.get('view') === 'umbrella-contract-details';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function isReportableFrameUrl(url) {
+        return AES.isHandledUrl(url) || isUmbrellaContractFrameUrl(url);
+    }
+
+    function isLegacyContractViewUrl(url) {
+        return AES.normalizeHandledPath(AES.pathOf(url || '')) === '/contracts/views/contractview.asp';
+    }
+
+    function umbrellaContractIdFromFrameUrl(url) {
+        try {
+            const parsed = new URL(url || location.href, location.origin);
+            const rawViewData = parsed.searchParams.get('view-data') || '';
+            if (!rawViewData) return '';
+            const data = JSON.parse(atob(rawViewData));
+            const contractId = data && data.contractId;
+            return contractId === undefined || contractId === null ? '' : String(contractId);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function findOnyxFieldValue(labelText) {
+        const wanted = cleanText(labelText).toLowerCase();
+        if (!wanted) return '';
+        const labelsToReject = [
+            'account',
+            'organization',
+            'account manager',
+            'contact',
+            'contact name',
+            'contract type',
+            'category',
+            'contract category',
+            'start date',
+            'end date',
+            'exclusions',
+            'coverage',
+            'activity',
+        ];
+        const isSaneFieldValue = function (value) {
+            const text = cleanText(value);
+            if (!text || text.toLowerCase() === wanted || text.length > 140) return false;
+            const lower = text.toLowerCase();
+            let labelHits = 0;
+            labelsToReject.forEach(function (label) {
+                if (lower.includes(label)) labelHits += 1;
+            });
+            return labelHits < 2;
+        };
+        const readPreferredValue = function (root) {
+            if (!root) return '';
+            const selectors = [
+                '.LinkButton2 .Text2',
+                '.LinkButton2',
+                '.ReadOnlyValueContainer .Value > .Text2',
+                '.ReadOnlyValueContainer .Value',
+                '.Value > .Text2',
+                '.Value > .Text',
+                '.Value',
+                'a',
+                '[role="link"]',
+                'input',
+                'textarea',
+                'select',
+            ];
+            for (const selector of selectors) {
+                const el = root.matches && root.matches(selector) ? root : root.querySelector(selector);
+                if (!el) continue;
+                let value = '';
+                if (el.matches && el.matches('input, textarea, select')) {
+                    if (el.matches('select')) {
+                        value = cleanText(el.selectedOptions && el.selectedOptions[0] && el.selectedOptions[0].textContent);
+                    } else {
+                        value = cleanText(el.value);
+                    }
+                } else {
+                    value = cleanText(el.textContent);
+                }
+                if (isSaneFieldValue(value)) return value.slice(0, 120);
+            }
+            const clone = root.cloneNode(true);
+            clone.querySelectorAll('button, svg, img, script, style, .WalkMeIconPlaceholder, [aria-hidden="true"]').forEach(function (el) {
+                el.remove();
+            });
+            const value = cleanText(clone.textContent);
+            return isSaneFieldValue(value) ? value.slice(0, 120) : '';
+        };
+
+        for (const row of document.querySelectorAll('.ReadOnlyData')) {
+            const label = row.querySelector('.ReadOnlyLabelContainer .PrimaryText, .ReadOnlyLabelContainer .Text');
+            if (!label || cleanText(label.textContent).toLowerCase() !== wanted) continue;
+            const value = row.querySelector('.ReadOnlyValueContainer');
+            const extracted = readPreferredValue(value);
+            if (extracted) return extracted;
+        }
+
+        const candidates = Array.from(document.querySelectorAll('.o-label__text, label.o-label__text, label, .PrimaryText'))
+            .filter(function (el) {
+                return cleanText(el.textContent).toLowerCase() === wanted;
+            });
+        for (const label of candidates) {
+            const labelCell = label.closest('.ReadOnlyLabelContainer, .o-flex-child, [class*="LabelContainer"]') || label.parentElement;
+            const valueCell = labelCell && labelCell.nextElementSibling;
+            const extracted = readPreferredValue(valueCell);
+            if (extracted) return extracted;
+        }
+        return '';
+    }
+
+    function extractUmbrellaContractInfo() {
+        const contractId = umbrellaContractIdFromFrameUrl(location.href);
+        const titleEl = document.querySelector(
+            '.o-view-layout__header h1, .o-font--page-title-bold, [class*="page-title"], h1'
+        );
+        const rawTitle = cleanText(titleEl && titleEl.textContent);
+        const documentTitle = cleanText(document.title).replace(/^Autotask\s*[-–]\s*/i, '');
+        const title = (rawTitle && rawTitle.length <= 140 ? rawTitle : '') ||
+            (documentTitle && documentTitle.length <= 140 ? documentTitle : '') ||
+            'Umbrella Contract';
+        const account = findOnyxFieldValue('Account') || findOnyxFieldValue('Organization');
+        const accountManager = findOnyxFieldValue('Account Manager');
+        const contactName = findOnyxFieldValue('Contact Name') || findOnyxFieldValue('Contact');
+        const contractType = findOnyxFieldValue('Contract Type');
+        const category = findOnyxFieldValue('Category') || findOnyxFieldValue('Contract Category');
+        const startDate = findOnyxFieldValue('Start date') || findOnyxFieldValue('Start Date');
+        const endDate = findOnyxFieldValue('End date') || findOnyxFieldValue('End Date');
+        const hoverFields = [
+            { label: 'Account', value: account },
+            { label: 'Account Manager', value: accountManager },
+            { label: 'Contact Name', value: contactName },
+            { label: 'Contract Type', value: contractType },
+            { label: 'Category', value: category },
+            { label: 'Start date', value: startDate },
+            { label: 'End date', value: endDate },
+        ].filter(field => field.value);
+
+        return {
+            title: title.slice(0, 120),
+            number: contractId ? ('ID ' + contractId).slice(0, 40) : 'Umbrella Contract',
+            contact: account.slice(0, 80),
+            hoverFields: hoverFields,
+            metadataFields: {
+                type: 'Umbrella Contract',
+                id: contractId ? ('ID ' + contractId).slice(0, 40) : '',
+                organization: account.slice(0, 80),
+                accountManager: accountManager.slice(0, 80),
+                contactName: contactName.slice(0, 80),
+                contractType: contractType.slice(0, 80),
+                contractCategory: category.slice(0, 80),
+                startDate: startDate.slice(0, 80),
+                endDate: endDate.slice(0, 80),
+            },
+        };
+    }
+
+    let embeddedUmbrellaContractObserver = null;
+    function applyEmbeddedUmbrellaContractChrome() {
+        if (!isUmbrellaContractFrameUrl(location.href)) return;
+        document.documentElement.classList.add('aes-embedded-umbrella-contract');
+        if (document.body) document.body.classList.add('aes-embedded-umbrella-contract-body');
+
+        let shell = null;
+        try {
+            shell = document.body && document.body.querySelector(':scope > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary');
+        } catch (e) {}
+        if (!shell) return;
+
+        const topBar = shell.children && shell.children[0];
+        if (topBar && topBar.style) topBar.style.setProperty('display', 'none', 'important');
+
+        const contentRow = shell.children && shell.children[1];
+        if (contentRow && contentRow.style) {
+            contentRow.style.setProperty('height', '100vh', 'important');
+            contentRow.style.setProperty('min-height', '0', 'important');
+        }
+
+        let sideNav = null;
+        let content = null;
+        try {
+            sideNav = contentRow && contentRow.querySelector(':scope > .relative.z-1');
+            content = contentRow && contentRow.querySelector(':scope > .min-w-0.flex-1');
+        } catch (e) {}
+        if (sideNav && sideNav.style) sideNav.style.setProperty('display', 'none', 'important');
+        if (content && content.style) {
+            content.style.setProperty('width', '100%', 'important');
+            content.style.setProperty('height', '100%', 'important');
+            content.style.setProperty('border-radius', '0', 'important');
+            content.style.setProperty('box-shadow', 'none', 'important');
+        }
+    }
+
+    function installEmbeddedUmbrellaContractChrome() {
+        if (!isUmbrellaContractFrameUrl(location.href)) return;
+        if (!document.getElementById('aes-embedded-umbrella-contract-style')) {
+            const style = document.createElement('style');
+            style.id = 'aes-embedded-umbrella-contract-style';
+            style.textContent = `
+html.aes-embedded-umbrella-contract,
+html.aes-embedded-umbrella-contract body {
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full,
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary {
+  height: 100vh !important;
+  min-height: 0 !important;
+}
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary > div:first-child {
+  display: none !important;
+}
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary > .relative.min-h-0.flex-1.flex {
+  height: 100vh !important;
+  min-height: 0 !important;
+}
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary > .relative.min-h-0.flex-1.flex > .relative.z-1 {
+  display: none !important;
+}
+html.aes-embedded-umbrella-contract body > .relative.w-full.h-full > .h-screen.flex.flex-col.bg-background-secondary > .relative.min-h-0.flex-1.flex > .min-w-0.flex-1,
+html.aes-embedded-umbrella-contract .o-view-layout {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}`;
+            (document.head || document.documentElement).appendChild(style);
+        }
+        applyEmbeddedUmbrellaContractChrome();
+        [100, 300, 800, 1600, 3000].forEach(function (delay) {
+            window.setTimeout(applyEmbeddedUmbrellaContractChrome, delay);
+        });
+        if (embeddedUmbrellaContractObserver || !document.documentElement) return;
+        embeddedUmbrellaContractObserver = new MutationObserver(applyEmbeddedUmbrellaContractChrome);
+        embeddedUmbrellaContractObserver.observe(document.documentElement, {
+            childList: true,
+            subtree: true,
+        });
+    }
+
     function collectAccessibleDocuments(rootDoc, maxDepth) {
         const docs = [];
         const seen = new Set();
@@ -1895,11 +2145,15 @@
     }
 
     function extractInfo() {
+        if (isUmbrellaContractFrameUrl(location.href)) {
+            return extractUmbrellaContractInfo();
+        }
         const p = AES.normalizeHandledPath(AES.pathOf(location.href));
         if (p === '/mvc/inventory/costitem.mvc/shipping') {
             return extractGenericInfo('Shipping');
         }
-        if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') {
+        if (p === '/home/timeentry/wrkentryframes.asp' ||
+            p === '/timesheets/views/readonly/tmsreadonly_100.asp') {
             return extractTimesheetInfo();
         }
         if (p === '/mvc/contracts/newcontractwizard.mvc/newcontractwizard') {
@@ -2034,7 +2288,7 @@
     }
 
     function reportSelf() {
-        if (!AES.isHandledUrl(location.href)) return;
+        if (!isReportableFrameUrl(location.href)) return;
         let info;
         try {
             info = extractInfo();
@@ -2098,7 +2352,7 @@
     }
 
     function startWatching() {
-        if (!AES.isHandledUrl(location.href)) return;
+        if (!isReportableFrameUrl(location.href)) return;
         reportSelf();
         [250, 1000, 2500, 5000].forEach(delay => {
             setTimeout(reportSelf, delay);
@@ -2133,6 +2387,7 @@
     }
 
     AES.initIframeBridge = function initIframeBridge() {
+        installEmbeddedUmbrellaContractChrome();
         document.documentElement.classList.toggle(
             'aes-ticket-detail-page',
             AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketdetail.mvc' ||
@@ -2162,6 +2417,22 @@
             if (event.origin !== location.origin) return;
             if (!data || data.__ns !== AES.MSG_NS) return;
             if (!featureEnabled) return;
+            if (data.type === 'contract-open' && data.url) {
+                postToTop({ type: 'contract-open', url: data.url });
+                return;
+            }
+            if (data.type === 'contract-open-duplicate' && data.url) {
+                postToTop({ type: 'contract-open-duplicate', url: data.url });
+                return;
+            }
+            if (data.type === 'umbrella-open' && data.url) {
+                postToTop({ type: 'umbrella-open', url: data.url });
+                return;
+            }
+            if (data.type === 'umbrella-open-duplicate' && data.url) {
+                postToTop({ type: 'umbrella-open-duplicate', url: data.url });
+                return;
+            }
             if (data.type === 'open' && data.url && AES.isHandledUrl(data.url)) {
                 postToTop({ type: isPeekPopupUrl(data.url) ? 'open-peek' : 'open', url: data.url });
             }
@@ -2199,7 +2470,12 @@
         }
 
         function postHandledNavigation(targetUrl) {
-            postToTop({ type: isPeekPopupUrl(targetUrl) ? 'open-peek' : 'open', url: targetUrl });
+            postToTop({
+                type: isPeekPopupUrl(targetUrl)
+                    ? 'open-peek'
+                    : isLegacyContractViewUrl(targetUrl) ? 'contract-open' : 'open',
+                url: targetUrl,
+            });
         }
 
         document.addEventListener('pointerdown', armMapOpenFromEvent, true);

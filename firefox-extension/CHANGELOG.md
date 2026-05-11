@@ -32,7 +32,7 @@ Experimental release focused on Projects, Branding, invoices, and safer Umbrella
 
 ## v0.8.0
 
-Autotask Enhancement Suite is now available in the Chrome Web Store, note that updates will be delayed compared to Github, but if you prefer automatic updates please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh
+AES: Tabs for Autotask is now available in the Chrome Web Store, note that updates will be delayed compared to Github, but if you prefer automatic updates please install it from the Chrome Web Store: https://chromewebstore.google.com/detail/autotask-enhancement-suit/napjjjggbckindfanlddahkadnieglfh
 
 ### Highlights
 
@@ -124,7 +124,7 @@ Autotask Enhancement Suite is now available in the Chrome Web Store, note that u
 #### Settings
 
 - AES now follows Autotask's light or dark mode automatically.
-- The settings entry is now named Autotask Enhancement Suite.
+- The settings entry is now named AES: Tabs for Autotask.
 - Experimental visual settings have been reorganized.
 
 ### Fixes:
@@ -554,12 +554,12 @@ Autotask Enhancement Suite is now available in the Chrome Web Store, note that u
 
 ## 0.3.57
 
-- Updated the native Autotask settings menu item label from `Autotask Enhancement Suite` to `AES Settings`.
+- Updated the native Autotask settings menu item label from `AES: Tabs for Autotask` to `AES Settings`.
 - Changed the native settings menu icon from a cog to a puzzle piece and added an explicit `#48505A` hover background to match Autotask's native list item hover styling.
 
 ## 0.3.56
 
-- Moved the extension settings entry into the native Autotask left navigation menu. The shell now injects an `Autotask Enhancement Suite` menu item as the last native menu item and opens the same settings modal from there.
+- Moved the extension settings entry into the native Autotask left navigation menu. The shell now injects an `AES: Tabs for Autotask` menu item as the last native menu item and opens the same settings modal from there.
 - The old settings cog in the custom tab bar remains as a fallback only; it is automatically hidden whenever the native settings menu item is present. A MutationObserver keeps the native item attached after Autotask rerenders the menu.
 
 ## 0.3.55

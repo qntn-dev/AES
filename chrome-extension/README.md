@@ -1,4 +1,4 @@
-# Autotask Enhancement Suite
+# AES: Tabs for Autotask
 
 This is the first Chrome extension scaffold for the current Autotask work.
 

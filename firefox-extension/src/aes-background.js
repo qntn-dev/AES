@@ -13,8 +13,19 @@
     const api = (typeof browser !== 'undefined' && browser && browser.action) ? browser : chrome;
     if (!api || !api.action || !api.action.onClicked || !api.tabs) return;
     const GITHUB_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/qntn-dev/AES/releases/latest';
+    const SETTINGS_STORAGE_KEY = 'autotask-tabs-settings-v1';
+    const UMBRELLA_CONTRACT_FRAME_RULE_ID = 1101;
 
     if (!globalThis.__AES_ROUTE_REGISTRY__ && typeof importScripts === 'function') {
+        try {
+            importScripts('aes-local-flags.js');
+        } catch (error) {
+            try {
+                importScripts('/src/aes-local-flags.js');
+            } catch (_error) {
+                // Store builds intentionally omit local-only experiment flags.
+            }
+        }
         try {
             importScripts('aes-routes.js');
         } catch (error) {
@@ -27,6 +38,13 @@
     }
 
     const ROUTES = globalThis.__AES_ROUTE_REGISTRY__ || {};
+
+    function localUmbrellaContractFrameExperimentAvailable() {
+        return !!(
+            globalThis.__AES_LOCAL_FLAGS__ &&
+            globalThis.__AES_LOCAL_FLAGS__.umbrellaContractFrameExperiment
+        );
+    }
 
     function fetchLatestGithubRelease(sendResponse) {
         if (typeof fetch !== 'function') {
@@ -121,6 +139,78 @@
         } catch (e) {
             return Promise.reject(e);
         }
+    }
+
+    function umbrellaContractFrameRule() {
+        return {
+            id: UMBRELLA_CONTRACT_FRAME_RULE_ID,
+            priority: 1,
+            action: {
+                type: 'modifyHeaders',
+                responseHeaders: [
+                    { header: 'content-security-policy', operation: 'remove' },
+                    { header: 'x-frame-options', operation: 'remove' },
+                ],
+            },
+            condition: {
+                regexFilter: '^https://[^/]+\\.autotask\\.net/AutotaskOnyx/LandingPage\\?(?:[^#]*&)?view=umbrella-contract-details(?:&|$)',
+                resourceTypes: ['sub_frame'],
+            },
+        };
+    }
+
+    function setUmbrellaContractFrameRulesEnabled(enabled) {
+        if (!localUmbrellaContractFrameExperimentAvailable()) {
+            enabled = false;
+        }
+        if (!api.declarativeNetRequest || !api.declarativeNetRequest.updateDynamicRules) {
+            return Promise.resolve({ ok: false, reason: 'declarative-net-request-unavailable' });
+        }
+
+        const options = {
+            removeRuleIds: [UMBRELLA_CONTRACT_FRAME_RULE_ID],
+        };
+        if (enabled) {
+            options.addRules = [umbrellaContractFrameRule()];
+        }
+
+        return callApi(
+            api.declarativeNetRequest.updateDynamicRules.bind(api.declarativeNetRequest),
+            [options]
+        )
+            .then(function () {
+                return { ok: true, enabled: !!enabled };
+            })
+            .catch(function (error) {
+                return {
+                    ok: false,
+                    reason: String(error && error.message || error || 'unknown-error'),
+                };
+            });
+    }
+
+    function readUmbrellaContractFrameSetting(settings) {
+        return !!(settings && settings.experimentalUmbrellaContractFrameTabs);
+    }
+
+    function syncUmbrellaContractFrameRulesFromStorage() {
+        if (!api.storage || !api.storage.local || !api.storage.local.get) return;
+        try {
+            const maybePromise = api.storage.local.get([SETTINGS_STORAGE_KEY]);
+            if (maybePromise && typeof maybePromise.then === 'function') {
+                maybePromise
+                    .then(function (result) {
+                        const settings = result && result[SETTINGS_STORAGE_KEY];
+                        return setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
+                    })
+                    .catch(function () {});
+                return;
+            }
+            api.storage.local.get([SETTINGS_STORAGE_KEY], function (result) {
+                const settings = result && result[SETTINGS_STORAGE_KEY];
+                setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
+            });
+        } catch (e) {}
     }
 
     function sendMessageToTab(tabId, message) {
@@ -231,9 +321,28 @@
                 fetchLatestGithubRelease(sendResponse);
                 return true;
             }
+            if (message && message.__aesUmbrellaContractFrameRules && message.type === 'set-enabled') {
+                setUmbrellaContractFrameRulesEnabled(!!message.enabled)
+                    .then(sendResponse)
+                    .catch(function (error) {
+                        sendResponse({
+                            ok: false,
+                            reason: String(error && error.message || error || 'unknown-error'),
+                        });
+                    });
+                return true;
+            }
             if (!message || !message.__aesExternalOpen || message.type !== 'open-autotask-url') return false;
             openExternalAutotaskUrl(message, sender, sendResponse);
             return true;
+        });
+    }
+
+    if (api.storage && api.storage.onChanged) {
+        api.storage.onChanged.addListener(function (changes, areaName) {
+            if (areaName !== 'local' || !changes || !changes[SETTINGS_STORAGE_KEY]) return;
+            const settings = changes[SETTINGS_STORAGE_KEY].newValue;
+            setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
         });
     }
 
@@ -274,4 +383,6 @@
                 .catch(function () {});
         });
     }
+
+    syncUmbrellaContractFrameRulesFromStorage();
 })();

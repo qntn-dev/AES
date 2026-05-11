@@ -21,6 +21,6 @@ Create an `.xpi` from the contents of this folder, not the folder itself:
 scripts/build-firefox-release.sh
 ```
 
-The generated file is written to `dist/autotask-enhancement-suite-firefox-v<version>.xpi`.
+The generated file is written to `dist/aes-tabs-for-autotask-firefox-v<version>.xpi`.
 
 For publication, submit the `.xpi` to Mozilla Add-ons for signing.

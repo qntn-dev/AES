@@ -44,6 +44,9 @@
     if (typeof AES.state.roundedPageFramesEnabled !== 'boolean') {
         AES.state.roundedPageFramesEnabled = false;
     }
+    if (typeof AES.state.experimentalUmbrellaContractFrameTabs !== 'boolean') {
+        AES.state.experimentalUmbrellaContractFrameTabs = false;
+    }
     if (typeof AES.state.autotaskBrandColorEnabled !== 'boolean') {
         AES.state.autotaskBrandColorEnabled = false;
     }
@@ -352,6 +355,9 @@
             AES.state.roundedPageFramesEnabled = settings && typeof settings.roundedPageFramesEnabled === 'boolean'
                 ? settings.roundedPageFramesEnabled
                 : true;
+            AES.state.experimentalUmbrellaContractFrameTabs = settings && typeof settings.experimentalUmbrellaContractFrameTabs === 'boolean'
+                ? settings.experimentalUmbrellaContractFrameTabs
+                : false;
             AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
             AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
             AES.state.autotaskBrandColorPresets = readAutotaskBrandColorPresets(settings);
@@ -415,6 +421,9 @@
             AES.state.roundedPageFramesEnabled = settings && typeof settings.roundedPageFramesEnabled === 'boolean'
                 ? settings.roundedPageFramesEnabled
                 : true;
+            AES.state.experimentalUmbrellaContractFrameTabs = settings && typeof settings.experimentalUmbrellaContractFrameTabs === 'boolean'
+                ? settings.experimentalUmbrellaContractFrameTabs
+                : false;
             AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
             AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
             AES.state.autotaskBrandColorPresets = readAutotaskBrandColorPresets(settings);
@@ -478,6 +487,7 @@
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
             horizontalCompactTabsEnabled: !!AES.state.horizontalCompactTabsEnabled,
             roundedPageFramesEnabled: !!AES.state.roundedPageFramesEnabled,
+            experimentalUmbrellaContractFrameTabs: !!AES.state.experimentalUmbrellaContractFrameTabs,
             autotaskBrandColorEnabled: !!savedBrandColorEnabled,
             autotaskBrandColor: readAutotaskBrandColor({ autotaskBrandColor: savedBrandColor }),
             autotaskBrandColorPresets: readAutotaskBrandColorPresets(AES.state),
