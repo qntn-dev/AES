@@ -1,0 +1,21 @@
+{
+  "type": "object",
+  "properties": {
+    "autotaskBrandColorEnabled": {
+      "title": "Enable AES managed brand color",
+      "description": "When true, AES applies the managed Autotask brand color. If omitted, AES enables managed branding whenever autotaskBrandColor is configured.",
+      "type": "boolean"
+    },
+    "autotaskBrandColor": {
+      "title": "AES managed brand color",
+      "description": "Company-wide AES branding color as a hex value, for example #b23a48 or b23a48.",
+      "type": "string",
+      "pattern": "^#?[0-9a-fA-F]{3}([0-9a-fA-F]{3})?$"
+    },
+    "autotaskLogoDataUrl": {
+      "title": "AES managed header logo",
+      "description": "Optional company-wide header logo as an SVG data URL. Example: data:image/svg+xml;charset=utf-8,%3Csvg...%3E",
+      "type": "string"
+    }
+  }
+}

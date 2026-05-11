@@ -79,6 +79,31 @@
         return colorNeedsLightForeground(hex) ? 'brightness(0) invert(1)' : 'none';
     }
 
+    function normalizeManagedBrandColor(value) {
+        value = String(value || '').trim();
+        if (/^[0-9a-f]{3}$/i.test(value) || /^[0-9a-f]{6}$/i.test(value)) {
+            value = '#' + value;
+        }
+        const short = value.match(/^#([0-9a-f]{3})$/i);
+        if (short) {
+            return '#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase();
+        }
+        return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : '';
+    }
+
+    function applyEarlyBrandSettingsWithManaged(localSettings, managedSettings) {
+        const settings = Object.assign({}, localSettings || {});
+        const managedColor = normalizeManagedBrandColor(managedSettings && managedSettings.autotaskBrandColor);
+        const hasManagedEnabled = managedSettings && typeof managedSettings.autotaskBrandColorEnabled === 'boolean';
+        if (managedColor || hasManagedEnabled) {
+            if (managedColor) settings.autotaskBrandColor = managedColor;
+            settings.autotaskBrandColorEnabled = hasManagedEnabled
+                ? managedSettings.autotaskBrandColorEnabled !== false
+                : !!managedColor;
+        }
+        applyEarlyBrandSettings(settings);
+    }
+
     function applyEarlyBrandSettings(settings) {
         if (!settings || settings.extensionEnabled === false || !settings.autotaskBrandColorEnabled) return;
         const color = normalizeBrandColor(settings.autotaskBrandColor);
@@ -100,6 +125,26 @@
             if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                 chrome.storage.local.get(AES.SETTINGS_STORAGE_KEY, function (result) {
                     const settings = result && result[AES.SETTINGS_STORAGE_KEY];
+                    try {
+                        if (chrome.storage.managed) {
+                            chrome.storage.managed.get([
+                                'autotaskBrandColor',
+                                'autotaskBrandColorEnabled',
+                            ], function (managed) {
+                                try {
+                                    if (chrome.runtime && chrome.runtime.lastError) {
+                                        applyEarlyBrandSettings(settings);
+                                        return;
+                                    }
+                                } catch (e) {
+                                    applyEarlyBrandSettings(settings);
+                                    return;
+                                }
+                                applyEarlyBrandSettingsWithManaged(settings, managed);
+                            });
+                            return;
+                        }
+                    } catch (e) {}
                     applyEarlyBrandSettings(settings);
                 });
                 return;
@@ -376,6 +421,13 @@
             'html.aes-brand-link-colors .o-tab.o-tab--container-variant.is-selected {',
             '    border-top-color: var(--aes-accent-link-color) !important;',
             '}',
+            'html.aes-brand-link-colors .o-view-layout__body[style*="border-top"] {',
+            '    border-top: 4px solid var(--aes-accent-link-color) !important;',
+            '    border-top-color: var(--aes-accent-link-color) !important;',
+            '}',
+            'html.aes-brand-link-colors .o-view-layout__body .o-standard-icon[style*="light-dark"] {',
+            '    color: var(--aes-accent-link-color) !important;',
+            '}',
             'html.aes-brand-link-colors .Button.SelectedState,',
             'html.aes-brand-link-colors .Button2.SelectedState,',
             'html.aes-brand-link-colors a.Button.SelectedState,',
@@ -414,7 +466,7 @@
             '    background: var(--aes-accent-link-color) !important;',
             '    background-color: var(--aes-accent-link-color) !important;',
             '    border-color: var(--aes-accent-link-color) !important;',
-            '    color: #ffffff !important;',
+            '    color: var(--aes-brand-foreground-color, #ffffff) !important;',
             '}',
             'html.aes-brand-link-colors .Button2.SuggestiveBackground .Text2,',
             'html.aes-brand-link-colors .Button.SuggestiveBackground .Text,',
@@ -477,6 +529,7 @@
         'organization',
         'contact',
         'ticket',
+        'task',
         'opportunity',
         'device'
     ]);
@@ -486,14 +539,17 @@
         const bars = document.querySelectorAll('.Active.TitleBar, .TitleBar.Active');
         bars.forEach(function (bar) {
             const titleEl = bar.querySelector('.TitleBarItem.Title > .Text, .Title > .Text, .TitleBarItem.Title .Text');
-            const title = cleanText(titleEl && titleEl.textContent).toLowerCase();
+            const title = cleanText(titleEl && titleEl.textContent)
+                .toLowerCase()
+                .replace(/\s*[-–]\s*$/, '')
+                .replace(/^edit\s+/, '');
             bar.classList.toggle('aes-brand-entity-titlebar', BRANDABLE_ENTITY_TITLEBAR_TITLES.has(title));
         });
     }
 
     function scheduleBrandEntityTitlebarUpdate() {
         if (brandEntityTitlebarRaf) return;
-        brandEntityTitlebarRaf = requestAnimationFrame(updateBrandEntityTitlebars);
+        brandEntityTitlebarRaf = window.requestAnimationFrame(updateBrandEntityTitlebars);
     }
 
     function startBrandEntityTitlebarWatcher() {
@@ -513,7 +569,7 @@
             brandEntityTitlebarObserver = null;
         }
         if (brandEntityTitlebarRaf) {
-            cancelAnimationFrame(brandEntityTitlebarRaf);
+            window.cancelAnimationFrame(brandEntityTitlebarRaf);
             brandEntityTitlebarRaf = 0;
         }
         document.querySelectorAll('.aes-brand-entity-titlebar').forEach(function (bar) {
@@ -686,6 +742,18 @@
         };
     }
 
+    function createHandledWindow(url) {
+        const targetUrl = AES.toAbsoluteUrl(decodeUrl(String(url || '')));
+        return {
+            closed: false,
+            opener: window,
+            location: { href: targetUrl || '' },
+            focus: function () {},
+            blur: function () {},
+            close: function () { this.closed = true; },
+        };
+    }
+
     function injectPageBridge() {
         if (document.documentElement.dataset.aesPageBridgeInjected === 'true') return;
         document.documentElement.dataset.aesPageBridgeInjected = 'true';
@@ -853,7 +921,27 @@
         return cleanText(ts && ts.textContent);
     }
 
+    function extractTicketTitlebarInfo() {
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText');
+        const secondary = cleanText(secondaryEl && secondaryEl.textContent);
+        const numberMatch = secondary.match(/\bT\d{8}\.\d{3,5}\b/);
+        const organizationMatch = secondary.match(/\(([^()]*)\)\s*$/);
+        const number = numberMatch ? numberMatch[0] : '';
+        let title = secondary;
+        if (number) title = title.replace(number, '');
+        title = title
+            .replace(/^\s*[-–]\s*/, '')
+            .replace(/\s*\([^)]*\)\s*$/, '')
+            .trim();
+        return {
+            number: number,
+            title: title,
+            organization: organizationMatch ? cleanText(organizationMatch[1]) : '',
+        };
+    }
+
     function extractTicketInfo() {
+        const isTicketEditPage = AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketedit.mvc';
         const heading = document.querySelector('.EntityHeadingContainer');
         let number = '';
         let title = '';
@@ -877,7 +965,11 @@
                 .replace(/^\s*[-–]\s*/, '');
         }
 
-        const organization = findFieldValue('Organization');
+        const titlebarInfo = extractTicketTitlebarInfo();
+        if (!number) number = titlebarInfo.number;
+        if (isTicketEditPage || !title || /^edit ticket\s*[-–]?$/i.test(title)) title = titlebarInfo.title || title;
+
+        const organization = findFieldValue('Organization') || titlebarInfo.organization;
         const contactName = findReadOnlyValueByLabel(['Contact', 'Contact Name']) ||
             findFieldValue('Contact') ||
             findFieldValue('Contact Name');
@@ -938,6 +1030,7 @@
                 .replace(/^\s*[-–]\s*/, '');
         }
 
+        const project = findReadOnlyValueByLabel(['Project']) || findFieldValue('Project');
         const organization = findFieldValue('Organization') || findReadOnlyValueByLabel(['Organization']);
         const contactName = findReadOnlyValueByLabel(['Contact', 'Contact Name']) ||
             findFieldValue('Contact') ||
@@ -950,6 +1043,7 @@
         const primaryResource = extractPrimaryResourceInfo();
         const hoverFields = [
             { label: 'Task ID', value: number.slice(0, 40) },
+            { label: 'Project', value: project.slice(0, 120) },
             { label: 'Status', value: status.slice(0, 40) },
             { label: 'Priority', value: priority.slice(0, 40) },
             { label: 'Last activity', value: lastActivity.slice(0, 40) },
@@ -967,6 +1061,7 @@
             metadataFields: {
                 type: 'Task',
                 number: number.slice(0, 40),
+                project: project.slice(0, 120),
                 organization: organization.slice(0, 80),
                 contact: contactName.slice(0, 80),
                 status: status.slice(0, 40),
@@ -1138,6 +1233,35 @@
                 endDate: endDate.slice(0, 80),
                 period: period.slice(0, 80),
             },
+        };
+    }
+
+    function extractNewContractWizardInfo() {
+        const info = extractGenericInfo('Contract');
+        const titleEl = document.querySelector('.TitleBarItem.Title > .Text, .PageHeadingContainer .Title .Text, .Title .Text');
+        const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText, .SecondaryTitle');
+        let title = cleanText(titleEl && titleEl.textContent) || info.title || 'New Contract Wizard';
+        let secondaryTitle = cleanSecondaryTitleText(secondaryEl && secondaryEl.textContent) || info.number || '';
+
+        if (!secondaryTitle && /\s+-\s+/.test(title)) {
+            const parts = title.split(/\s+-\s+/);
+            title = cleanText(parts.shift()) || title;
+            secondaryTitle = cleanText(parts.join(' - '));
+        } else if (secondaryTitle) {
+            const suffix = new RegExp('\\s+-\\s+' + secondaryTitle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$', 'i');
+            title = cleanText(title.replace(suffix, '')) || title;
+        }
+
+        return {
+            title: title,
+            number: secondaryTitle,
+            contact: '',
+            hoverFields: secondaryTitle ? [{ label: 'Contract type', value: secondaryTitle }] : [],
+            metadataFields: Object.assign({}, info.metadataFields || {}, {
+                type: 'Contract',
+                secondaryTitle: secondaryTitle.slice(0, 120),
+                contractType: secondaryTitle.slice(0, 80),
+            }),
         };
     }
 
@@ -1655,6 +1779,38 @@
         };
     }
 
+    function extractInventoryProductInfo() {
+        const params = new URLSearchParams(location.search);
+        const productMode = String(params.get('cmd') || '').toLowerCase();
+        const titleEl = document.querySelector('.TitleBarItem.Title > .Text, .PageHeadingContainer .Title .Text, .Title .Text, h1');
+        const chipText = cleanText(document.querySelector('.ChipList.SingleDataSelection .Chip .Text, .ChipList .Chip .Text')?.textContent);
+        const legacyProductInput = document.getElementById('txtProductName_ATTextEdit');
+        const legacyCategoryInput = document.getElementById('txtProductCategory_ATTextEdit');
+        const activeCheckbox = document.getElementById('chkActive_ATCheckBox');
+        const categoryText = cleanText(document.querySelector('.SelectionDisplay .Item[data-item-type="SingleText"] .Text, .SelectionDisplay .Item .Text')?.textContent) ||
+            cleanText(legacyCategoryInput && legacyCategoryInput.value);
+        const isInactiveChip = /\(\s*inactive\s*\)\s*$/i.test(chipText);
+        const productName = cleanText(chipText.replace(/\(\s*inactive\s*\)\s*$/i, '')) ||
+            cleanText(legacyProductInput && legacyProductInput.value);
+        const isInactive = isInactiveChip || !!(activeCheckbox && !activeCheckbox.checked);
+        const title = productName || cleanText(titleEl && titleEl.textContent) || 'New Inventory Product';
+        const isNew = !productName;
+        const isLegacyNew = productMode === 'new' || String(params.get('productID') || params.get('productId') || '').trim() === '0';
+        return {
+            title: isNew || isLegacyNew ? 'New Inventory Product' : title,
+            number: categoryText,
+            contact: '',
+            primaryResource: null,
+            hoverFields: categoryText ? [{ label: 'Category', value: categoryText.slice(0, 120) }] : [],
+            metadataFields: {
+                type: 'Inventory Product',
+                productCategory: categoryText.slice(0, 120),
+                productInactive: isInactive ? 'true' : '',
+                productIsNew: isNew || isLegacyNew ? 'true' : '',
+            },
+        };
+    }
+
     function extractGenericInfo(fallbackTitle) {
         const heading = document.querySelector('.TitleBarItem.Title > .Text, .EntityHeadingContainer .Title > .Text, .PageHeadingContainer .Title .Text, h1, .Title');
         const secondaryEl = document.querySelector('.TitleBarItem.Title .SecondaryText, .Title .SecondaryText, .SecondaryTitle');
@@ -1746,6 +1902,9 @@
         if (p === '/timesheets/views/readonly/tmsreadonly_100.asp') {
             return extractTimesheetInfo();
         }
+        if (p === '/mvc/contracts/newcontractwizard.mvc/newcontractwizard') {
+            return extractNewContractWizardInfo();
+        }
         if (p === '/contracts/views/contractview.asp' || p === '/contracts/views/contractsummary.asp') {
             return extractContractInfo();
         }
@@ -1761,7 +1920,7 @@
         if (p === '/mvc/crm/note.mvc/view') {
             return extractNoteInfo();
         }
-        if (p === '/mvc/servicedesk/ticketdetail.mvc') {
+        if (p === '/mvc/servicedesk/ticketdetail.mvc' || p === '/mvc/servicedesk/ticketedit.mvc') {
             return extractTicketInfo();
         }
         if (p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
@@ -1781,6 +1940,11 @@
             p === '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer' ||
             p === '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer') {
             return extractInvoiceViewerInfo();
+        }
+        if (p === '/autotask/views/administration/products/product.aspx' ||
+            p === '/mvc/inventory/inventoryproduct.mvc/create' ||
+            p === '/mvc/inventory/inventoryproduct.mvc/edit') {
+            return extractInventoryProductInfo();
         }
         if (p === '/autotask/views/template/customizenotificationtemplate.aspx') {
             const info = extractAdminTitlebarPageInfo('Notification Template', 'Notification Templates');
@@ -1904,8 +2068,10 @@
                 if (value) metadataFields[key] = value;
             });
         }
+        const browserTitle = cleanText(document.title);
         const sig = [
             info.title, info.number, info.contact,
+            browserTitle,
             JSON.stringify(primaryResource),
             priority, status, lastActivity,
             pageWarning ? 'warning' : '',
@@ -1918,6 +2084,7 @@
             type: 'nav',
             url: location.href,
             title: info.title,
+            browserTitle: browserTitle,
             number: info.number,
             contact: info.contact,
             primaryResource: primaryResource,
@@ -1968,7 +2135,8 @@
     AES.initIframeBridge = function initIframeBridge() {
         document.documentElement.classList.toggle(
             'aes-ticket-detail-page',
-            AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketdetail.mvc'
+            AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketdetail.mvc' ||
+            AES.normalizeHandledPath(AES.pathOf(location.href)) === '/mvc/servicedesk/ticketedit.mvc'
         );
 
         window.addEventListener('message', function (event) {
@@ -2058,6 +2226,32 @@
             postHandledNavigation(targetUrl);
         }, true);
 
+        let lastPeekSaveCloseClickAt = 0;
+        function textFromElement(el) {
+            return cleanText(el && (
+                el.innerText ||
+                el.textContent ||
+                el.value ||
+                el.getAttribute && (el.getAttribute('title') || el.getAttribute('aria-label')) ||
+                ''
+            ));
+        }
+        function isSaveCloseTrigger(target) {
+            const el = target && target.closest
+                ? target.closest('button,a,input,[role="button"],.Button,.Button2,.LinkButton2,[onclick]')
+                : null;
+            if (!el) return false;
+            const text = textFromElement(el);
+            return /\bsave\s*(?:&|and)\s*(?:close|quit)\b/i.test(text);
+        }
+        document.addEventListener('click', function (event) {
+            if (!featureEnabled) return;
+            if (!isPeekPopupUrl(location.href)) return;
+            if (isSaveCloseTrigger(event.target)) {
+                lastPeekSaveCloseClickAt = Date.now();
+            }
+        }, true);
+
         document.addEventListener('auxclick', function (event) {
             if (!featureEnabled) return;
             if (event.button !== 1) return;
@@ -2085,7 +2279,7 @@
                 }
                 if (targetUrl && (AES.isHandledUrl(targetUrl) || isPeekPopupUrl(targetUrl))) {
                     postHandledNavigation(targetUrl);
-                    return null;
+                    return createHandledWindow(targetUrl);
                 }
                 return originalOpen.call(window, url, target, features);
             };
@@ -2103,6 +2297,9 @@
         // loading. The shell filters these out for our own tab iframes and
         // only surfaces the loader when the source is native Autotask chrome.
         window.addEventListener('beforeunload', function () {
+            if (isPeekPopupUrl(location.href) && lastPeekSaveCloseClickAt && Date.now() - lastPeekSaveCloseClickAt < 8000) {
+                postToTop({ type: 'close-frame', target: 'peek' });
+            }
             postToTop({ type: 'nav-start' });
         });
 

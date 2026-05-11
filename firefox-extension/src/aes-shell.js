@@ -71,6 +71,15 @@
     }
 
     const DEFAULT_AUTOTASK_BRAND_COLOR = '#376A94';
+    const DEFAULT_AUTOTASK_BRAND_PRESETS = [
+        '#376a94', // Autotask blue
+        '#b23a48', // Crimson
+        '#2e8458', // Sea green
+        '#6f4fa0', // Deep purple
+        '#c97a3f', // Amber brown
+        '#4f5d75', // Slate
+    ];
+    const BRAND_PRESET_COUNT = DEFAULT_AUTOTASK_BRAND_PRESETS.length;
     const AUTOTASK_FULL_LOGO_SELECTOR = 'img[src*="/AutotaskOnyx/Content/assets/ATLogoFull-White-HeaderVersion"], img[data-aes-autotask-logo-override="true"]';
     const AUTOTASK_CUSTOM_LOGO_FALLBACK_WIDTH = 240;
     const AUTOTASK_CUSTOM_LOGO_FALLBACK_HEIGHT = 56;
@@ -113,6 +122,7 @@
         loader: null,
         homeCover: null,
         settingsButton: null,
+        tabBarCollapseButton: null,
         nativeSettingsMenuItem: null,
         nativeSettingsObserver: null,
         nativeSettingsRaf: 0,
@@ -228,6 +238,9 @@
             : DEFAULT_AUTOTASK_BRAND_COLOR,
         autotaskBrandColorOriginal: null,
         autotaskBrandColorOverrideApplied: false,
+        autotaskBrandColorPresets: normalizeAutotaskBrandPresets(
+            AES.state && AES.state.autotaskBrandColorPresets
+        ),
         autotaskLogoOverrideEnabled: !!(AES.state && AES.state.autotaskLogoOverrideEnabled),
         autotaskLogoDataUrl: AES.state && typeof AES.state.autotaskLogoDataUrl === 'string'
             ? AES.state.autotaskLogoDataUrl
@@ -241,6 +254,7 @@
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
         tabBarHoverExpanded: false,
         tabBarExpandTimer: 0,
+        tabBarLastExpandedWidth: AES.BAR_W || 240,
         tabBarResizeHandleHovered: false,
         tabBarResizing: false,
         splitResizeHandle: null,
@@ -262,46 +276,118 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
-        version: '0.9.0',
+        version: '0.10.0',
         sections: [
             {
-                title: 'Highlights',
+                title: 'AES Tip',
                 items: [
-                    'AES now supports all Project related tabs and windows!',
-                    'Make Autotask feel like your own workspace with our new Branding settings!',
-                    'Major Umbrella Contracts fix',
+                    'Did you know it is possible to open multiple tickets at once by clicking with your scroll wheel?',
                 ],
             },
             {
-                title: 'New features',
+                title: 'Highlights',
                 items: [
-                    'Full compatibility of the Projects module with AES.',
-                    'Added Autotask Branding options, so you can make Autotask feel like your own workspace with custom colors, your own logo, and matching UI highlights throughout the interface.',
-                    'Added a welcome message with a link to the correct Autotask settings, so users can make sure time entries and notes do not open in a separate window and break AES.',
+                    'Biggest update so far primarily focusing on bug fixes and improvements.',
+                    'Inventory Management compatibility.',
+                    'Browser-like tabs replacing Compact Mode.',
+                    'Loads of bug fixes.',
+                ],
+            },
+            {
+                title: 'New Features',
+                items: [
+                    'Changed compact tabs to Browser-like tabs. When this mode is active, tabs act more like normal browser tabs and AES does not manipulate the tab titles. This also maximizes space on the vertical tab bar.',
+                    'Added a collapse button to the Vertical Tab Bar, providing an easy way to collapse the tabs to an icon-only style inspired by Microsoft Edge.',
+                    'New Branding color picker with saveable presets.',
+                    'Added managed Branding policy support so admins can deploy a company-wide Autotask brand color and logo through Intune, Group Policy, or browser managed storage.',
+                ],
+            },
+            {
+                title: 'Compatibility',
+                intro: 'Added and improved AES Tab support for more Autotask areas:',
+                items: [
+                    'Service Calls.',
+                    'Inventory-related tabs.',
+                    'Project Tasks.',
+                    'Knowledge Base Articles.',
                 ],
             },
             {
                 title: 'Improvements',
                 items: [
-                    'Invoices now stay contained within AES more reliably, including Batch History and Process Invoices flows.',
-                    'Labour Adjustment popups now open in AES Peek.',
-                    'Aligned more UI details with Autotask, including font and icon sizing for a cleaner native feel.',
-                    'Time Entries and Ticket Notes can now be their own tabs with relevant metadata, in case the setting is disabled in Autotask.',
-                    'Relevant Peek windows now refresh the original page when closing via Autotask Save & Quit-like buttons.',
-                    'AES Settings button now also shows when the Autotask navigation bar is collapsed.',
-                    'Restored the native Autotask side-panel collapse button. It was hidden very early in the project because it broke the layout; it now floats cleanly above the AES tab bar instead.',
+                    'Branding colors now apply to more Autotask and AES surfaces, including tabs, loaders, settings controls, Onyx page accents, and header icons.',
+                    'Branding settings now clearly show when the brand color or logo is managed by the organization and disable local editing for those managed values.',
+                    'Tab bar location and tab size are now separate settings.',
+                    'Added short subtitles to settings to make each option easier to understand.',
+                    'Made hover cards more consistent by showing metadata rows even when the value is empty.',
+                    'Created more space for tab titles by removing the static close (X) button; the button will now only appear on active tabs or when hovering over a tab.',
+                    'Enhanced the Tab Title overflow effect by using shadows instead of three dots.',
+                    'AES Tab border is now aligned to the Autotask Tab border style (3px -> 4px).',
+                    'The Resource Planner replacement in the top bar now disappears when the window is too narrow, preventing overlap.',
+                    'Hover Cards are now properly aligned.',
+                    'Limited the color picker for Branding to readable colors only to prevent visual issues.',
                 ],
             },
             {
                 title: 'Bug Fixes',
                 items: [
-                    'Fixed tabs not reopening correctly after a browser closure in case this setting is enabled.',
-                    'Fixed Umbrella Contracts breaking the whole extension/Autotask page. The extension now first checks if an open contract is an Umbrella Contract, if so it will open on the Home page. If it is a legacy contract it will still open as a tab. Since Umbrella Contracts are built on the new framework we are unable to open this within an AES Tab.',
-                    'Fixed invoices not generating AES tabs when opened from places other than invoice history.',
+                    'Fixed Branding not applying consistently in light/dark mode.',
+                    'Fixed dropdowns showing multiple arrows in the background.',
+                    'Fixed AES Tabs not automatically reloading after refreshing Autotask.',
+                    'Fixed new Legacy Contracts opening in browser tabs instead of AES Tabs.',
+                    'Fixed a bug where adding Services to a Contract did not automatically close the Peek window.',
+                    'Fixed opening Stocked Items crashing Autotask.',
+                    'Fixed Edit Ticket in the hover menu opening a separate browser tab.',
+                    'Fixed Metadata not showing the proper values when pressing Edit Ticket.',
+                    'Fixed a regression where +New Ticket would open in a browser tab instead of an AES Tab since v0.9.0.',
                 ],
             },
         ],
     };
+    const RELEASE_NOTES_HISTORY = [
+        RELEASE_NOTES,
+        {
+            version: '0.9.0',
+            sections: [
+                {
+                    title: 'Highlights',
+                    items: [
+                        'AES now supports all Project related tabs and windows!',
+                        'Make Autotask feel like your own workspace with our new Branding settings!',
+                        'Major Umbrella Contracts fix.',
+                    ],
+                },
+                {
+                    title: 'New features',
+                    items: [
+                        'Full compatibility of the Projects module with AES.',
+                        'Added Autotask Branding options, so you can make Autotask feel like your own workspace with custom colors, your own logo, and matching UI highlights throughout the interface.',
+                        'Added a welcome message with a link to the correct Autotask settings, so users can make sure time entries and notes do not open in a separate window and break AES.',
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'Invoices now stay contained within AES more reliably, including Batch History and Process Invoices flows.',
+                        'Labour Adjustment popups now open in AES Peek.',
+                        'Aligned more UI details with Autotask, including font and icon sizing for a cleaner native feel.',
+                        'Time Entries and Ticket Notes can now be their own tabs with relevant metadata, in case the setting is disabled in Autotask.',
+                        'Relevant Peek windows now refresh the original page when closing via Autotask Save & Quit-like buttons.',
+                        'AES Settings button now also shows when the Autotask navigation bar is collapsed.',
+                        'Restored the native Autotask side-panel collapse button. It now floats cleanly above the AES tab bar instead.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Fixed tabs not reopening correctly after a browser closure when that setting is enabled.',
+                        'Fixed Umbrella Contracts breaking AES or Autotask. AES now checks whether an open contract is an Umbrella Contract and opens it on the Home page when needed.',
+                        'Fixed invoices not generating AES tabs when opened from places other than invoice history.',
+                    ],
+                },
+            ],
+        },
+    ];
 
     function getRuntimeApi() {
         try {
@@ -457,9 +543,12 @@
         umbrellacontract: faIcon('fa-umbrella fa-regular'),
         ticket: faIcon('fa-ticket fa-regular'),
         ticketactivity: faIcon('fa-note-sticky fa-regular'),
+        servicecall: faIcon('fa-headset fa-regular'),
+        knowledgebase: faIcon('fa-book fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
         invoice: faIcon('fa-file-invoice fa-regular'),
-        account: faIcon('fa-user-group fa-regular'),
+        product: faIcon('fa-box-open fa-regular'),
+        account: faIcon('fa-building fa-regular'),
         device: faIcon('fa-laptop-mobile fa-regular'),
         note: faIcon('fa-laptop-mobile fa-regular'),
         opportunity: faIcon('fa-lightbulb fa-regular'),
@@ -703,6 +792,7 @@
 
     function refreshTabIframe(tab) {
         if (!tab || !tab.iframeEl) return;
+        preserveTabMetadataForRefresh(tab);
         tab.loading = true;
         updateTabEl(tab);
         updateLoaderVisibility();
@@ -711,6 +801,73 @@
         } catch (e) {
             tab.iframeEl.src = tab.iframeEl.src || tab.url;
         }
+    }
+
+    function snapshotTabMetadata(tab) {
+        if (!tab) return null;
+        return {
+            title: String(tab.title || ''),
+            number: String(tab.number || ''),
+            contact: String(tab.contact || ''),
+            primaryResource: tab.primaryResource ? Object.assign({}, tab.primaryResource) : null,
+            priority: String(tab.priority || ''),
+            status: String(tab.status || ''),
+            lastActivity: String(tab.lastActivity || ''),
+            pageWarning: !!tab.pageWarning,
+            hoverFields: normalizeHoverFields(tab.hoverFields),
+            metadataFields: normalizeMetadataFields(tab.metadataFields),
+        };
+    }
+
+    function preserveTabMetadataForRefresh(tab) {
+        const snapshot = snapshotTabMetadata(tab);
+        if (!snapshot) return;
+        tab.preservedRefreshMetadata = snapshot;
+    }
+
+    function restoreTabMetadataSnapshot(tab, snapshot) {
+        if (!tab || !snapshot) return;
+        tab.title = snapshot.title || tab.title;
+        tab.number = snapshot.number || tab.number;
+        tab.contact = snapshot.contact || tab.contact;
+        tab.primaryResource = snapshot.primaryResource || tab.primaryResource || null;
+        tab.priority = snapshot.priority || tab.priority || '';
+        tab.status = snapshot.status || tab.status || '';
+        tab.lastActivity = snapshot.lastActivity || tab.lastActivity || '';
+        tab.pageWarning = snapshot.pageWarning || tab.pageWarning;
+        tab.hoverFields = normalizeHoverFields(snapshot.hoverFields);
+        tab.metadataFields = normalizeMetadataFields(snapshot.metadataFields);
+    }
+
+    function hasMeaningfulMetadataFields(fields) {
+        const normalized = normalizeMetadataFields(fields);
+        return Object.keys(normalized).some(function (key) {
+            if (key === 'type' || key === 'secondaryTitle') return false;
+            return !!String(normalized[key] || '').trim();
+        });
+    }
+
+    function hasRichNavMetadata(data) {
+        if (!data) return false;
+        return hasMeaningfulMetadataFields(data.metadataFields) ||
+            !!String(data.contact || '').trim() ||
+            !!String(data.number || '').trim() ||
+            !!(data.hoverFields && normalizeHoverFields(data.hoverFields).length);
+    }
+
+    function mergeMetadataFieldsPreservingExisting(existingFields, incomingFields) {
+        const existing = normalizeMetadataFields(existingFields);
+        const incoming = normalizeMetadataFields(incomingFields);
+        const merged = Object.assign({}, existing);
+        Object.keys(incoming).forEach(function (key) {
+            const value = String(incoming[key] || '').trim();
+            if (key === 'type' && String(existing.type || '').trim() &&
+                /^(unknown|tab|autotask page)$/i.test(value)) {
+                return;
+            }
+            if (value) merged[key] = incoming[key];
+        });
+        return normalizeMetadataFields(merged);
     }
 
     const UMBRELLA_CONTRACT_FRAME_RELOAD_KEY = 'aes-umbrella-contract-frame-reload';
@@ -949,7 +1106,7 @@
                     value: String(field && field.value || '').trim().slice(0, 160),
                 };
             })
-            .filter(function (field) { return field.label && field.value; });
+            .filter(function (field) { return field.label; });
     }
 
     function clearRestoreLoadTimers() {
@@ -968,6 +1125,28 @@
         tab.iframeEl.src = tab.url;
         updateTabEl(tab);
         updateLoaderVisibility();
+    }
+
+    function scheduleRestoredTabsLoading(priorityTab) {
+        clearRestoreLoadTimers();
+        const priorityId = priorityTab && priorityTab.id;
+        const orderedTabs = state.tabs.slice().sort(function (a, b) {
+            if (priorityId && a.id === priorityId) return -1;
+            if (priorityId && b.id === priorityId) return 1;
+            return 0;
+        });
+        orderedTabs.forEach(function (tab, index) {
+            if (!tab || tab.loadStarted !== false) return;
+            const load = function () {
+                ensureTabIframeLoaded(tab);
+            };
+            if (index === 0) {
+                load();
+                return;
+            }
+            const timerId = window.setTimeout(load, 200 + (index * 180));
+            state.restoreLoadTimers.push(timerId);
+        });
     }
 
     function ensureTabFreshAfterUmbrellaContract(tab) {
@@ -995,6 +1174,25 @@
         }
         const long = raw.match(/^#[0-9a-f]{6}$/i);
         return long ? raw.toLowerCase() : DEFAULT_AUTOTASK_BRAND_COLOR;
+    }
+
+    function normalizeAutotaskBrandPresets(value) {
+        const list = Array.isArray(value) ? value : [];
+        const out = [];
+        for (let i = 0; i < BRAND_PRESET_COUNT; i += 1) {
+            // Slot 0 is locked to the canonical Autotask brand colour and
+            // can never be overridden, no matter what's in storage.
+            if (i === 0) {
+                out.push(DEFAULT_AUTOTASK_BRAND_PRESETS[0]);
+                continue;
+            }
+            const candidate = list[i];
+            const fallback = DEFAULT_AUTOTASK_BRAND_PRESETS[i];
+            out.push(typeof candidate === 'string' && /^#[0-9a-f]{3,6}$/i.test(candidate)
+                ? normalizeAutotaskBrandColor(candidate)
+                : fallback);
+        }
+        return out;
     }
 
     function colorToRgba(hex, alpha) {
@@ -1033,6 +1231,116 @@
         return luminance < 0.54;
     }
 
+    function colorRelativeLuminance(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return 0.5;
+        return (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+    }
+
+    // Light-mode cap is tight because Autotask's white background gives
+    // washed-out colours plenty of room to disappear into. Dark-mode cap
+    // can be much more relaxed — anything brighter than the very-dark
+    // page background still pops cleanly, so we only filter out genuinely
+    // muddy / near-black colours that would actually fade in.
+    const BRAND_COLOR_LIGHT_MODE_MAX_LUMINANCE = 0.45;
+    const BRAND_COLOR_DARK_MODE_MIN_LUMINANCE = 0.22;
+
+    function colorChannelToHex(value) {
+        const rounded = Math.max(0, Math.min(255, Math.round(value)));
+        return rounded.toString(16).padStart(2, '0');
+    }
+
+    function rgbToHex(rgb) {
+        return '#' + colorChannelToHex(rgb.r) + colorChannelToHex(rgb.g) + colorChannelToHex(rgb.b);
+    }
+
+    function hexToHsl(hex) {
+        const rgb = hexToRgb(hex) || hexToRgb(DEFAULT_AUTOTASK_BRAND_COLOR);
+        const r = rgb.r / 255;
+        const g = rgb.g / 255;
+        const b = rgb.b / 255;
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        const l = (max + min) / 2;
+        const delta = max - min;
+        if (delta) {
+            s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+            if (max === r) h = (g - b) / delta + (g < b ? 6 : 0);
+            else if (max === g) h = (b - r) / delta + 2;
+            else h = (r - g) / delta + 4;
+            h *= 60;
+        }
+        return {
+            h: Math.round(h),
+            s: Math.round(s * 100),
+            l: Math.round(l * 100),
+        };
+    }
+
+    function hslToHex(h, s, l) {
+        const hue = (((Number(h) || 0) % 360) + 360) % 360;
+        const saturation = Math.max(0, Math.min(100, Number(s) || 0)) / 100;
+        const lightness = Math.max(0, Math.min(100, Number(l) || 0)) / 100;
+        const c = (1 - Math.abs(2 * lightness - 1)) * saturation;
+        const x = c * (1 - Math.abs((hue / 60) % 2 - 1));
+        const m = lightness - c / 2;
+        let r1 = 0;
+        let g1 = 0;
+        let b1 = 0;
+        if (hue < 60) { r1 = c; g1 = x; }
+        else if (hue < 120) { r1 = x; g1 = c; }
+        else if (hue < 180) { g1 = c; b1 = x; }
+        else if (hue < 240) { g1 = x; b1 = c; }
+        else if (hue < 300) { r1 = x; b1 = c; }
+        else { r1 = c; b1 = x; }
+        return rgbToHex({
+            r: (r1 + m) * 255,
+            g: (g1 + m) * 255,
+            b: (b1 + m) * 255,
+        });
+    }
+
+    function currentBrandLightnessBounds() {
+        return effectiveDarkMode()
+            ? { min: 30, max: 82 }
+            : { min: 14, max: 42 };
+    }
+
+    function clampBrandHslForCurrentTheme(hsl) {
+        const bounds = currentBrandLightnessBounds();
+        return {
+            h: Math.max(0, Math.min(360, Math.round(Number(hsl && hsl.h) || 0))),
+            s: Math.max(0, Math.min(100, Math.round(Number(hsl && hsl.s) || 0))),
+            l: Math.max(bounds.min, Math.min(bounds.max, Math.round(Number(hsl && hsl.l) || bounds.min))),
+        };
+    }
+
+    function limitBrandColorForCurrentTheme(hex) {
+        const rgb = hexToRgb(hex);
+        if (!rgb) return DEFAULT_AUTOTASK_BRAND_COLOR;
+        const luminance = colorRelativeLuminance(hex);
+        if (effectiveDarkMode()) {
+            if (luminance >= BRAND_COLOR_DARK_MODE_MIN_LUMINANCE) return hex;
+            const mix = luminance >= 1
+                ? 0
+                : (BRAND_COLOR_DARK_MODE_MIN_LUMINANCE - luminance) / (1 - luminance);
+            return rgbToHex({
+                r: rgb.r + (255 - rgb.r) * mix,
+                g: rgb.g + (255 - rgb.g) * mix,
+                b: rgb.b + (255 - rgb.b) * mix,
+            });
+        }
+        if (luminance <= BRAND_COLOR_LIGHT_MODE_MAX_LUMINANCE) return hex;
+        const scale = BRAND_COLOR_LIGHT_MODE_MAX_LUMINANCE / luminance;
+        return rgbToHex({
+            r: rgb.r * scale,
+            g: rgb.g * scale,
+            b: rgb.b * scale,
+        });
+    }
+
     function colorToTitlebarIconFilter(hex) {
         return colorNeedsLightForeground(hex) ? 'brightness(0) invert(1)' : 'none';
     }
@@ -1046,6 +1354,7 @@
                 syncKey: t.syncKey || (t.syncKey = createRandomId('tab-')),
                 url: canonicalTabUrl(t.url),
                 title: t.title,
+                browserTitle: t.browserTitle || '',
                 number: t.number,
                 contact: t.contact,
                 primaryResource: t.primaryResource || null,
@@ -1339,6 +1648,7 @@
                 syncKey: saved.syncKey || '',
                 url: savedUrl,
                 title: saved.title || '',
+                browserTitle: saved.browserTitle || '',
                 number: saved.number || '',
                 contact: saved.contact || '',
                 primaryResource: saved.primaryResource || null,
@@ -1353,7 +1663,7 @@
                 iframeEl,
                 loaderEl,
                 tabEl: null,
-                loading: false,
+                loading: true,
                 loadStarted: false,
             }));
         }
@@ -1395,6 +1705,7 @@
             // visible split partner(s). Background restored tabs remain lazy.
             activateTab(state.tabs[idx].id, { recordPrevious: false });
             clearHomeLoading();
+            scheduleRestoredTabsLoading(state.tabs[idx]);
         } else {
             activateHome();
             if (savedHome && savedHome.url) {
@@ -1405,6 +1716,7 @@
                     } catch (e) {}
                 }
             }
+            scheduleRestoredTabsLoading(null);
         }
     }
 
@@ -1419,6 +1731,7 @@
             syncKey: saved.syncKey || '',
             url: savedUrl,
             title: saved.title || '',
+            browserTitle: saved.browserTitle || '',
             number: saved.number || '',
             contact: saved.contact || '',
             primaryResource: saved.primaryResource || null,
@@ -1442,6 +1755,7 @@
         tab.syncKey = saved.syncKey || tab.syncKey || createRandomId('tab-');
         tab.url = canonicalTabUrl(saved.url || tab.url);
         tab.title = saved.title || '';
+        tab.browserTitle = saved.browserTitle || '';
         tab.number = saved.number || '';
         tab.contact = saved.contact || '';
         tab.primaryResource = saved.primaryResource || null;
@@ -1626,7 +1940,7 @@
     }
 
     function currentHorizontalBarHeight() {
-        return horizontalCompactTabsActive() ? 50 : AES.BAR_H;
+        return horizontalCompactTabsActive() ? 32 : AES.BAR_H;
     }
 
     function normalizedTabBarWidth(value) {
@@ -1649,6 +1963,7 @@
 
     function updateResizableBarClasses() {
         document.documentElement.classList.toggle('aes-resizable-tabs', !!state.resizableTabBarEnabled);
+        document.documentElement.classList.toggle('aes-compact-tabs', !!state.horizontalCompactTabsEnabled);
         document.documentElement.classList.toggle('aes-horizontal-compact-tabs', !!state.horizontalCompactTabsEnabled);
         if (!state.bar) return;
         state.bar.classList.toggle('compact', isCompactVerticalBar());
@@ -1656,6 +1971,42 @@
         state.bar.classList.toggle('resizing', !!state.tabBarResizing);
         state.bar.style.setProperty('--aes-expanded-bar-width', AES.BAR_W + 'px');
         state.bar.style.setProperty('--aes-collapsed-bar-width', currentVerticalBarWidth() + 'px');
+        updateTabBarCollapseButton();
+    }
+
+    function updateTabBarCollapseButton() {
+        if (!state.tabBarCollapseButton) return;
+        const collapsed = isCompactVerticalBar();
+        state.tabBarCollapseButton.classList.toggle('collapsed', collapsed);
+        state.tabBarCollapseButton.title = collapsed ? 'Expand tab bar' : 'Collapse tab bar';
+        state.tabBarCollapseButton.setAttribute('aria-label', collapsed ? 'Expand tab bar' : 'Collapse tab bar');
+    }
+
+    function toggleVerticalTabBarCollapse(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        if (!isVerticalBar()) return;
+        const compactThreshold = AES.BAR_W_COMPACT || 96;
+        const collapsedWidth = AES.BAR_W_MIN || 56;
+        const expandedWidth = normalizedTabBarWidth(state.tabBarLastExpandedWidth || AES.BAR_W || 240);
+        const currentWidth = currentVerticalBarWidth();
+        const collapsed = currentWidth <= compactThreshold;
+        state.resizableTabBarEnabled = true;
+        AES.state.resizableTabBarEnabled = true;
+        if (collapsed) {
+            state.tabBarWidth = expandedWidth;
+        } else {
+            state.tabBarLastExpandedWidth = currentWidth;
+            state.tabBarWidth = collapsedWidth;
+        }
+        AES.state.tabBarWidth = state.tabBarWidth;
+        state.tabBarHoverExpanded = false;
+        cancelTabBarExpandTimer();
+        updateResizableBarClasses();
+        requestSyncGeometry();
+        void AES.saveSettings();
     }
 
     function cancelTabBarExpandTimer() {
@@ -1755,6 +2106,23 @@
     }
 
     function applyNonIframeRoundedSurfaceStyles() {
+        // Always start by clearing styles from anything we marked on a
+        // previous run. Two reasons:
+        //   1. The toggle-off path used to leave styles stranded on the
+        //      page until refresh.
+        //   2. If our selector incidentally picks up something it
+        //      shouldn't (e.g. the Onyx left side panel), narrowing the
+        //      filter later only helps after we strip the old hits.
+        Array.prototype.forEach.call(
+            document.querySelectorAll('[data-aes-non-iframe-rounded-surface="true"]'),
+            function (el) {
+                el.style.removeProperty('border-radius');
+                el.style.removeProperty('clip-path');
+                el.style.removeProperty('overflow');
+                delete el.dataset.aesNonIframeRoundedSurface;
+            }
+        );
+
         if (!state.roundedPageFramesEnabled || !state.nonIframeReservedContainer || state.activeId !== null) return;
         const clippingEnabled = state.roundedPageFramesEnabled;
         const selectors = [
@@ -1763,6 +2131,10 @@
             '[class~="bg-background-primary"][class~="height:100%"]',
             '.o-view-layout',
         ];
+        // Main content panels span most of the viewport; side panels,
+        // tooltips, and similar chrome don't. Use both an absolute floor
+        // and a viewport-relative floor so narrow chrome can't sneak past.
+        const minSurfaceWidth = Math.max(420, Math.round(window.innerWidth * 0.5));
         const candidates = [];
         selectors.forEach(function (selector) {
             Array.prototype.forEach.call(document.querySelectorAll(selector), function (el) {
@@ -1770,12 +2142,21 @@
                 if (el.classList && Array.prototype.some.call(el.classList, function (className) {
                     return className.indexOf('at-tabs-') === 0 || className.indexOf('aes-') === 0;
                 })) return;
+                // Skip elements that explicitly fix themselves to a narrow
+                // width — Onyx uses Tailwind arbitrary-value classes like
+                // `w-[15rem]` / `max-w-[15rem]` for the left side panel
+                // and similar chrome. Main content surfaces don't have
+                // hard-pinned narrow widths.
+                const cls = typeof el.className === 'string' ? el.className : '';
+                if (/\b(?:w|max-w|min-w)-\[\s*(?:[0-9]{1,2}(?:\.[0-9]+)?\s*rem|[0-9]{1,3}\s*px)\s*\]/i.test(cls)) return;
+                if (/\b(?:side-?panel|sidebar|drawer|popover|tooltip)\b/i.test(cls)) return;
                 candidates.push(el);
             });
         });
         candidates.forEach(function (surface) {
             const rect = surface.getBoundingClientRect();
-            if (rect.width < 200 || rect.height < 200) return;
+            if (rect.width < minSurfaceWidth || rect.height < 200) return;
+            surface.dataset.aesNonIframeRoundedSurface = 'true';
             surface.style.setProperty('border-radius', '10px', 'important');
             if (clippingEnabled) {
                 surface.style.setProperty('clip-path', 'inset(0 round 10px)', 'important');
@@ -2875,10 +3256,13 @@
         if (innerUrl && innerUrl !== url) return tabTypeForUrl(innerUrl);
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
+        if (p === '/mvc/servicedesk/ticketedit.mvc') return 'ticket';
         if (p === '/mvc/servicedesk/ticketnew.mvc') return 'ticket';
         if (p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
             p === '/mvc/servicedesk/note.mvc/newticketnotepage') return 'ticketactivity';
-        if (p === '/mvc/crm/accountdetail.mvc') return 'account';
+        if (p === '/autotask/popups/techscheduling/service_call.aspx') return 'servicecall';
+        if (p === '/mvc/knowledgebase/articlenew.mvc/article') return 'knowledgebase';
+        if (p === '/mvc/crm/accountnew.mvc' || p === '/mvc/crm/accountdetail.mvc') return 'account';
         if (p === '/mvc/crm/installedproductdetail.mvc') return 'device';
         if (p === '/mvc/crm/note.mvc/view') return 'note';
         if (p === '/mvc/crm/opportunitydetail.mvc') return 'opportunity';
@@ -2911,10 +3295,14 @@
             p.includes('/billingassociation') ||
             p.includes('/billingproductassociation') ||
             p.includes('/billingruleassociation')) return 'charge';
-        if (p.startsWith('/contracts/views/contract')) return 'contract';
+        if (p === '/mvc/contracts/newcontractwizard.mvc/newcontractwizard' ||
+            p.startsWith('/contracts/views/contract')) return 'contract';
         if (p === '/mvc/contracts/invoiceviewer.mvc' ||
             p === '/mvc/contracts/invoiceviewer.mvc/invoicebatchviewer' ||
             p === '/mvc/contracts/invoiceviewer.mvc/invoicepreviewviewer') return 'invoice';
+        if (p === '/autotask/views/administration/products/product.aspx' ||
+            p === '/mvc/inventory/inventoryproduct.mvc/create' ||
+            p === '/mvc/inventory/inventoryproduct.mvc/edit') return 'product';
         if (p === '/mvc/projects/projectdetail.mvc/projectdetail') return 'project';
         if (p === '/mvc/projects/taskdetail.mvc') return 'projecttask';
         if (p === '/autotask/views/dispatcherworkshop/dispatcherworkshopcontainer.aspx') return 'calendar';
@@ -2929,7 +3317,6 @@
         if (p === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties') return 'administration';
         if (p === '/mvc/contracts/invoiceemailtemplate.mvc/editinvoiceemailtemplate') return 'administration';
         if (p === '/autotask/views/template/customizenotificationtemplate.aspx') return 'administration';
-        if (p === '/autotask/views/administration/products/product.aspx') return 'inventory';
         return 'unknown';
     }
 
@@ -2943,6 +3330,17 @@
         if (urlType !== 'unknown') return urlType;
         const metadataType = String(tab && tab.metadataFields && tab.metadataFields.type || '').trim().toLowerCase();
         if (metadataType === 'admin' || metadataType === 'administration') return 'administration';
+        if (metadataType === 'contract') return 'contract';
+        if (metadataType === 'inventory product' || metadataType === 'product') return 'product';
+        if (metadataType === 'organization') return 'account';
+        if (metadataType === 'ticket') return 'ticket';
+        if (metadataType === 'service call') return 'servicecall';
+        if (metadataType === 'knowledge base') return 'knowledgebase';
+        if (metadataType === 'opportunity') return 'opportunity';
+        if (metadataType === 'device') return 'device';
+        if (metadataType === 'invoice') return 'invoice';
+        if (metadataType === 'project') return 'project';
+        if (metadataType === 'task') return 'projecttask';
         return urlType;
     }
 
@@ -2979,6 +3377,10 @@
                 return fields.organization;
             }
         }
+        if (type === 'product') {
+            if (String(fields.productIsNew || '').trim() === 'true') return '';
+            if (key === 'productCategory' && !String(fields.productCategory || '').trim()) return '';
+        }
         if (type === 'administration' && line === 3 && (key === 'none' || key === 'type')) {
             const line2Settings = state.tabLine2Fields;
             const line2Options = getLineOptionsForType(type);
@@ -3012,6 +3414,7 @@
     }
 
     function homeTabRowCount() {
+        if (state.horizontalCompactTabsEnabled) return 1;
         let rows = 1;
         if (homeMetadataLineValue(2)) rows += 1;
         if (homeMetadataLineValue(3)) rows += 1;
@@ -3024,6 +3427,10 @@
         const settings = line === 2 ? state.tabLine2Fields : state.tabLine3Fields;
         const options = getLineOptionsForType(type);
         let key = settings && settings[type] || (line === 2 ? 'organization' : 'contact');
+        if (type === 'projecttask' && line === 2 && key === 'organization') {
+            const fields = tabMetadataFields(tab);
+            if (fields.project) key = 'project';
+        }
         if (!options.includes(key)) key = getDefaultLineField(type, line);
         return key;
     }
@@ -3086,6 +3493,28 @@
                 contact: '',
             };
         }
+        if (path === '/mvc/servicedesk/ticketedit.mvc') {
+            return {
+                title: 'Ticket',
+                number: 'Ticket',
+                contact: '',
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/autotask/popups/techscheduling/service_call.aspx') {
+            const serviceCallId = params.get('serviceCallID') || params.get('serviceCallId') || params.get('servicecallid') || params.get('id') || params.get('ID');
+            return {
+                title: 'Service Call',
+                number: serviceCallId ? `ID ${serviceCallId}` : '',
+                contact: '',
+            };
+        }
+        if (AES.normalizeHandledPath(path) === '/mvc/knowledgebase/articlenew.mvc/article') {
+            return {
+                title: 'Knowledge Base',
+                number: 'New Article',
+                contact: '',
+            };
+        }
         if (AES.normalizeHandledPath(path) === '/autotask/views/administration/companysetup/neweditallocationcode.aspx') {
             const allocationCodeId = params.get('allocationCodeID') || params.get('allocationCodeId') || params.get('allocationcodeid');
             return {
@@ -3140,8 +3569,8 @@
         if (AES.normalizeHandledPath(path) === '/autotask/views/administration/products/product.aspx') {
             const productMode = String(params.get('cmd') || '').toLowerCase();
             return {
-                title: productMode === 'new' ? 'New Product' : 'Product',
-                number: 'Inventory',
+                title: productMode === 'new' ? 'New Inventory Product' : 'Inventory Product',
+                number: '',
                 contact: ''
             };
         }
@@ -3438,6 +3867,7 @@
     }
 
     function tabRowCount(tab) {
+        if (state.horizontalCompactTabsEnabled) return 1;
         let rows = 1;
         if (tab && tabLineValue(tab, 2)) rows += 1;
         if (tab && tabLineValue(tab, 3)) rows += 1;
@@ -4163,6 +4593,14 @@
         contact.textContent = tabLineValue(tab, 3);
         applyTabLineStyle(contact, tab, 3);
 
+        function closeTabOnMiddleClick(ev) {
+            if (!ev || ev.button !== 1) return;
+            ev.preventDefault();
+            ev.stopPropagation();
+            hideHoverCard(true);
+            closeTab(tab.id);
+        }
+
         meta.appendChild(title);
         meta.appendChild(number);
         meta.appendChild(contact);
@@ -4192,6 +4630,7 @@
 
         el.appendChild(meta);
         el.appendChild(actions);
+        el.addEventListener('mousedown', closeTabOnMiddleClick);
         el.addEventListener('click', function () { activateTab(tab.id); });
         el.addEventListener('contextmenu', function (ev) {
             ev.preventDefault();
@@ -4248,12 +4687,7 @@
             state.draggingTabId = null;
             clearTabDragIndicators();
         });
-        el.addEventListener('auxclick', function (ev) {
-            if (ev.button === 1) {
-                ev.preventDefault();
-                closeTab(tab.id);
-            }
-        });
+        el.addEventListener('auxclick', closeTabOnMiddleClick);
 
         tab.tabEl = el;
         updateTabRowCount(tab);
@@ -4293,11 +4727,13 @@
         scrollWrap.appendChild(rightButton);
 
         state.bar.appendChild(scrollWrap);
+        state.tabBarCollapseButton = createTabBarCollapseButton();
+        state.bar.appendChild(state.tabBarCollapseButton);
         state.bar.appendChild(createResizeHandle());
         syncTabPaneState();
         updateHomeTabActive();
         updateResizableBarClasses();
-        requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
             ensureActiveTabVisible();
             updateTabScrollButtons();
         });
@@ -4323,6 +4759,15 @@
             event.stopPropagation();
         });
         return handle;
+    }
+
+    function createTabBarCollapseButton() {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'at-tabs-collapse-button';
+        appendIconMarkup(button, faIcon('fa-chevron-left fa-solid'));
+        button.addEventListener('click', toggleVerticalTabBarCollapse);
+        return button;
     }
 
     function startTabBarResize(event) {
@@ -4438,11 +4883,46 @@
         }
     }
 
+    function frameBrowserTitle(tab) {
+        try {
+            const doc = tab && tab.iframeEl && tab.iframeEl.contentDocument;
+            const title = doc && typeof doc.title === 'string' ? doc.title.trim() : '';
+            return title || '';
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function browserLikeTitleForTab(tab) {
+        const liveTitle = frameBrowserTitle(tab);
+        if (liveTitle) {
+            tab.browserTitle = liveTitle;
+            return liveTitle;
+        }
+        const savedTitle = String(tab && tab.browserTitle || '').trim();
+        if (savedTitle) return savedTitle;
+        const fallback = fallbackTabMetadataForUrl(tab && tab.url || '');
+        return String(fallback && fallback.title || '').trim();
+    }
+
+    function refreshBrowserLikeTitlesFromFrames() {
+        state.tabs.forEach(function (tab) {
+            const liveTitle = frameBrowserTitle(tab);
+            if (liveTitle) tab.browserTitle = liveTitle;
+            updateTabEl(tab);
+        });
+    }
+
     function updateTabTitleEl(titleEl, tab) {
         titleEl.textContent = '';
-        titleEl.classList.toggle('loading', !!tab.loading && !tab.title);
-        if (tab.title) {
-            titleEl.textContent = tab.title;
+        const browserTitle = browserLikeTitleForTab(tab);
+        const enhancedTitle = String(tab.title || '').trim();
+        const displayTitle = state.horizontalCompactTabsEnabled
+            ? browserTitle
+            : enhancedTitle;
+        titleEl.classList.toggle('loading', !!tab.loading && !displayTitle);
+        if (displayTitle) {
+            titleEl.textContent = displayTitle;
             return;
         }
 
@@ -4538,9 +5018,16 @@
         warningEl.className = 'tab-warning-badge';
         warningEl.replaceChildren();
         warningEl.title = '';
-        if (!tab || !tab.pageWarning) return;
+        const tabType = tab ? tabTypeForUrl(tab.url) : '';
+        const isInactiveProduct = !!(tab && tabType === 'product' &&
+            String(tab.metadataFields && tab.metadataFields.productInactive || '').trim() === 'true');
+        if (!tab || (!tab.pageWarning && !isInactiveProduct)) return;
         warningEl.classList.add('visible');
-        if (tab.type === 'contract') {
+        if (isInactiveProduct) {
+            warningEl.classList.add('product-inactive-warning');
+            warningEl.title = 'Inactive product';
+            appendIconMarkup(warningEl, '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18.4A2 2 0 0 0 3.5 21h17a2 2 0 0 0 1.7-2.6L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>');
+        } else if (tabType === 'contract') {
             warningEl.classList.add('contract-warning');
             warningEl.title = 'Contract needs attention';
             appendIconMarkup(warningEl, '<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.8v5.2"/><path d="M12 16.8h.01"/></svg>');
@@ -4798,10 +5285,37 @@
 
         const body = document.createElement('div');
         body.className = 'at-tabs-release-notes-body';
-        const intro = document.createElement('p');
-        intro.className = 'at-tabs-release-notes-intro';
-        intro.textContent = 'Version ' + (RELEASE_NOTES.version || version || 'latest');
+        let selectedReleaseNotes = RELEASE_NOTES_HISTORY.find(function (releaseNotes) {
+            return releaseNotes && releaseNotes.version === RELEASE_NOTES.version;
+        }) || RELEASE_NOTES_HISTORY[0] || RELEASE_NOTES;
+
+        const intro = document.createElement('div');
+        intro.className = 'at-tabs-release-notes-intro at-tabs-release-notes-version-pill';
+
+        const versionLabel = document.createElement('span');
+        versionLabel.className = 'at-tabs-release-notes-version-label';
+        versionLabel.textContent = 'Version';
+
+        const versionSelect = document.createElement('select');
+        versionSelect.className = 'at-tabs-release-notes-version-select';
+        RELEASE_NOTES_HISTORY.forEach(function (releaseNotes) {
+            if (!releaseNotes || !releaseNotes.version) return;
+            const option = document.createElement('option');
+            option.value = releaseNotes.version;
+            option.textContent = releaseNotes.version;
+            if (releaseNotes.version === selectedReleaseNotes.version) {
+                option.selected = true;
+            }
+            versionSelect.appendChild(option);
+        });
+
+        intro.appendChild(versionLabel);
+        intro.appendChild(versionSelect);
         body.appendChild(intro);
+
+        const sectionsHost = document.createElement('div');
+        sectionsHost.className = 'at-tabs-release-notes-sections';
+        body.appendChild(sectionsHost);
         function appendReleaseNoteList(parent, items) {
             if (!Array.isArray(items) || !items.length) return;
             const list = document.createElement('ul');
@@ -4817,29 +5331,56 @@
             parent.appendChild(list);
         }
 
-        RELEASE_NOTES.sections.forEach(function (section) {
-            const sectionEl = document.createElement('section');
-            sectionEl.className = 'at-tabs-release-notes-section';
-            const sectionTitle = document.createElement('h3');
-            sectionTitle.textContent = section.title;
-            sectionEl.appendChild(sectionTitle);
+        function renderReleaseNotes(releaseNotes) {
+            selectedReleaseNotes = releaseNotes || RELEASE_NOTES;
+            sectionsHost.replaceChildren();
+            (selectedReleaseNotes.sections || []).forEach(function (section) {
+                const isTipSection = section && /^aes tip$/i.test(section.title || '');
+                const sectionEl = document.createElement('section');
+                sectionEl.className = 'at-tabs-release-notes-section' + (isTipSection ? ' at-tabs-release-notes-tip-section' : '');
+                const sectionTitle = document.createElement('h3');
+                sectionTitle.textContent = section.title;
+                sectionEl.appendChild(sectionTitle);
 
-            appendReleaseNoteList(sectionEl, section.items);
+                if (isTipSection) {
+                    const tipText = document.createElement('p');
+                    tipText.className = 'at-tabs-release-notes-tip-text';
+                    tipText.textContent = (section.items || []).join(' ');
+                    sectionEl.appendChild(tipText);
+                } else {
+                    if (section.intro) {
+                        const sectionIntro = document.createElement('p');
+                        sectionIntro.className = 'at-tabs-release-notes-section-intro';
+                        sectionIntro.textContent = section.intro;
+                        sectionEl.appendChild(sectionIntro);
+                    }
+                    appendReleaseNoteList(sectionEl, section.items);
+                }
 
-            if (Array.isArray(section.subsections)) {
-                section.subsections.forEach(function (subsection) {
-                    const subsectionEl = document.createElement('div');
-                    subsectionEl.className = 'at-tabs-release-notes-subsection';
-                    const subsectionTitle = document.createElement('h4');
-                    subsectionTitle.textContent = subsection.title;
-                    subsectionEl.appendChild(subsectionTitle);
-                    appendReleaseNoteList(subsectionEl, subsection.items);
-                    sectionEl.appendChild(subsectionEl);
-                });
-            }
+                if (Array.isArray(section.subsections)) {
+                    section.subsections.forEach(function (subsection) {
+                        const subsectionEl = document.createElement('div');
+                        subsectionEl.className = 'at-tabs-release-notes-subsection';
+                        const subsectionTitle = document.createElement('h4');
+                        subsectionTitle.textContent = subsection.title;
+                        subsectionEl.appendChild(subsectionTitle);
+                        appendReleaseNoteList(subsectionEl, subsection.items);
+                        sectionEl.appendChild(subsectionEl);
+                    });
+                }
 
-            body.appendChild(sectionEl);
+                sectionsHost.appendChild(sectionEl);
+            });
+        }
+
+        versionSelect.addEventListener('change', function () {
+            const nextReleaseNotes = RELEASE_NOTES_HISTORY.find(function (releaseNotes) {
+                return releaseNotes && releaseNotes.version === versionSelect.value;
+            });
+            renderReleaseNotes(nextReleaseNotes || RELEASE_NOTES);
         });
+
+        renderReleaseNotes(selectedReleaseNotes);
 
         const actions = document.createElement('div');
         actions.className = 'at-tabs-release-notes-actions';
@@ -5055,19 +5596,20 @@
             phoneLinksEnabled: true,
             themePreference: 'auto',
             barOrientation: 'horizontal',
-            hideEarlyAccessLabels: false,
+            hideEarlyAccessLabels: true,
             replaceCalendarWithResourcePlanner: false,
             showTabBarOnNonIframePages: true,
             resizableTabBarEnabled: true,
             horizontalCompactTabsEnabled: false,
-            roundedPageFramesEnabled: false,
+            roundedPageFramesEnabled: true,
             autotaskBrandColorEnabled: false,
             autotaskBrandColor: DEFAULT_AUTOTASK_BRAND_COLOR,
+            autotaskBrandColorPresets: DEFAULT_AUTOTASK_BRAND_PRESETS.slice(),
             autotaskLogoOverrideEnabled: false,
             autotaskLogoDataUrl: '',
             improvedScrollbarsEnabled: true,
             skipPeekBackdropCloseWarning: false,
-            peekMoveResizeEnabled: false,
+            peekMoveResizeEnabled: true,
             tabLine2Fields: defaultTabLineSettings(2),
             tabLine3Fields: defaultTabLineSettings(3),
             tabBarWidth: AES.BAR_W || 240,
@@ -5127,7 +5669,7 @@
 
         const enabledControl = createSettingsToggleRow({
             name: 'Enable Autotask Enhancement Suite',
-            info: 'Turns all AES enhancements on or off. Refresh the browser tab after changing this so all injected page features fully start or stop.',
+            info: 'Turn AES features on or off. Refresh Autotask after changing this.',
             checked: featuresEnabled(),
             onChange: function (input) {
                 state.extensionEnabled = input.checked;
@@ -5141,7 +5683,7 @@
 
         const earlyAccessControl = createSettingsToggleRow({
             name: 'Hide early access labels',
-            info: 'Hide Early Access badges in the native Autotask navigation menu',
+            info: 'Hide Early Access badges from the Autotask navigation menu.',
             checked: !!state.hideEarlyAccessLabels,
             onChange: function (input) {
                 state.hideEarlyAccessLabels = input.checked;
@@ -5155,7 +5697,7 @@
 
         const resourcePlannerControl = createSettingsToggleRow({
             name: 'Replace legacy Dispatch Calendar with Resource Planner',
-            info: 'Changes the native Calendar button into a Resource Planner shortcut.',
+            info: 'Open Resource Planner from the Autotask Calendar shortcut.',
             checked: !!state.replaceCalendarWithResourcePlanner,
             onChange: function (input) {
                 state.replaceCalendarWithResourcePlanner = input.checked;
@@ -5169,7 +5711,7 @@
 
         const roundedPageFramesControl = createSettingsToggleRow({
             name: 'Rounded page frames',
-            info: 'Rounds the visible Autotask page frame corners.',
+            info: 'Give Autotask pages softer rounded corners inside AES.',
             checked: !!state.roundedPageFramesEnabled,
             onChange: function (input) {
                 state.roundedPageFramesEnabled = input.checked;
@@ -5184,7 +5726,7 @@
 
         const improvedScrollbarsControl = createSettingsToggleRow({
             name: 'Improved scrollbars',
-            info: 'Uses thinner AES styled scrollbars where supported.',
+            info: 'Use thinner scrollbars that follow your branding color.',
             checked: !!state.improvedScrollbarsEnabled,
             onChange: function (input) {
                 state.improvedScrollbarsEnabled = input.checked;
@@ -5206,7 +5748,13 @@
         brandColorName.textContent = 'Brand color';
         const brandColorDescription = document.createElement('span');
         brandColorDescription.className = 'at-tabs-setting-description';
-        brandColorDescription.textContent = 'Updates Autotask accents, selected states, links, buttons, checkboxes, and AES highlights.';
+        brandColorDescription.textContent = 'Choose the local accent color AES applies across Autotask.';
+        const managedBrandingSettings = state.managedSettings || {};
+        const brandColorManaged = !!(managedBrandingSettings.hasAutotaskBrandColor || managedBrandingSettings.hasAutotaskBrandColorEnabled);
+        const logoManaged = !!managedBrandingSettings.hasAutotaskLogoDataUrl;
+        if (brandColorManaged) {
+            brandColorDescription.textContent = 'Managed by your organization. Local changes are disabled on this browser.';
+        }
         brandColorLabel.appendChild(brandColorName);
         brandColorLabel.appendChild(brandColorDescription);
         brandColorRow.appendChild(brandColorLabel);
@@ -5214,69 +5762,517 @@
         const brandColorControls = document.createElement('span');
         brandColorControls.className = 'at-tabs-setting-color-controls';
 
-        const brandColorInput = document.createElement('input');
-        brandColorInput.type = 'color';
-        brandColorInput.className = 'at-tabs-setting-color-input';
-        brandColorInput.value = normalizeAutotaskBrandColor(state.autotaskBrandColor);
-        brandColorInput.title = 'Autotask brand primary color';
+        const brandColorPicker = document.createElement('span');
+        brandColorPicker.className = 'at-tabs-custom-color-picker';
 
-        const brandColorResetButton = document.createElement('button');
-        brandColorResetButton.type = 'button';
-        brandColorResetButton.className = 'at-tabs-setting-small-button';
-        brandColorResetButton.textContent = 'Default';
-        brandColorResetButton.title = 'Revert to the default Autotask brand color';
+        const brandColorHeader = document.createElement('div');
+        brandColorHeader.className = 'at-tabs-custom-color-picker-header';
 
-        const brandColorToggle = document.createElement('label');
-        brandColorToggle.className = 'at-tabs-setting-toggle';
-        const brandColorEnabledInput = document.createElement('input');
-        brandColorEnabledInput.type = 'checkbox';
-        brandColorEnabledInput.checked = !!state.autotaskBrandColorEnabled;
-        const brandColorToggleUi = document.createElement('span');
-        brandColorToggleUi.className = 'at-tabs-setting-toggle-ui';
-        brandColorToggle.appendChild(brandColorEnabledInput);
-        brandColorToggle.appendChild(brandColorToggleUi);
+        const brandColorSwatch = document.createElement('span');
+        brandColorSwatch.className = 'at-tabs-custom-color-picker-swatch';
 
-        function syncBrandColorControlState() {
-            brandColorInput.disabled = !brandColorEnabledInput.checked;
-            brandColorInput.title = brandColorInput.disabled
-                ? 'Enable this setting to change the Autotask brand color'
-                : 'Autotask brand primary color';
+        const brandColorHexBlock = document.createElement('div');
+        brandColorHexBlock.className = 'at-tabs-custom-color-picker-hex';
+        const brandColorHexLabel = document.createElement('span');
+        brandColorHexLabel.className = 'at-tabs-custom-color-picker-hex-label';
+        brandColorHexLabel.textContent = 'HEX';
+        const brandColorHexInput = document.createElement('input');
+        brandColorHexInput.type = 'text';
+        brandColorHexInput.className = 'at-tabs-custom-color-picker-hex-input';
+        brandColorHexInput.maxLength = 7;
+        brandColorHexInput.spellcheck = false;
+        brandColorHexInput.autocomplete = 'off';
+        brandColorHexInput.setAttribute('aria-label', 'Brand color hex value');
+        brandColorHexBlock.appendChild(brandColorHexLabel);
+        brandColorHexBlock.appendChild(brandColorHexInput);
+
+        brandColorHeader.appendChild(brandColorSwatch);
+        brandColorHeader.appendChild(brandColorHexBlock);
+        brandColorPicker.appendChild(brandColorHeader);
+
+        // 2D saturation × lightness pad. X axis is saturation, Y axis is
+        // HSL lightness within the theme's allowed band (top = bright,
+        // bottom = dark). Pixels outside the perceived-luminance cap get
+        // a hatched overlay so the user can see exactly which corner of
+        // the plane is off-limits for the current hue. Pointer commits
+        // are routed through the same clamp pipeline as the hex field,
+        // so the cursor visibly snaps back to the safe region when
+        // dragged into the hatched zone.
+        const PAD_DISPLAY_WIDTH = 232;
+        const PAD_DISPLAY_HEIGHT = 144;
+
+        const brandColorPad = document.createElement('div');
+        brandColorPad.className = 'at-tabs-custom-color-picker-pad';
+        brandColorPad.setAttribute('role', 'application');
+        brandColorPad.setAttribute('aria-label', 'Saturation and lightness picker');
+        brandColorPad.style.width = PAD_DISPLAY_WIDTH + 'px';
+        brandColorPad.style.height = PAD_DISPLAY_HEIGHT + 'px';
+
+        const brandColorPadCanvas = document.createElement('canvas');
+        brandColorPadCanvas.className = 'at-tabs-custom-color-picker-pad-canvas';
+        const brandColorPadCursor = document.createElement('div');
+        brandColorPadCursor.className = 'at-tabs-custom-color-picker-pad-cursor';
+        brandColorPad.appendChild(brandColorPadCanvas);
+        brandColorPad.appendChild(brandColorPadCursor);
+
+        function createBrandColorSlider(labelText, min, max, step) {
+            const wrap = document.createElement('label');
+            wrap.className = 'at-tabs-custom-color-picker-slider';
+            const label = document.createElement('span');
+            label.className = 'at-tabs-custom-color-picker-slider-label';
+            label.textContent = labelText;
+            const input = document.createElement('input');
+            input.type = 'range';
+            input.min = String(min);
+            input.max = String(max);
+            input.step = String(step || 1);
+            input.setAttribute('aria-label', labelText);
+            const value = document.createElement('span');
+            value.className = 'at-tabs-custom-color-picker-slider-value';
+            wrap.appendChild(label);
+            wrap.appendChild(input);
+            wrap.appendChild(value);
+            return { wrap, input, value };
         }
 
-        brandColorEnabledInput.addEventListener('change', function () {
-            state.autotaskBrandColorEnabled = brandColorEnabledInput.checked;
-            AES.state.autotaskBrandColorEnabled = brandColorEnabledInput.checked;
+        const hueSlider = createBrandColorSlider('Hue', 0, 360, 1);
+
+        // Hue rainbow track is constant — set once.
+        hueSlider.input.style.setProperty('--aes-color-track',
+            'linear-gradient(to right, hsl(0,100%,50%), hsl(60,100%,50%), hsl(120,100%,50%),'
+            + ' hsl(180,100%,50%), hsl(240,100%,50%), hsl(300,100%,50%), hsl(360,100%,50%))');
+
+        brandColorPicker.appendChild(brandColorPad);
+        brandColorPicker.appendChild(hueSlider.wrap);
+
+        let padImageHueCacheKey = '';
+        function redrawBrandColorPad() {
+            const dpr = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+            const W = Math.round(PAD_DISPLAY_WIDTH * dpr);
+            const H = Math.round(PAD_DISPLAY_HEIGHT * dpr);
+            if (brandColorPadCanvas.width !== W) brandColorPadCanvas.width = W;
+            if (brandColorPadCanvas.height !== H) brandColorPadCanvas.height = H;
+            const ctx = brandColorPadCanvas.getContext('2d');
+            if (!ctx) return;
+            const bounds = currentBrandLightnessBounds();
+            const lRange = bounds.max - bounds.min;
+            const dark = effectiveDarkMode();
+            const lumMax = dark ? Infinity : BRAND_COLOR_LIGHT_MODE_MAX_LUMINANCE;
+            const lumMin = dark ? BRAND_COLOR_DARK_MODE_MIN_LUMINANCE : 0;
+            const hue = brandColorHsl.h;
+            const stripePeriod = Math.max(2, Math.round(6 * dpr));
+            const stripeCutoff = Math.max(1, Math.round(3 * dpr));
+            const cacheKey = hue + '|' + bounds.min + '|' + bounds.max + '|' + (dark ? 'd' : 'l');
+            if (cacheKey === padImageHueCacheKey && ctx.getImageData) return;
+            padImageHueCacheKey = cacheKey;
+            // Smooth-step over a small luminance band so the boundary
+            // between in-bounds and out-of-bounds isn't a hard pixel-step
+            // (which previously combined with the stripe pattern to look
+            // like a torn edge). The fade band needs to be a bit wider
+            // than the per-pixel luminance change so neighbouring pixels
+            // get distinct intermediate values.
+            const fadeBand = 0.025;
+            const image = ctx.createImageData(W, H);
+            const data = image.data;
+            for (let py = 0; py < H; py += 1) {
+                const ty = H <= 1 ? 0 : py / (H - 1);
+                const l = bounds.max - ty * lRange;
+                for (let px = 0; px < W; px += 1) {
+                    const tx = W <= 1 ? 0 : px / (W - 1);
+                    const s = tx * 100;
+                    const hex = hslToHex(hue, s, l);
+                    const rgb = hexToRgb(hex) || { r: 0, g: 0, b: 0 };
+                    const lum = (0.2126 * rgb.r + 0.7152 * rgb.g + 0.0722 * rgb.b) / 255;
+                    const off = (py * W + px) * 4;
+
+                    // outFactor: 0 fully inside the safe band, 1 fully
+                    // outside. Smoothstep gives a soft anti-aliased edge.
+                    let outFactor = 0;
+                    if (Number.isFinite(lumMax)) {
+                        const t = (lum - (lumMax - fadeBand)) / (2 * fadeBand);
+                        const cl = t < 0 ? 0 : (t > 1 ? 1 : t);
+                        outFactor = Math.max(outFactor, cl * cl * (3 - 2 * cl));
+                    }
+                    if (lumMin > 0) {
+                        const t = ((lumMin + fadeBand) - lum) / (2 * fadeBand);
+                        const cl = t < 0 ? 0 : (t > 1 ? 1 : t);
+                        outFactor = Math.max(outFactor, cl * cl * (3 - 2 * cl));
+                    }
+
+                    let r = rgb.r;
+                    let g = rgb.g;
+                    let b = rgb.b;
+                    if (outFactor > 0) {
+                        // Smoothly fade colour toward a dim version of
+                        // itself across the boundary, then add stripes
+                        // only once we're clearly past it (>0.55) so the
+                        // edge stays visually clean.
+                        const baseK = 1 - outFactor * 0.55;
+                        r *= baseK; g *= baseK; b *= baseK;
+                        if (outFactor > 0.55) {
+                            const onStripe = ((px + py) % stripePeriod) < stripeCutoff;
+                            if (onStripe) {
+                                const stripeStrength = (outFactor - 0.55) / 0.45; // 0..1
+                                const stripeK = 1 - 0.45 * stripeStrength;
+                                r *= stripeK; g *= stripeK; b *= stripeK;
+                            }
+                        }
+                    }
+
+                    data[off] = Math.round(r);
+                    data[off + 1] = Math.round(g);
+                    data[off + 2] = Math.round(b);
+                    data[off + 3] = 255;
+                }
+            }
+            ctx.putImageData(image, 0, 0);
+        }
+
+        function positionBrandColorPadCursor() {
+            const bounds = currentBrandLightnessBounds();
+            const x = Math.max(0, Math.min(PAD_DISPLAY_WIDTH, (brandColorHsl.s / 100) * PAD_DISPLAY_WIDTH));
+            const range = bounds.max - bounds.min || 1;
+            const y = Math.max(0, Math.min(PAD_DISPLAY_HEIGHT,
+                ((bounds.max - brandColorHsl.l) / range) * PAD_DISPLAY_HEIGHT));
+            brandColorPadCursor.style.left = x + 'px';
+            brandColorPadCursor.style.top = y + 'px';
+        }
+
+        function commitBrandColorFromPad(clientX, clientY) {
+            const rect = brandColorPad.getBoundingClientRect();
+            const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
+            const y = Math.max(0, Math.min(rect.height, clientY - rect.top));
+            const bounds = currentBrandLightnessBounds();
+            const intentH = brandColorHsl.h;
+            const s = Math.round((x / rect.width) * 100);
+            const l = Math.round(bounds.max - (y / rect.height) * (bounds.max - bounds.min));
+            const candidate = clampBrandHslForCurrentTheme({ h: intentH, s: s, l: l });
+            const candidateHex = hslToHex(candidate.h, candidate.s, candidate.l);
+            const limited = limitBrandColorForCurrentTheme(candidateHex);
+            const derived = clampBrandHslForCurrentTheme(hexToHsl(limited));
+            // The pad only changes saturation and lightness. hexToHsl
+            // returns h=0 for gray, so if the user lands on the left
+            // edge (s≈0) the round-trip would zero out the hue and
+            // dragging back to the right would suddenly land on red.
+            // Always keep the existing hue here.
+            brandColorHsl = { h: intentH, s: derived.s, l: derived.l };
+            state.autotaskBrandColor = limited;
+            AES.state.autotaskBrandColor = limited;
+            syncBrandColorEnabledFlag();
             syncBrandColorControlState();
             applyAutotaskBrandColor();
-            brandingReloadNote.classList.add('visible');
-            void AES.saveSettings();
-        });
-        brandColorInput.addEventListener('input', function () {
-            const color = normalizeAutotaskBrandColor(brandColorInput.value);
-            state.autotaskBrandColor = color;
-            AES.state.autotaskBrandColor = color;
-            applyAutotaskBrandColor();
-        });
-        brandColorInput.addEventListener('change', function () {
-            const color = normalizeAutotaskBrandColor(brandColorInput.value);
-            brandColorInput.value = color;
-            state.autotaskBrandColor = color;
-            AES.state.autotaskBrandColor = color;
-            applyAutotaskBrandColor();
-            void AES.saveSettings();
-        });
-        brandColorResetButton.addEventListener('click', function () {
-            brandColorInput.value = DEFAULT_AUTOTASK_BRAND_COLOR;
-            state.autotaskBrandColor = DEFAULT_AUTOTASK_BRAND_COLOR;
-            AES.state.autotaskBrandColor = DEFAULT_AUTOTASK_BRAND_COLOR;
-            applyAutotaskBrandColor();
-            void AES.saveSettings();
-        });
+        }
 
-        brandColorControls.appendChild(brandColorInput);
-        brandColorControls.appendChild(brandColorResetButton);
-        brandColorControls.appendChild(brandColorToggle);
+        let brandColorPadDragging = false;
+        brandColorPad.addEventListener('pointerdown', function (event) {
+            if (brandColorPicker.classList.contains('is-disabled')) return;
+            event.preventDefault();
+            brandColorPadDragging = true;
+            try { brandColorPad.setPointerCapture(event.pointerId); } catch (e) {}
+            commitBrandColorFromPad(event.clientX, event.clientY);
+        });
+        brandColorPad.addEventListener('pointermove', function (event) {
+            if (!brandColorPadDragging) return;
+            commitBrandColorFromPad(event.clientX, event.clientY);
+        });
+        function endBrandColorPadDrag(event) {
+            if (!brandColorPadDragging) return;
+            brandColorPadDragging = false;
+            try { brandColorPad.releasePointerCapture(event.pointerId); } catch (e) {}
+            void AES.saveSettings();
+        }
+        brandColorPad.addEventListener('pointerup', endBrandColorPadDrag);
+        brandColorPad.addEventListener('pointercancel', endBrandColorPadDrag);
+        brandColorPad.addEventListener('keydown', function (event) {
+            if (brandColorPicker.classList.contains('is-disabled')) return;
+            const stepS = (event.shiftKey ? 5 : 1);
+            const stepL = (event.shiftKey ? 5 : 1);
+            const intentH = brandColorHsl.h;
+            let nextS = brandColorHsl.s;
+            let nextL = brandColorHsl.l;
+            if (event.key === 'ArrowLeft') nextS -= stepS;
+            else if (event.key === 'ArrowRight') nextS += stepS;
+            else if (event.key === 'ArrowUp') nextL += stepL;
+            else if (event.key === 'ArrowDown') nextL -= stepL;
+            else return;
+            event.preventDefault();
+            const candidate = clampBrandHslForCurrentTheme({ h: intentH, s: nextS, l: nextL });
+            const candidateHex = hslToHex(candidate.h, candidate.s, candidate.l);
+            const limited = limitBrandColorForCurrentTheme(candidateHex);
+            const derived = clampBrandHslForCurrentTheme(hexToHsl(limited));
+            // Same hue-preserving rule as the pointer commit above.
+            brandColorHsl = { h: intentH, s: derived.s, l: derived.l };
+            state.autotaskBrandColor = limited;
+            AES.state.autotaskBrandColor = limited;
+            syncBrandColorEnabledFlag();
+            syncBrandColorControlState();
+            applyAutotaskBrandColor();
+            void AES.saveSettings();
+        });
+        brandColorPad.tabIndex = 0;
+
+        // Preset row — six slots. Click a slot to apply its colour. Click
+        // the small save badge in the slot's corner to overwrite the slot
+        // with the currently-selected colour. Defaults seeded the first
+        // time, then anything the user saves persists with their settings.
+        const brandColorPresetsRow = document.createElement('div');
+        brandColorPresetsRow.className = 'at-tabs-custom-color-picker-presets';
+        const brandColorPresetsLabel = document.createElement('span');
+        brandColorPresetsLabel.className = 'at-tabs-custom-color-picker-presets-label';
+        brandColorPresetsLabel.textContent = 'Presets';
+        brandColorPresetsRow.appendChild(brandColorPresetsLabel);
+        const brandColorPresetsList = document.createElement('div');
+        brandColorPresetsList.className = 'at-tabs-custom-color-picker-presets-list';
+        brandColorPresetsRow.appendChild(brandColorPresetsList);
+        brandColorPicker.appendChild(brandColorPresetsRow);
+
+        const brandColorPresetEls = [];
+        for (let i = 0; i < BRAND_PRESET_COUNT; i += 1) {
+            const idx = i;
+            const isLockedPreset = idx === 0;
+            const slot = document.createElement('button');
+            slot.type = 'button';
+            slot.className = 'at-tabs-custom-color-picker-preset';
+            if (isLockedPreset) slot.classList.add('is-locked');
+            slot.setAttribute('aria-label', isLockedPreset
+                ? 'Apply default Autotask brand colour'
+                : 'Apply preset ' + (idx + 1));
+
+            const slotSwatch = document.createElement('span');
+            slotSwatch.className = 'at-tabs-custom-color-picker-preset-swatch';
+            slot.appendChild(slotSwatch);
+
+            const slotCheck = document.createElement('span');
+            slotCheck.className = 'at-tabs-custom-color-picker-preset-check';
+            slotCheck.setAttribute('aria-hidden', 'true');
+            slotCheck.innerHTML = '<i class="fa-solid fa-check" aria-hidden="true"></i>';
+            slot.appendChild(slotCheck);
+
+            // Slot 0 is the locked Autotask default — no save badge, no
+            // overwriting. The other five slots show a bookmark badge on
+            // hover that overwrites the slot with the current colour.
+            let saveBadge = null;
+            if (isLockedPreset) {
+                const lockBadge = document.createElement('span');
+                lockBadge.className = 'at-tabs-custom-color-picker-preset-lock';
+                lockBadge.setAttribute('aria-hidden', 'true');
+                lockBadge.title = 'Default Autotask brand colour (locked)';
+                lockBadge.innerHTML = '<i class="fa-solid fa-lock" aria-hidden="true"></i>';
+                slot.appendChild(lockBadge);
+            } else {
+                saveBadge = document.createElement('span');
+                saveBadge.className = 'at-tabs-custom-color-picker-preset-save';
+                saveBadge.setAttribute('role', 'button');
+                saveBadge.setAttribute('tabindex', '0');
+                saveBadge.setAttribute('aria-label', 'Save current colour to preset ' + (idx + 1));
+                saveBadge.title = 'Save current colour here';
+                saveBadge.innerHTML = '<i class="fa-solid fa-bookmark" aria-hidden="true"></i>';
+                slot.appendChild(saveBadge);
+            }
+
+            slot.addEventListener('click', function (event) {
+                if (saveBadge && (event.target === saveBadge || (saveBadge.contains && saveBadge.contains(event.target)))) return;
+                if (slot.disabled) return;
+                applyBrandColorPreset(idx);
+            });
+            if (saveBadge) {
+                saveBadge.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (slot.disabled) return;
+                    saveCurrentBrandColorToPreset(idx);
+                });
+                saveBadge.addEventListener('keydown', function (event) {
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    if (slot.disabled) return;
+                    saveCurrentBrandColorToPreset(idx);
+                });
+            }
+
+            brandColorPresetsList.appendChild(slot);
+            brandColorPresetEls.push({ root: slot, swatch: slotSwatch, save: saveBadge, locked: isLockedPreset });
+        }
+
+        function getBrandColorPresets() {
+            const list = normalizeAutotaskBrandPresets(state.autotaskBrandColorPresets);
+            state.autotaskBrandColorPresets = list;
+            AES.state.autotaskBrandColorPresets = list;
+            return list;
+        }
+
+        function syncBrandColorPresets() {
+            const presets = getBrandColorPresets();
+            const activeColor = normalizeAutotaskBrandColor(state.autotaskBrandColor);
+            brandColorPresetEls.forEach(function (el, idx) {
+                const color = normalizeAutotaskBrandColor(presets[idx]);
+                el.swatch.style.backgroundColor = color;
+                el.root.disabled = brandColorManaged;
+                const isActive = color.toLowerCase() === activeColor.toLowerCase();
+                el.root.classList.toggle('is-active', isActive);
+                el.root.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+                el.root.title = brandColorManaged
+                    ? 'Brand colour is managed by your organization'
+                    : el.locked
+                    ? 'Apply ' + color.toUpperCase() + ' — turns the brand-colour override off'
+                    : 'Apply ' + color.toUpperCase() + ' (use the bookmark to save the current colour here)';
+            });
+        }
+
+        function applyBrandColorPreset(idx) {
+            const presets = getBrandColorPresets();
+            const color = normalizeAutotaskBrandColor(presets[idx]);
+            setBrandColorValue(color);
+            void AES.saveSettings();
+        }
+
+        function saveCurrentBrandColorToPreset(idx) {
+            // Slot 0 is the locked Autotask default — silently ignore any
+            // attempt to overwrite it (UI also hides the save affordance).
+            if (idx === 0) return;
+            const presets = getBrandColorPresets().slice();
+            presets[idx] = normalizeAutotaskBrandColor(state.autotaskBrandColor);
+            state.autotaskBrandColorPresets = presets;
+            AES.state.autotaskBrandColorPresets = presets;
+            syncBrandColorPresets();
+            void AES.saveSettings();
+            // Brief visual confirmation.
+            const el = brandColorPresetEls[idx];
+            if (el) {
+                el.root.classList.add('just-saved');
+                window.setTimeout(function () {
+                    el.root.classList.remove('just-saved');
+                }, 600);
+            }
+        }
+
+        let brandColorHsl = clampBrandHslForCurrentTheme(hexToHsl(normalizeAutotaskBrandColor(state.autotaskBrandColor)));
+
+        // brandingReloadNote is forward-declared so the Restore Defaults
+        // handler can hide it; it's left in place for future settings
+        // that legitimately need a refresh, but the brand-colour
+        // override no longer triggers it. The CSS variable cascade now
+        // falls back cleanly when the inline override is removed.
+        let brandingReloadNote = null;
+
+        // The on/off toggle was removed. The brand-color override is now
+        // derived from the picked colour: if it equals the locked default
+        // preset (Autotask blue), the override is "off"; anything else
+        // turns it on. Picking the first preset = disable, picking any
+        // other slot or dragging the pad = enable.
+        function brandColorMatchesDefault(hex) {
+            return normalizeAutotaskBrandColor(hex) === normalizeAutotaskBrandColor(DEFAULT_AUTOTASK_BRAND_COLOR);
+        }
+        function syncBrandColorEnabledFlag() {
+            const enabled = !brandColorMatchesDefault(state.autotaskBrandColor);
+            state.autotaskBrandColorEnabled = enabled;
+            AES.state.autotaskBrandColorEnabled = enabled;
+            return enabled;
+        }
+
+        function syncBrandColorControlState() {
+            brandColorHsl = clampBrandHslForCurrentTheme(brandColorHsl);
+            hueSlider.input.value = String(brandColorHsl.h);
+            hueSlider.value.textContent = brandColorHsl.h + '°';
+
+            redrawBrandColorPad();
+            positionBrandColorPadCursor();
+
+            const color = normalizeAutotaskBrandColor(state.autotaskBrandColor);
+            brandColorSwatch.style.backgroundColor = color;
+            // Don't trample the hex field while the user is typing in it.
+            if (document.activeElement !== brandColorHexInput) {
+                brandColorHexInput.value = color.toUpperCase();
+            }
+            brandColorPicker.classList.toggle('is-disabled', brandColorManaged);
+            hueSlider.input.disabled = brandColorManaged;
+            hueSlider.input.title = brandColorManaged ? 'Brand color is managed by your organization' : 'Brand color hue';
+            brandColorHexInput.disabled = brandColorManaged;
+            brandColorHexInput.title = brandColorManaged ? 'Brand color is managed by your organization' : 'Hex color, e.g. ' + color.toUpperCase();
+            brandColorPad.setAttribute('aria-disabled', brandColorManaged ? 'true' : 'false');
+            syncBrandColorPresets();
+        }
+
+        function setBrandColorValue(color) {
+            const limited = limitBrandColorForCurrentTheme(normalizeAutotaskBrandColor(color));
+            brandColorHsl = clampBrandHslForCurrentTheme(hexToHsl(limited));
+            state.autotaskBrandColor = limited;
+            AES.state.autotaskBrandColor = limited;
+            syncBrandColorEnabledFlag();
+            syncBrandColorControlState();
+            applyAutotaskBrandColor();
+        }
+
+        function acceptBrandColorInput() {
+            // Hue commits go through the same clamp pipeline as the pad
+            // and the hex field — clamp HSL bounds, render to hex, run
+            // through the perceived-luminance limit, then re-derive HSL
+            // so the pad and swatch reflect what's actually allowed.
+            // Saturation and lightness stay where the user left them.
+            const intentH = Number(hueSlider.input.value);
+            const candidate = clampBrandHslForCurrentTheme({
+                h: intentH,
+                s: brandColorHsl.s,
+                l: brandColorHsl.l,
+            });
+            const candidateHex = hslToHex(candidate.h, candidate.s, candidate.l);
+            const limited = limitBrandColorForCurrentTheme(candidateHex);
+            const derived = clampBrandHslForCurrentTheme(hexToHsl(limited));
+            // Preserve the slider's intent — at near-zero saturation the
+            // colour is gray and hexToHsl reports h=0, which would snap
+            // the slider visibly back to red.
+            brandColorHsl = { h: intentH, s: derived.s, l: derived.l };
+            state.autotaskBrandColor = limited;
+            AES.state.autotaskBrandColor = limited;
+            syncBrandColorEnabledFlag();
+            // Hue change invalidates the cached pad image since the whole
+            // S × L plane has different colours now.
+            padImageHueCacheKey = '';
+            syncBrandColorControlState();
+            applyAutotaskBrandColor();
+        }
+
+        hueSlider.input.addEventListener('input', acceptBrandColorInput);
+        hueSlider.input.addEventListener('change', function () {
+            acceptBrandColorInput();
+            void AES.saveSettings();
+        });
+        brandColorHexInput.addEventListener('input', function () {
+            const raw = String(brandColorHexInput.value || '').trim();
+            const match = raw.match(/^#?([0-9a-f]{6})$/i);
+            if (!match) return;
+            // Live-apply complete hex values, but let the canonicalised
+            // hex render only on blur so we don't fight the user's typing.
+            const limited = limitBrandColorForCurrentTheme('#' + match[1].toLowerCase());
+            brandColorHsl = clampBrandHslForCurrentTheme(hexToHsl(limited));
+            state.autotaskBrandColor = limited;
+            AES.state.autotaskBrandColor = limited;
+            syncBrandColorEnabledFlag();
+            applyAutotaskBrandColor();
+            // Refresh swatch + sliders without overwriting the input field
+            // (syncBrandColorControlState already guards activeElement).
+            syncBrandColorControlState();
+        });
+        brandColorHexInput.addEventListener('change', function () {
+            // Final canonicalisation when the user leaves the field.
+            setBrandColorValue(brandColorHexInput.value || state.autotaskBrandColor);
+            void AES.saveSettings();
+        });
+        brandColorHexInput.addEventListener('blur', function () {
+            // Restore canonical text if the user typed garbage.
+            syncBrandColorControlState();
+        });
+        brandColorHexInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                brandColorHexInput.blur();
+            }
+        });
+        setBrandColorValue(state.autotaskBrandColor);
+        brandColorControls.appendChild(brandColorPicker);
         brandColorRow.appendChild(brandColorControls);
+        syncBrandColorEnabledFlag();
         syncBrandColorControlState();
 
         const logoRow = document.createElement('div');
@@ -5289,7 +6285,10 @@
         logoName.textContent = 'Header logo';
         const logoDescription = document.createElement('span');
         logoDescription.className = 'at-tabs-setting-description';
-        logoDescription.textContent = 'Upload an SVG to replace the full Autotask header logo on this browser.';
+        logoDescription.textContent = 'Upload an SVG logo for the Autotask header on this browser.';
+        if (logoManaged) {
+            logoDescription.textContent = 'Managed by your organization using an SVG data URL policy.';
+        }
         logoLabel.appendChild(logoName);
         logoLabel.appendChild(logoDescription);
         logoRow.appendChild(logoLabel);
@@ -5297,8 +6296,14 @@
         const logoControls = document.createElement('span');
         logoControls.className = 'at-tabs-setting-file-controls';
 
-        const logoStatus = document.createElement('span');
-        logoStatus.className = 'at-tabs-setting-file-status';
+        const logoPreview = document.createElement('span');
+        logoPreview.className = 'at-tabs-logo-preview is-empty';
+        const logoPreviewImg = document.createElement('img');
+        logoPreviewImg.alt = 'Custom Autotask logo preview';
+        const logoPreviewText = document.createElement('span');
+        logoPreviewText.textContent = 'Default logo';
+        logoPreview.appendChild(logoPreviewImg);
+        logoPreview.appendChild(logoPreviewText);
 
         const logoFileInput = document.createElement('input');
         logoFileInput.type = 'file';
@@ -5311,6 +6316,7 @@
         logoUploadButton.className = 'at-tabs-setting-small-button';
         logoUploadButton.textContent = 'Upload SVG';
         logoUploadButton.addEventListener('click', function () {
+            if (logoManaged) return;
             logoFileInput.click();
         });
 
@@ -5319,16 +6325,6 @@
         logoClearButton.className = 'at-tabs-setting-small-button';
         logoClearButton.textContent = 'Clear';
 
-        const logoToggle = document.createElement('label');
-        logoToggle.className = 'at-tabs-setting-toggle';
-        const logoEnabledInput = document.createElement('input');
-        logoEnabledInput.type = 'checkbox';
-        logoEnabledInput.checked = !!state.autotaskLogoOverrideEnabled;
-        const logoToggleUi = document.createElement('span');
-        logoToggleUi.className = 'at-tabs-setting-toggle-ui';
-        logoToggle.appendChild(logoEnabledInput);
-        logoToggle.appendChild(logoToggleUi);
-
         function svgTextToDataUrl(svgText) {
             const text = String(svgText || '').trim();
             if (!/<svg[\s>]/i.test(text)) return '';
@@ -5336,24 +6332,86 @@
             return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(text);
         }
 
-        function syncLogoControlState() {
-            const hasLogo = !!state.autotaskLogoDataUrl;
-            logoStatus.textContent = hasLogo ? 'Custom SVG uploaded' : 'No logo uploaded';
-            logoEnabledInput.disabled = !hasLogo;
-            logoClearButton.disabled = !hasLogo;
-            if (!hasLogo) logoEnabledInput.checked = false;
+        function svgTextFromDataUrl(dataUrl) {
+            const value = String(dataUrl || '');
+            const commaIndex = value.indexOf(',');
+            if (!value.startsWith('data:image/svg+xml') || commaIndex === -1) return '';
+            try {
+                if (/;base64/i.test(value.slice(0, commaIndex))) return atob(value.slice(commaIndex + 1));
+                return decodeURIComponent(value.slice(commaIndex + 1));
+            } catch (e) {
+                return value.slice(commaIndex + 1);
+            }
         }
 
-        logoEnabledInput.addEventListener('change', function () {
-            state.autotaskLogoOverrideEnabled = logoEnabledInput.checked && !!state.autotaskLogoDataUrl;
-            AES.state.autotaskLogoOverrideEnabled = state.autotaskLogoOverrideEnabled;
-            logoEnabledInput.checked = state.autotaskLogoOverrideEnabled;
-            syncLogoControlState();
-            applyAutotaskLogoOverride();
-            void AES.saveSettings();
-        });
+        function colorTokenLuminance(token) {
+            const value = String(token || '').trim().toLowerCase();
+            if (!value || value === 'none' || value === 'transparent' || value === 'currentcolor') return null;
+            if (value === 'white') return 1;
+            if (value === 'black') return 0;
+            const short = value.match(/^#([0-9a-f]{3})$/i);
+            const long = value.match(/^#([0-9a-f]{6})$/i);
+            const hex = short
+                ? '#' + short[1].split('').map(function (char) { return char + char; }).join('')
+                : long ? value : '';
+            if (hex) return colorRelativeLuminance(hex);
+            const rgb = value.match(/^rgba?\(\s*(\d{1,3})[\s,]+(\d{1,3})[\s,]+(\d{1,3})/);
+            if (!rgb) return null;
+            const r = Math.max(0, Math.min(255, Number(rgb[1])));
+            const g = Math.max(0, Math.min(255, Number(rgb[2])));
+            const b = Math.max(0, Math.min(255, Number(rgb[3])));
+            return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+        }
+
+        function svgLooksLight(svgText) {
+            const text = String(svgText || '');
+            const tokens = [];
+            text.replace(/(?:fill|stroke|color)\s*=\s*["']([^"']+)["']/gi, function (_, value) {
+                tokens.push(value);
+                return '';
+            });
+            text.replace(/(?:fill|stroke|color)\s*:\s*([^;"'}\s]+)/gi, function (_, value) {
+                tokens.push(value);
+                return '';
+            });
+            text.replace(/#[0-9a-f]{3,6}\b/gi, function (value) {
+                tokens.push(value);
+                return '';
+            });
+            let total = 0;
+            let count = 0;
+            tokens.forEach(function (token) {
+                const luminance = colorTokenLuminance(token);
+                if (luminance === null) return;
+                total += luminance;
+                count += 1;
+            });
+            return count > 0 && (total / count) > 0.72;
+        }
+
+        function syncLogoControlState() {
+            const hasLogo = !!state.autotaskLogoDataUrl;
+            state.autotaskLogoOverrideEnabled = hasLogo;
+            AES.state.autotaskLogoOverrideEnabled = hasLogo;
+            logoPreview.classList.toggle('is-empty', !hasLogo);
+            logoPreview.classList.toggle('is-light', hasLogo && svgLooksLight(svgTextFromDataUrl(state.autotaskLogoDataUrl)));
+            logoPreviewText.textContent = hasLogo ? '' : 'Default logo';
+            if (hasLogo) {
+                logoPreviewImg.src = state.autotaskLogoDataUrl;
+                logoPreviewImg.style.display = '';
+            } else {
+                logoPreviewImg.removeAttribute('src');
+                logoPreviewImg.style.display = 'none';
+            }
+            logoUploadButton.disabled = logoManaged;
+            logoFileInput.disabled = logoManaged;
+            logoClearButton.disabled = logoManaged || !hasLogo;
+            logoUploadButton.title = logoManaged ? 'Header logo is managed by your organization' : 'Upload SVG logo';
+            logoClearButton.title = logoManaged ? 'Header logo is managed by your organization' : '';
+        }
 
         logoFileInput.addEventListener('change', function () {
+            if (logoManaged) return;
             const file = logoFileInput.files && logoFileInput.files[0];
             if (!file) return;
             const isSvgFile = /\.svg$/i.test(file.name || '') || file.type === 'image/svg+xml';
@@ -5374,7 +6432,6 @@
                 state.autotaskLogoOverrideEnabled = true;
                 AES.state.autotaskLogoDataUrl = dataUrl;
                 AES.state.autotaskLogoOverrideEnabled = true;
-                logoEnabledInput.checked = true;
                 logoFileInput.value = '';
                 syncLogoControlState();
                 applyAutotaskLogoOverride();
@@ -5388,28 +6445,27 @@
         });
 
         logoClearButton.addEventListener('click', function () {
+            if (logoManaged) return;
             state.autotaskLogoDataUrl = '';
             state.autotaskLogoOverrideEnabled = false;
             AES.state.autotaskLogoDataUrl = '';
             AES.state.autotaskLogoOverrideEnabled = false;
-            logoEnabledInput.checked = false;
             logoFileInput.value = '';
             syncLogoControlState();
             applyAutotaskLogoOverride();
             void AES.saveSettings();
         });
 
-        logoControls.appendChild(logoStatus);
+        logoControls.appendChild(logoPreview);
         logoControls.appendChild(logoUploadButton);
         logoControls.appendChild(logoFileInput);
         logoControls.appendChild(logoClearButton);
-        logoControls.appendChild(logoToggle);
         logoRow.appendChild(logoControls);
         syncLogoControlState();
 
         const phoneControl = createSettingsToggleRow({
             name: 'Clickable phone numbers',
-            info: 'Turns detected phone numbers into clickable tel links.',
+            info: 'Turn detected phone numbers into clickable call links.',
             checked: !!state.phoneLinksEnabled,
             onChange: function (input) {
                 state.phoneLinksEnabled = input.checked;
@@ -5425,34 +6481,31 @@
         const section = document.createElement('div');
         section.className = 'at-tabs-settings-section';
 
-        // Tab bar position row (horizontal/vertical).
-        function currentTabBarPositionValue() {
+        // Tab bar location row (horizontal/vertical).
+        function currentTabBarLocationValue() {
             if (state.barOrientation === 'vertical') return 'vertical-left';
-            return state.horizontalCompactTabsEnabled ? 'horizontal-compact' : 'horizontal';
+            return 'horizontal';
         }
 
         const orientationControl = createSettingsSelectRow({
-            name: 'Tab bar position',
-            info: 'Choose the tab bar layout. Compact horizontal tabs hide Line 3 and reduce tab height.',
-            value: currentTabBarPositionValue(),
+            name: 'Tab bar location',
+            info: 'Choose whether tabs appear above Autotask or in a side bar.',
+            value: currentTabBarLocationValue(),
             options: [
                 { value: 'horizontal', label: 'Horizontal' },
-                { value: 'horizontal-compact', label: 'Horizontal (Compact)' },
-                { value: 'vertical-left', label: 'Vertical (left)' },
-                { value: 'vertical-right', label: 'Vertical (right) (coming in a future update)', disabled: true },
+                { value: 'vertical-left', label: 'Vertical (Left)' },
+                { value: 'vertical-right', label: 'Vertical (Right, coming soon)', disabled: true },
             ],
             onChange: function (select) {
                 if (select.value === 'vertical-right') {
-                    select.value = currentTabBarPositionValue();
+                    select.value = currentTabBarLocationValue();
                     return;
                 }
-                const compact = select.value === 'horizontal-compact';
                 const nextOrientation = select.value === 'vertical-left' ? 'vertical' : 'horizontal';
-                state.horizontalCompactTabsEnabled = compact;
-                AES.state.horizontalCompactTabsEnabled = compact;
                 setBarOrientation(nextOrientation);
                 updateResizableBarClasses();
                 state.tabs.forEach(updateTabEl);
+                updateHomeTabMetadata();
                 updateCustomizationCompactState();
                 requestSyncGeometry();
                 saveTabs();
@@ -5462,9 +6515,52 @@
         const orientationRow = orientationControl.row;
         const orientationSelect = orientationControl.select;
 
+        const sizeControl = createSettingsSelectRow({
+            name: 'Tab size',
+            info: 'Use Enhanced tabs for AES metadata or Browser-like tabs for slim page-title tabs.',
+            value: state.horizontalCompactTabsEnabled ? 'compact' : 'default',
+            options: [
+                { value: 'default', label: 'Enhanced tabs' },
+                { value: 'compact', label: 'Browser-like' },
+            ],
+            onChange: function (select) {
+                const compact = select.value === 'compact';
+                state.horizontalCompactTabsEnabled = compact;
+                AES.state.horizontalCompactTabsEnabled = compact;
+                updateResizableBarClasses();
+                if (compact) refreshBrowserLikeTitlesFromFrames();
+                else state.tabs.forEach(updateTabEl);
+                updateHomeTabMetadata();
+                updateCustomizationCompactState();
+                tabSizeReloadNote.classList.add('visible');
+                requestSyncGeometry();
+                saveTabs();
+                void AES.saveSettings();
+            }
+        });
+        const sizeRow = sizeControl.row;
+        const sizeSelect = sizeControl.select;
+        const tabSizeReloadNote = document.createElement('div');
+        tabSizeReloadNote.className = 'at-tabs-setting-reload-note';
+        const tabSizeReloadText = document.createElement('span');
+        tabSizeReloadText.textContent = 'Refresh this browser tab to apply the new tab size everywhere.';
+        const tabSizeReloadButton = document.createElement('button');
+        tabSizeReloadButton.type = 'button';
+        tabSizeReloadButton.className = 'at-tabs-setting-reload-button';
+        tabSizeReloadButton.textContent = 'Refresh now';
+        tabSizeReloadButton.addEventListener('click', function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+            void AES.saveSettings().then(function () {
+                window.location.reload();
+            });
+        });
+        tabSizeReloadNote.appendChild(tabSizeReloadText);
+        tabSizeReloadNote.appendChild(tabSizeReloadButton);
+
         const resizeControl = createSettingsToggleRow({
             name: 'Allow resizing of the vertical tab bar',
-            info: 'Allows the resizing of the vertical AES Tab Bar by dragging the line on the right side. May cause visual issues on the content',
+            info: 'Drag the edge of the vertical tab bar to change its width.',
             checked: !!state.resizableTabBarEnabled,
             onChange: function (input) {
                 state.resizableTabBarEnabled = input.checked;
@@ -5479,7 +6575,7 @@
 
         const hideControl = createSettingsToggleRow({
             name: 'Enable tab bar',
-            info: 'Shows the AES tab bar in Autotask.',
+            info: 'Show or hide the AES tab bar.',
             checked: !state.shellHidden,
             onChange: function (input) {
                 state.shellHidden = !input.checked;
@@ -5491,7 +6587,7 @@
 
         const persistControl = createSettingsToggleRow({
             name: 'Remember tabs after closing browser',
-            info: 'By default the tabs are not remembered after closing the browser, by enabling this the tabs will be saved in persistent memory (may cause tab mess!)',
+            info: 'Reopen your AES tabs after closing and reopening the browser.',
             checked: state.rememberTabsAfterClose,
             onChange: function (input) {
                 state.rememberTabsAfterClose = input.checked;
@@ -5505,7 +6601,7 @@
 
         const openAtStartControl = createSettingsToggleRow({
             name: 'Open new tabs at the start',
-            info: 'Adds new tabs near the start of the tab bar: left in horizontal mode, top in vertical mode. Pinned tabs stay first.',
+            info: 'Place new tabs before existing unpinned tabs.',
             checked: !!state.openNewTabsAtStart,
             onChange: function (input) {
                 state.openNewTabsAtStart = input.checked;
@@ -5518,7 +6614,7 @@
 
         const everywhereControl = createSettingsToggleRow({
             name: 'Show tab bar on all Autotask pages',
-            info: 'Show the AES Tab Bar on all Autotask pages independent of the usage of iFrames, for example: Umbrella Contracts or Resource Planner. Note that new Autotask Onyx pages will always show on the Home tab because the tabs depend on iFrames.',
+            info: 'Keep the AES tab bar visible on pages Autotask opens outside frames.',
             checked: !!state.showTabBarOnNonIframePages,
             onChange: function (input) {
                 state.showTabBarOnNonIframePages = input.checked;
@@ -5538,7 +6634,7 @@
 
         const peekConfirmControl = createSettingsToggleRow({
             name: 'Confirm before closing Peek by outside click',
-            info: 'Shows a confirmation when closing a Peek window by clicking outside it. Disable this to keep the “Do not show this again” behavior.',
+            info: 'Ask before closing Peek by clicking outside the window.',
             checked: !state.skipPeekBackdropCloseWarning,
             onChange: function (input) {
                 state.skipPeekBackdropCloseWarning = !input.checked;
@@ -5551,7 +6647,7 @@
 
         const peekMoveResizeControl = createSettingsToggleRow({
             name: 'Allow resizing and moving of Peek windows',
-            info: 'Adds drag and resize controls to Peek windows. Disabled by default to keep Peek behavior closest to Autotask.',
+            info: 'Let Peek windows be dragged and resized.',
             checked: !!state.peekMoveResizeEnabled,
             onChange: function (input) {
                 state.peekMoveResizeEnabled = input.checked;
@@ -5573,7 +6669,7 @@
         ['Line 2', 'Line 3'].forEach(function (labelText, index) {
             const label = document.createElement('span');
             label.textContent = labelText;
-            if (index === 1) label.dataset.tabLineHeader = '3';
+            label.dataset.tabLineHeader = String(index + 2);
             customizationHeaderLines.appendChild(label);
         });
         customizationHeader.appendChild(customizationHeaderLines);
@@ -5608,6 +6704,13 @@
                 void AES.saveSettings();
             });
             return select;
+        }
+
+        function wrapSettingsSelect(select) {
+            const selectWrap = document.createElement('span');
+            selectWrap.className = 'at-tabs-setting-select-wrap';
+            selectWrap.appendChild(select);
+            return selectWrap;
         }
 
         function setCustomizationSelectValues(line2Fields, line3Fields) {
@@ -5663,8 +6766,8 @@
             const line3 = createLineSelect(type, 3);
             line2.title = 'Line 2';
             line3.title = 'Line 3';
-            controls.appendChild(line2);
-            controls.appendChild(line3);
+            controls.appendChild(wrapSettingsSelect(line2));
+            controls.appendChild(wrapSettingsSelect(line3));
             row.appendChild(label);
             row.appendChild(controls);
             customizationSection.appendChild(row);
@@ -5672,16 +6775,16 @@
 
         function updateCustomizationCompactState() {
             const disabled = !!state.horizontalCompactTabsEnabled;
-            customizationSection.querySelectorAll('select[data-tab-line="3"]').forEach(function (select) {
+            customizationSection.querySelectorAll('select[data-tab-line="2"], select[data-tab-line="3"]').forEach(function (select) {
                 select.disabled = disabled;
-                select.title = disabled ? 'Line 3 is hidden when Compact horizontal tabs is enabled' : 'Line 3';
+                select.title = disabled ? 'Metadata lines are hidden when Browser-like tab size is enabled' : ('Line ' + select.dataset.tabLine);
             });
             customizationSection.querySelectorAll('.at-tabs-setting-line-controls').forEach(function (controls) {
                 controls.classList.toggle('line3-disabled', disabled);
             });
-            customizationSection.querySelectorAll('[data-tab-line-header="3"]').forEach(function (label) {
+            customizationSection.querySelectorAll('[data-tab-line-header]').forEach(function (label) {
                 label.classList.toggle('line3-disabled', disabled);
-                label.title = disabled ? 'Line 3 is hidden when Compact horizontal tabs is enabled' : '';
+                label.title = disabled ? 'Metadata lines are hidden when Browser-like tab size is enabled' : '';
             });
         }
         updateCustomizationCompactState();
@@ -5695,7 +6798,10 @@
         const brandingWarning = document.createElement('div');
         brandingWarning.className = 'at-tabs-settings-warning';
         brandingWarning.textContent = 'These settings are only visible locally and may cause visual issues or unreadable text.';
-        const brandingReloadNote = document.createElement('div');
+        if (brandColorManaged || logoManaged) {
+            brandingWarning.textContent = 'Some Branding settings are managed by your organization. Managed values apply company-wide and cannot be changed locally.';
+        }
+        brandingReloadNote = document.createElement('div');
         brandingReloadNote.className = 'at-tabs-setting-reload-note';
         const brandingReloadText = document.createElement('span');
         brandingReloadText.textContent = 'Refresh this browser tab to fully apply Branding changes across existing Autotask pages.';
@@ -5715,6 +6821,8 @@
 
         section.appendChild(hideRow);
         section.appendChild(orientationRow);
+        section.appendChild(sizeRow);
+        section.appendChild(tabSizeReloadNote);
         section.appendChild(resizeRow);
         section.appendChild(everywhereRow);
         section.appendChild(openAtStartRow);
@@ -5807,17 +6915,20 @@
 
             enabledInput.checked = defaults.extensionEnabled;
             enabledReloadNote.classList.remove('visible');
+            tabSizeReloadNote.classList.remove('visible');
             brandingReloadNote.classList.remove('visible');
             earlyAccessInput.checked = defaults.hideEarlyAccessLabels;
             resourcePlannerInput.checked = defaults.replaceCalendarWithResourcePlanner;
             roundedPageFramesInput.checked = defaults.roundedPageFramesEnabled;
-            brandColorEnabledInput.checked = defaults.autotaskBrandColorEnabled;
-            brandColorInput.value = defaults.autotaskBrandColor;
+            // The brand-colour override is now derived from the chosen
+            // colour: applying the default Autotask blue turns it off,
+            // anything else turns it on. setBrandColorValue handles both.
+            setBrandColorValue(defaults.autotaskBrandColor);
             syncBrandColorControlState();
-            logoEnabledInput.checked = defaults.autotaskLogoOverrideEnabled;
             logoFileInput.value = '';
             syncLogoControlState();
-            orientationSelect.value = defaults.barOrientation === 'vertical' ? 'vertical-left' : (defaults.horizontalCompactTabsEnabled ? 'horizontal-compact' : 'horizontal');
+            orientationSelect.value = defaults.barOrientation === 'vertical' ? 'vertical-left' : 'horizontal';
+            sizeSelect.value = defaults.horizontalCompactTabsEnabled ? 'compact' : 'default';
             resizeInput.checked = defaults.resizableTabBarEnabled;
             hideInput.checked = !state.shellHidden;
             openAtStartInput.checked = defaults.openNewTabsAtStart;
@@ -6266,7 +7377,7 @@
         wrapper.style.transform = 'none';
         setCssPx(modal, 'width', next.width);
         setCssPx(modal, 'height', next.height);
-        if (state.peekSyncOverlay) requestAnimationFrame(state.peekSyncOverlay);
+        if (state.peekSyncOverlay) window.requestAnimationFrame(state.peekSyncOverlay);
     }
 
     function currentPeekGeometry(wrapper, modal) {
@@ -6316,7 +7427,7 @@
         let activeInteraction = null;
 
         const syncToViewport = function () {
-            if (state.peekSyncOverlay) requestAnimationFrame(state.peekSyncOverlay);
+            if (state.peekSyncOverlay) window.requestAnimationFrame(state.peekSyncOverlay);
         };
 
         const beginInteraction = function (event, mode) {
@@ -6598,7 +7709,7 @@
             installPeekMoveResize(wrapper, modal, actions, null, resetPositionBtn);
         }
         if (reusedLiveIframe && state.peekSyncOverlay) {
-            requestAnimationFrame(state.peekSyncOverlay);
+            window.requestAnimationFrame(state.peekSyncOverlay);
         }
     }
 
@@ -6676,7 +7787,8 @@
         card.appendChild(typeEl);
 
         function addRow(label, value, copyable) {
-            if (!value) return;
+            if (!label) return;
+            const displayValue = String(value || '').trim();
             const row = document.createElement('div');
             row.className = 'hc-row';
             const lbl = document.createElement('div');
@@ -6684,10 +7796,10 @@
             lbl.textContent = label;
             const val = document.createElement('div');
             val.className = 'hc-value';
-            val.textContent = value;
+            val.textContent = displayValue || ' ';
             row.appendChild(lbl);
             row.appendChild(val);
-            if (copyable !== false) {
+            if (copyable !== false && displayValue) {
                 const copy = document.createElement('button');
                 copy.type = 'button';
                 copy.className = 'hc-copy';
@@ -6701,7 +7813,7 @@
                 copy.addEventListener('click', function (event) {
                     event.preventDefault();
                     event.stopPropagation();
-                    void copyTextToClipboard(String(value || ''));
+                    void copyTextToClipboard(displayValue);
                 });
                 row.appendChild(copy);
             }
@@ -6763,7 +7875,7 @@
         card.style.left = '-9999px';
         card.style.top = '0px';
         card.classList.add('visible');
-        requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
             if (!state.hoverCard || state.hoverTabId !== tab.id) return;
             positionHoverCard(card, anchorEl);
         });
@@ -7196,6 +8308,16 @@
 
         if (data.type === 'close-frame' || data.type === 'close-peek') {
             if (windowBelongsToPeek(event.source)) {
+                if (typeof state.peekOriginTabId !== 'number') {
+                    let openerWindow = null;
+                    try { openerWindow = event.source && event.source.opener; } catch (e) {}
+                    const openerTab = openerWindow ? findTabFromWindow(openerWindow) : null;
+                    const activeTab = state.activeId !== null ? tabById(state.activeId) : null;
+                    const fallbackOriginTab = openerTab || activeTab;
+                    if (fallbackOriginTab && typeof fallbackOriginTab.id === 'number') {
+                        state.peekOriginTabId = fallbackOriginTab.id;
+                    }
+                }
                 closePeekModal(false, { refreshOrigin: true });
                 return;
             }
@@ -7259,32 +8381,49 @@
             if (!tab) return;
             const isDirectTabFrame = !!(tab.iframeEl && event.source === tab.iframeEl.contentWindow);
             if (data.url && isDirectTabFrame) tab.url = data.url;
-            const preserveSparse = shouldPreserveSparseNavMetadata(tab.url);
+            const preservedRefreshMetadata = tab.preservedRefreshMetadata || null;
+            const navHasRichMetadata = hasRichNavMetadata(data);
+            const preserveRefreshMetadata = !!(preservedRefreshMetadata && !navHasRichMetadata);
+            if (preserveRefreshMetadata) {
+                restoreTabMetadataSnapshot(tab, preservedRefreshMetadata);
+            } else if (preservedRefreshMetadata && navHasRichMetadata) {
+                tab.preservedRefreshMetadata = null;
+            }
+            const preserveSparse = preserveRefreshMetadata || shouldPreserveSparseNavMetadata(tab.url);
             const normalizedPurchaseOrderNav = normalizePurchaseOrderNavData(tab, data);
             const navTitle = normalizedPurchaseOrderNav && normalizedPurchaseOrderNav.title !== null
                 ? normalizedPurchaseOrderNav.title
                 : data.title;
+            const navBrowserTitle = typeof data.browserTitle === 'string' ? data.browserTitle.trim() : '';
             const navNumber = normalizedPurchaseOrderNav && normalizedPurchaseOrderNav.number !== null
                 ? normalizedPurchaseOrderNav.number
                 : data.number;
-            if (navTitle && (!preserveSparse || navTitle.trim())) tab.title = navTitle;
+            if (!preserveRefreshMetadata && navTitle && (!preserveSparse || navTitle.trim())) tab.title = navTitle;
+            if (navBrowserTitle) tab.browserTitle = navBrowserTitle;
             if (navNumber !== undefined && navNumber !== null) {
-                if (!preserveSparse || (typeof navNumber === 'string' ? navNumber.trim() : navNumber)) {
+                if (!preserveRefreshMetadata && (!preserveSparse || (typeof navNumber === 'string' ? navNumber.trim() : navNumber))) {
                     tab.number = navNumber;
                 }
             }
             if (data.contact !== undefined) {
-                if (!preserveSparse || (typeof data.contact === 'string' ? data.contact.trim() : data.contact)) {
+                if (!preserveRefreshMetadata && (!preserveSparse || (typeof data.contact === 'string' ? data.contact.trim() : data.contact))) {
                     tab.contact = data.contact;
                 }
             }
-            if (data.primaryResource !== undefined) tab.primaryResource = data.primaryResource || null;
-            if (data.priority !== undefined) tab.priority = data.priority || '';
-            if (data.status !== undefined) tab.status = data.status || '';
-            if (data.lastActivity !== undefined) tab.lastActivity = data.lastActivity || '';
-            if (data.pageWarning !== undefined) tab.pageWarning = !!data.pageWarning;
-            if (data.hoverFields !== undefined) tab.hoverFields = normalizeHoverFields(data.hoverFields);
-            if (data.metadataFields !== undefined) tab.metadataFields = normalizeMetadataFields(data.metadataFields);
+            if (!preserveRefreshMetadata && data.primaryResource !== undefined) tab.primaryResource = data.primaryResource || null;
+            if (!preserveRefreshMetadata && data.priority !== undefined) tab.priority = data.priority || '';
+            if (!preserveRefreshMetadata && data.status !== undefined) tab.status = data.status || '';
+            if (!preserveRefreshMetadata && data.lastActivity !== undefined) tab.lastActivity = data.lastActivity || '';
+            if (!preserveRefreshMetadata && data.pageWarning !== undefined) tab.pageWarning = !!data.pageWarning;
+            if (data.hoverFields !== undefined) {
+                const nextHoverFields = normalizeHoverFields(data.hoverFields);
+                if (!preserveSparse || nextHoverFields.length) tab.hoverFields = nextHoverFields;
+            }
+            if (data.metadataFields !== undefined) {
+                tab.metadataFields = preserveSparse
+                    ? mergeMetadataFieldsPreservingExisting(tab.metadataFields, data.metadataFields)
+                    : normalizeMetadataFields(data.metadataFields);
+            }
             updateTabEl(tab);
             saveTabs();
             return;
@@ -7520,7 +8659,17 @@
             if (state.autotaskBrandColorOriginal) {
                 body.style.setProperty('--brand-primary-color', state.autotaskBrandColorOriginal);
             } else {
-                body.style.removeProperty('--brand-primary-color');
+                // Don't removeProperty here — on Firefox, Autotask sets
+                // --brand-primary-color exclusively as an inline value on
+                // <body> during bootstrap and never re-emits it via CSS.
+                // Removing our override leaves the variable unset, and
+                // every var(--brand-primary-color) in Autotask's chrome
+                // (header background, selected nav indicators, etc.)
+                // falls to the property's initial value — which renders
+                // as white on the header. Setting the canonical default
+                // brand colour gives the cascade a value to resolve to
+                // and matches Autotask's own default on every browser.
+                body.style.setProperty('--brand-primary-color', DEFAULT_AUTOTASK_BRAND_COLOR);
             }
         }
         state.autotaskBrandColorOriginal = null;
@@ -7771,6 +8920,12 @@
         state.earlyAccessObserver.observe(document.body, { childList: true, subtree: true });
     }
 
+    const RESOURCE_PLANNER_SHORTCUT_MIN_VISIBLE_WIDTH = 1420;
+
+    function resourcePlannerShortcutFitsViewport() {
+        return !window.innerWidth || window.innerWidth >= RESOURCE_PLANNER_SHORTCUT_MIN_VISIBLE_WIDTH;
+    }
+
     function findResourcePlannerMenuItem() {
         const items = Array.from(document.querySelectorAll('li[role="menuitem"]'));
         return items.find(function (item) {
@@ -7830,6 +8985,7 @@
     }
 
     function restoreResourcePlannerShortcutButton(button, label, chevrons) {
+        clearResourcePlannerNarrowHide(button);
         const originalLabel = button.dataset.aesOriginalCalendarLabel || 'Calendar';
         if (label && label.textContent !== originalLabel) label.textContent = originalLabel;
         chevrons.forEach(function (chevron) {
@@ -7851,6 +9007,27 @@
             delete button.dataset.aesOriginalDisplay;
         }
         button.removeAttribute('data-aes-resource-planner-shortcut');
+    }
+
+    function clearResourcePlannerNarrowHide(button) {
+        if (!button || button.dataset.aesResourcePlannerNarrowHidden !== 'true') return;
+        button.style.display = button.dataset.aesResourcePlannerNarrowDisplay || '';
+        button.style.visibility = button.dataset.aesResourcePlannerNarrowVisibility || '';
+        delete button.dataset.aesResourcePlannerNarrowDisplay;
+        delete button.dataset.aesResourcePlannerNarrowVisibility;
+        delete button.dataset.aesResourcePlannerNarrowHidden;
+    }
+
+    function hideResourcePlannerShortcutForNarrowViewport(button) {
+        if (!button) return;
+        if (button.dataset.aesResourcePlannerNarrowHidden !== 'true') {
+            button.dataset.aesResourcePlannerNarrowDisplay = button.style.display || '';
+            button.dataset.aesResourcePlannerNarrowVisibility = button.style.visibility || '';
+            button.dataset.aesResourcePlannerNarrowHidden = 'true';
+        }
+        button.style.setProperty('display', 'none', 'important');
+        button.style.setProperty('visibility', 'hidden', 'important');
+        restoreResourcePlannerHiddenMoreButtons(button.parentElement || document);
     }
 
     function restoreResourcePlannerHiddenMoreButtons(root) {
@@ -7899,6 +9076,7 @@
 
     function forceResourcePlannerShortcutVisible(button) {
         if (!button || button.getAttribute('data-onyx-external-id') !== '0C07O8TE') return;
+        clearResourcePlannerNarrowHide(button);
         let forcedVisible = button.dataset.aesHadInvisibleClass === 'true';
         if (button.classList && button.classList.contains('invisible')) {
             button.dataset.aesHadInvisibleClass = 'true';
@@ -7970,7 +9148,11 @@
             }
             if (button.title !== 'Open Resource Planner') button.title = 'Open Resource Planner';
             button.dataset.aesResourcePlannerShortcut = 'true';
-            forceResourcePlannerShortcutVisible(button);
+            if (resourcePlannerShortcutFitsViewport()) {
+                forceResourcePlannerShortcutVisible(button);
+            } else {
+                hideResourcePlannerShortcutForNarrowViewport(button);
+            }
             chevrons.forEach(function (chevron) {
                 if (!chevron.dataset.aesOriginalDisplay) {
                     chevron.dataset.aesOriginalDisplay = chevron.style.display || '';
@@ -7982,7 +9164,9 @@
 
     function scheduleResourcePlannerShortcutRefresh() {
         if (state.resourcePlannerShortcutRaf) return;
-        const raf = window.requestAnimationFrame || function (callback) { return window.setTimeout(callback, 16); };
+        const raf = window.requestAnimationFrame
+            ? window.requestAnimationFrame.bind(window)
+            : function (callback) { return window.setTimeout(callback, 16); };
         state.resourcePlannerShortcutRaf = raf(function () {
             state.resourcePlannerShortcutRaf = 0;
             applyResourcePlannerCalendarShortcut(document);
@@ -8011,6 +9195,10 @@
             childList: true,
             subtree: true,
         });
+        if (!state.resourcePlannerShortcutResizeInstalled) {
+            state.resourcePlannerShortcutResizeInstalled = true;
+            window.addEventListener('resize', scheduleResourcePlannerShortcutRefresh, { passive: true });
+        }
 
         document.addEventListener('click', function (event) {
             const button = event.target && event.target.closest
@@ -8490,6 +9678,16 @@
         if (typeof AES.state.roundedPageFramesEnabled === 'boolean') {
             state.roundedPageFramesEnabled = AES.state.roundedPageFramesEnabled;
         }
+        if (AES.state.defaultEnabledSettingsMigration !== 'hide-rounded-peek-2026-05-09') {
+            state.hideEarlyAccessLabels = true;
+            AES.state.hideEarlyAccessLabels = true;
+            state.roundedPageFramesEnabled = true;
+            AES.state.roundedPageFramesEnabled = true;
+            state.peekMoveResizeEnabled = true;
+            AES.state.peekMoveResizeEnabled = true;
+            AES.state.defaultEnabledSettingsMigration = 'hide-rounded-peek-2026-05-09';
+            void AES.saveSettings();
+        }
         if (typeof AES.state.autotaskBrandColorEnabled === 'boolean') {
             state.autotaskBrandColorEnabled = AES.state.autotaskBrandColorEnabled;
         }
@@ -8522,9 +9720,23 @@
         }
         window.setTimeout(maybeCheckGithubReleaseUpdate, 3000);
         if (featuresEnabled()) {
-            const reloadFramesAfterUmbrellaContract = hasPendingUmbrellaContractFrameReload();
+            // Two ways we can know mount is happening "after an umbrella nav":
+            //  1. Flag was set in sessionStorage by openUrlOnHome /
+            //     maybePromoteTopLevelLandingRoute before the refresh.
+            //  2. The flag wasn't set in time (Autotask hard-refreshed before
+            //     either path could run), but the current top URL OR the
+            //     native iframe URL is an umbrella page right now. In that
+            //     case mount itself can detect it and trigger the eager
+            //     reload — without depending on the flag at all.
+            const onUmbrellaUrlNow = isUmbrellaContractHomeUrl(location.href)
+                || isUmbrellaContractHomeUrl(currentNativeFrameUrl());
+            const reloadFramesAfterUmbrellaContract = hasPendingUmbrellaContractFrameReload()
+                || onUmbrellaUrlNow;
             await restoreTabs();
             if (reloadFramesAfterUmbrellaContract) {
+                // Set the flag if it isn't already, so the WhenReady retry
+                // loop has something to clear on success.
+                if (!hasPendingUmbrellaContractFrameReload()) markUmbrellaContractFrameReload();
                 window.setTimeout(reloadLoadedFramesAfterUmbrellaContractWhenReady, 0);
             }
             installTabsMetadataSyncWatcher();

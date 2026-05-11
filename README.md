@@ -26,6 +26,36 @@ All Chromium- and Gecko-based browsers are supported. Note that some features ma
 - `chrome-extension/`: Chromium-based browser build
 - `firefox-extension/`: Gecko-based browser build
 
+## Managed Company-Wide Branding
+
+AES supports browser managed storage for deploying Branding defaults through enterprise tooling such as Intune, Group Policy, Chrome Enterprise, Edge Enterprise, or Firefox Enterprise Policies.
+
+This is mainly intended for setting a company-wide Branding color. Logo deployment is also supported, but only as an SVG data URL, which is usually less convenient to maintain in policy tooling.
+
+Supported managed policy keys:
+
+- `autotaskBrandColor`: Hex color such as `#b23a48` or `b23a48`
+- `autotaskBrandColorEnabled`: Optional boolean. If omitted, AES enables managed branding whenever `autotaskBrandColor` is configured.
+- `autotaskLogoDataUrl`: Optional SVG data URL for the Autotask header logo
+
+Example managed storage payload:
+
+```json
+{
+  "autotaskBrandColor": "#b23a48",
+  "autotaskBrandColorEnabled": true
+}
+```
+
+When a managed Branding value is present, AES applies it at runtime and the local Branding controls in the AES settings modal show that the value is managed by the organization.
+
+Reference extension IDs:
+
+- Chrome Web Store: `napjjjggbckindfanlddahkadnieglfh`
+- Firefox: `autotask-enhancement-suite@quintenvannoorloos.nl`
+
+For Chromium-based browsers, deploy these keys as extension managed storage for the AES extension ID. For Firefox, use Firefox managed storage via a native manifest or the `3rdparty` enterprise policy. Browser-specific details are documented by [Chrome managed storage](https://developer.chrome.com/docs/extensions/reference/manifest/storage) and [MDN storage.managed](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/managed).
+
 ## Manual Installation
 
 Autotask Enhancement Suite is currently awaiting approval from Mozilla for release in the Firefox Add-ons store. Until then, install it manually with the steps below.

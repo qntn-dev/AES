@@ -168,6 +168,8 @@
     const ID_KEYS = [
         'ID',
         'ticketId',
+        'productID',
+        'productId',
         'ticketID',
         'genericId',
         'accountId',
@@ -287,13 +289,15 @@
 
         const firstNumeric = strings.find(value => /^\d{4,}$/.test(value));
         if (firstNumeric) {
-            const fallbackKey = pathOf(url.href).includes('accountdetail') ? 'accountId'
-                : pathOf(url.href).includes('contactdetail') ? 'contactId'
-                    : pathOf(url.href).includes('resourcedetail') ? 'resourceId'
-                        : pathOf(url.href).includes('/grapevine/profile.aspx') ? 'resourceId'
-                        : pathOf(url.href).includes('persondetail') ? 'personId'
-                : pathOf(url.href).includes('recurring_ticket.aspx') ? 'recurring_ticket_id'
-                : pathOf(url.href).includes('contract') ? 'contractID'
+            const handledPath = pathOf(url.href);
+            const fallbackKey = handledPath.includes('/autotask/views/administration/products/product.aspx') ? 'productID'
+                : handledPath.includes('accountdetail') ? 'accountId'
+                : handledPath.includes('contactdetail') ? 'contactId'
+                    : handledPath.includes('resourcedetail') ? 'resourceId'
+                        : handledPath.includes('/grapevine/profile.aspx') ? 'resourceId'
+                        : handledPath.includes('persondetail') ? 'personId'
+                : handledPath.includes('recurring_ticket.aspx') ? 'recurring_ticket_id'
+                : handledPath.includes('contract') ? 'contractID'
                     : 'ticketId';
             url.searchParams.set(fallbackKey, firstNumeric);
         }
@@ -483,6 +487,18 @@
         };
     }
 
+    function createHandledWindow(url) {
+        const targetUrl = absoluteUrl(url);
+        return {
+            closed: false,
+            opener: window,
+            location: { href: targetUrl || '' },
+            focus: function () {},
+            blur: function () {},
+            close: function () { this.closed = true; },
+        };
+    }
+
     function armMapOpenFromEvent(event) {
         if (!featureEnabled) return false;
         const clickedMapIcon = event.target.closest && event.target.closest('.InlineIconButton.Map, .InlineIcon.Map');
@@ -599,8 +615,8 @@
         }
         if (postPeek(url)) return createPeekWindow(url);
         if (postMap(url)) return createMapWindow(url);
-        if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return null;
-        if (postOpen(url)) return null;
+        if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return createHandledWindow(url);
+        if (postOpen(url)) return createHandledWindow(url);
         return originalOpen.apply(window, arguments);
     };
 

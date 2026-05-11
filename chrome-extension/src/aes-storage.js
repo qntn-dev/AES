@@ -50,11 +50,17 @@
     if (typeof AES.state.autotaskBrandColor !== 'string') {
         AES.state.autotaskBrandColor = '#376A94';
     }
+    if (!Array.isArray(AES.state.autotaskBrandColorPresets)) {
+        AES.state.autotaskBrandColorPresets = [];
+    }
     if (typeof AES.state.autotaskLogoOverrideEnabled !== 'boolean') {
         AES.state.autotaskLogoOverrideEnabled = false;
     }
     if (typeof AES.state.autotaskLogoDataUrl !== 'string') {
         AES.state.autotaskLogoDataUrl = '';
+    }
+    if (!AES.state.managedSettings || typeof AES.state.managedSettings !== 'object') {
+        AES.state.managedSettings = {};
     }
     if (typeof AES.state.improvedScrollbarsEnabled !== 'boolean') {
         AES.state.improvedScrollbarsEnabled = true;
@@ -146,6 +152,44 @@
         });
     };
 
+    AES.hasChromeManagedStorage = function hasChromeManagedStorage() {
+        try {
+            return !!(
+                typeof chrome !== 'undefined' &&
+                chrome &&
+                chrome.storage &&
+                chrome.storage.managed
+            );
+        } catch (e) {
+            return false;
+        }
+    };
+
+    AES.getChromeManaged = function getChromeManaged(keys) {
+        return new Promise(function (resolve) {
+            if (!AES.hasChromeManagedStorage()) {
+                resolve({});
+                return;
+            }
+            try {
+                chrome.storage.managed.get(keys || null, function (result) {
+                    try {
+                        if (chrome.runtime && chrome.runtime.lastError) {
+                            resolve({});
+                            return;
+                        }
+                    } catch (e) {
+                        resolve({});
+                        return;
+                    }
+                    resolve(result || {});
+                });
+            } catch (e) {
+                resolve({});
+            }
+        });
+    };
+
     AES.setChromeLocal = function setChromeLocal(values) {
         return new Promise(function (resolve) {
             try {
@@ -185,18 +229,90 @@
         return Math.max(min, Math.min(max, Math.round(value)));
     }
 
-    function readAutotaskBrandColor(settings) {
-        const value = String((settings && settings.autotaskBrandColor) || '').trim();
+    function normalizeAutotaskBrandColorValue(value) {
+        value = String(value || '').trim();
+        if (/^[0-9a-f]{3}$/i.test(value) || /^[0-9a-f]{6}$/i.test(value)) {
+            value = '#' + value;
+        }
         const short = value.match(/^#([0-9a-f]{3})$/i);
         if (short) {
             return '#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase();
         }
-        return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : '#376a94';
+        return /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : '';
+    }
+
+    function readAutotaskBrandColor(settings) {
+        return normalizeAutotaskBrandColorValue(settings && settings.autotaskBrandColor) || '#376a94';
+    }
+
+    const DEFAULT_AUTOTASK_BRAND_PRESETS_STORAGE = [
+        '#376a94', '#b23a48', '#2e8458', '#6f4fa0', '#c97a3f', '#4f5d75',
+    ];
+
+    function readAutotaskBrandColorPresets(settings) {
+        const list = settings && Array.isArray(settings.autotaskBrandColorPresets)
+            ? settings.autotaskBrandColorPresets
+            : [];
+        const out = [];
+        for (let i = 0; i < DEFAULT_AUTOTASK_BRAND_PRESETS_STORAGE.length; i += 1) {
+            const raw = String(list[i] || '').trim();
+            const short = raw.match(/^#([0-9a-f]{3})$/i);
+            if (short) {
+                out.push('#' + short[1].split('').map(function (char) { return char + char; }).join('').toLowerCase());
+            } else if (/^#[0-9a-f]{6}$/i.test(raw)) {
+                out.push(raw.toLowerCase());
+            } else {
+                out.push(DEFAULT_AUTOTASK_BRAND_PRESETS_STORAGE[i]);
+            }
+        }
+        return out;
     }
 
     function readAutotaskLogoDataUrl(settings) {
         const value = String((settings && settings.autotaskLogoDataUrl) || '');
         return value.startsWith('data:image/svg+xml') ? value : '';
+    }
+
+    function readManagedBrandingSettings(settings) {
+        const hasEnabledPolicy = settings && typeof settings.autotaskBrandColorEnabled === 'boolean';
+        const color = normalizeAutotaskBrandColorValue(settings && settings.autotaskBrandColor);
+        const logo = readAutotaskLogoDataUrl(settings);
+        return {
+            hasAutotaskBrandColor: !!color,
+            hasAutotaskBrandColorEnabled: hasEnabledPolicy,
+            autotaskBrandColor: color,
+            autotaskBrandColorEnabled: hasEnabledPolicy ? settings.autotaskBrandColorEnabled !== false : !!color,
+            hasAutotaskLogoDataUrl: !!logo,
+            autotaskLogoDataUrl: logo,
+        };
+    }
+
+    async function loadManagedBrandingSettings() {
+        const managed = await AES.getChromeManaged([
+            'autotaskBrandColor',
+            'autotaskBrandColorEnabled',
+            'autotaskLogoDataUrl',
+        ]);
+        return readManagedBrandingSettings(managed);
+    }
+
+    function applyManagedBrandingSettings(managed) {
+        AES.state.managedSettings = managed || {};
+        if (!managed) return;
+        AES.state.localAutotaskBrandColorEnabled = AES.state.autotaskBrandColorEnabled;
+        AES.state.localAutotaskBrandColor = AES.state.autotaskBrandColor;
+        AES.state.localAutotaskLogoOverrideEnabled = AES.state.autotaskLogoOverrideEnabled;
+        AES.state.localAutotaskLogoDataUrl = AES.state.autotaskLogoDataUrl;
+        if (managed.hasAutotaskBrandColor || managed.hasAutotaskBrandColorEnabled) {
+            if (managed.hasAutotaskBrandColor) {
+                AES.state.autotaskBrandColor = managed.autotaskBrandColor;
+            }
+            AES.state.autotaskBrandColorEnabled = !!managed.autotaskBrandColorEnabled && !!managed.autotaskBrandColor;
+        }
+        if (managed.hasAutotaskLogoDataUrl) {
+            AES.state.autotaskLogoDataUrl = managed.autotaskLogoDataUrl;
+            AES.state.autotaskLogoOverrideEnabled = true;
+        }
     }
 
     AES.loadSettings = async function loadSettings() {
@@ -222,7 +338,9 @@
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.hideEarlyAccessLabels = settings && typeof settings.hideEarlyAccessLabels === 'boolean'
+                ? settings.hideEarlyAccessLabels
+                : true;
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
                 ? settings.showTabBarOnNonIframePages
@@ -231,11 +349,14 @@
                 ? settings.resizableTabBarEnabled
                 : true;
             AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
-            AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.roundedPageFramesEnabled = settings && typeof settings.roundedPageFramesEnabled === 'boolean'
+                ? settings.roundedPageFramesEnabled
+                : true;
             AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
             AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
+            AES.state.autotaskBrandColorPresets = readAutotaskBrandColorPresets(settings);
             AES.state.autotaskLogoDataUrl = readAutotaskLogoDataUrl(settings);
-            AES.state.autotaskLogoOverrideEnabled = !!(settings && settings.autotaskLogoOverrideEnabled && AES.state.autotaskLogoDataUrl);
+            AES.state.autotaskLogoOverrideEnabled = !!AES.state.autotaskLogoDataUrl;
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
@@ -244,7 +365,10 @@
                 : false;
             AES.state.peekMoveResizeEnabled = settings && typeof settings.peekMoveResizeEnabled === 'boolean'
                 ? settings.peekMoveResizeEnabled
-                : false;
+                : true;
+            AES.state.defaultEnabledSettingsMigration = typeof (settings && settings.defaultEnabledSettingsMigration) === 'string'
+                ? settings.defaultEnabledSettingsMigration
+                : '';
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
@@ -257,6 +381,7 @@
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
+            applyManagedBrandingSettings(await loadManagedBrandingSettings());
             AES.settingsLoaded = true;
             return;
         }
@@ -276,7 +401,9 @@
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
-            AES.state.hideEarlyAccessLabels = !!(settings && settings.hideEarlyAccessLabels);
+            AES.state.hideEarlyAccessLabels = settings && typeof settings.hideEarlyAccessLabels === 'boolean'
+                ? settings.hideEarlyAccessLabels
+                : true;
             AES.state.replaceCalendarWithResourcePlanner = !!(settings && settings.replaceCalendarWithResourcePlanner);
             AES.state.showTabBarOnNonIframePages = settings && typeof settings.showTabBarOnNonIframePages === 'boolean'
                 ? settings.showTabBarOnNonIframePages
@@ -285,11 +412,14 @@
                 ? settings.resizableTabBarEnabled
                 : true;
             AES.state.horizontalCompactTabsEnabled = !!(settings && settings.horizontalCompactTabsEnabled);
-            AES.state.roundedPageFramesEnabled = !!(settings && settings.roundedPageFramesEnabled);
+            AES.state.roundedPageFramesEnabled = settings && typeof settings.roundedPageFramesEnabled === 'boolean'
+                ? settings.roundedPageFramesEnabled
+                : true;
             AES.state.autotaskBrandColorEnabled = !!(settings && settings.autotaskBrandColorEnabled);
             AES.state.autotaskBrandColor = readAutotaskBrandColor(settings);
+            AES.state.autotaskBrandColorPresets = readAutotaskBrandColorPresets(settings);
             AES.state.autotaskLogoDataUrl = readAutotaskLogoDataUrl(settings);
-            AES.state.autotaskLogoOverrideEnabled = !!(settings && settings.autotaskLogoOverrideEnabled && AES.state.autotaskLogoDataUrl);
+            AES.state.autotaskLogoOverrideEnabled = !!AES.state.autotaskLogoDataUrl;
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
@@ -298,7 +428,10 @@
                 : false;
             AES.state.peekMoveResizeEnabled = settings && typeof settings.peekMoveResizeEnabled === 'boolean'
                 ? settings.peekMoveResizeEnabled
-                : false;
+                : true;
+            AES.state.defaultEnabledSettingsMigration = typeof (settings && settings.defaultEnabledSettingsMigration) === 'string'
+                ? settings.defaultEnabledSettingsMigration
+                : '';
             AES.state.releaseNotesLastSeenVersion = typeof (settings && settings.releaseNotesLastSeenVersion) === 'string'
                 ? settings.releaseNotesLastSeenVersion
                 : '';
@@ -311,6 +444,7 @@
             AES.state.tabBarWidth = readTabBarWidth(settings);
             AES.state.tabLine2Fields = settings && typeof settings.tabLine2Fields === 'object' ? settings.tabLine2Fields : {};
             AES.state.tabLine3Fields = settings && typeof settings.tabLine3Fields === 'object' ? settings.tabLine3Fields : {};
+            applyManagedBrandingSettings(await loadManagedBrandingSettings());
             AES.settingsLoaded = true;
         } catch (e) {
             AES.settingsLoadFailed = true;
@@ -319,6 +453,18 @@
 
     AES.saveSettings = async function saveSettings() {
         if (AES.settingsLoadFailed || !AES.settingsLoaded) return;
+        const managed = AES.state.managedSettings || {};
+        const brandColorManaged = !!(managed.hasAutotaskBrandColor || managed.hasAutotaskBrandColorEnabled);
+        const logoManaged = !!managed.hasAutotaskLogoDataUrl;
+        const savedBrandColorEnabled = brandColorManaged && typeof AES.state.localAutotaskBrandColorEnabled === 'boolean'
+            ? AES.state.localAutotaskBrandColorEnabled
+            : AES.state.autotaskBrandColorEnabled;
+        const savedBrandColor = brandColorManaged && typeof AES.state.localAutotaskBrandColor === 'string'
+            ? AES.state.localAutotaskBrandColor
+            : AES.state.autotaskBrandColor;
+        const savedLogoDataUrl = logoManaged && typeof AES.state.localAutotaskLogoDataUrl === 'string'
+            ? AES.state.localAutotaskLogoDataUrl
+            : AES.state.autotaskLogoDataUrl;
         const payload = {
             extensionEnabled: AES.state.extensionEnabled !== false,
             rememberTabsAfterClose: !!AES.state.rememberTabsAfterClose,
@@ -332,13 +478,17 @@
             resizableTabBarEnabled: !!AES.state.resizableTabBarEnabled,
             horizontalCompactTabsEnabled: !!AES.state.horizontalCompactTabsEnabled,
             roundedPageFramesEnabled: !!AES.state.roundedPageFramesEnabled,
-            autotaskBrandColorEnabled: !!AES.state.autotaskBrandColorEnabled,
-            autotaskBrandColor: readAutotaskBrandColor(AES.state),
-            autotaskLogoOverrideEnabled: !!(AES.state.autotaskLogoOverrideEnabled && readAutotaskLogoDataUrl(AES.state)),
-            autotaskLogoDataUrl: readAutotaskLogoDataUrl(AES.state),
+            autotaskBrandColorEnabled: !!savedBrandColorEnabled,
+            autotaskBrandColor: readAutotaskBrandColor({ autotaskBrandColor: savedBrandColor }),
+            autotaskBrandColorPresets: readAutotaskBrandColorPresets(AES.state),
+            autotaskLogoOverrideEnabled: !!readAutotaskLogoDataUrl({ autotaskLogoDataUrl: savedLogoDataUrl }),
+            autotaskLogoDataUrl: readAutotaskLogoDataUrl({ autotaskLogoDataUrl: savedLogoDataUrl }),
             improvedScrollbarsEnabled: !!AES.state.improvedScrollbarsEnabled,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             peekMoveResizeEnabled: !!AES.state.peekMoveResizeEnabled,
+            defaultEnabledSettingsMigration: typeof AES.state.defaultEnabledSettingsMigration === 'string'
+                ? AES.state.defaultEnabledSettingsMigration
+                : '',
             releaseNotesLastSeenVersion: typeof AES.state.releaseNotesLastSeenVersion === 'string'
                 ? AES.state.releaseNotesLastSeenVersion
                 : '',

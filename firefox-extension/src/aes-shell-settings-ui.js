@@ -14,14 +14,26 @@
     const settingsUi = AES.SettingsUi || (AES.SettingsUi = {});
 
     function appendName(label, config) {
+        const titleRow = document.createElement('span');
+        titleRow.className = 'at-tabs-setting-title-row';
+        label.appendChild(titleRow);
+
         if (config.info && typeof config.createInfo === 'function') {
-            label.appendChild(config.createInfo(config.info));
+            titleRow.appendChild(config.createInfo(config.info));
         }
 
         const name = document.createElement('span');
         name.className = 'at-tabs-setting-name';
         name.textContent = config.name || '';
-        label.appendChild(name);
+        titleRow.appendChild(name);
+        const descriptionText = String(config.subtitle || config.description || config.info || '').trim();
+        if (descriptionText) {
+            label.classList.add('has-description');
+            const description = document.createElement('span');
+            description.className = 'at-tabs-setting-description';
+            description.textContent = descriptionText;
+            label.appendChild(description);
+        }
         return name;
     }
 
@@ -67,6 +79,8 @@
     settingsUi.createSelectRow = function createSelectRow(config) {
         config = config || {};
         const parts = createBaseRow(config);
+        const selectWrap = document.createElement('span');
+        selectWrap.className = 'at-tabs-setting-select-wrap';
         const select = document.createElement('select');
         select.className = 'at-tabs-setting-select';
         if (config.title) select.title = config.title;
@@ -86,8 +100,9 @@
             }
         });
 
-        parts.row.appendChild(select);
-        return Object.assign(parts, { select });
+        selectWrap.appendChild(select);
+        parts.row.appendChild(selectWrap);
+        return Object.assign(parts, { select, selectWrap });
     };
 
     settingsUi.createFooterButton = function createFooterButton(config) {
