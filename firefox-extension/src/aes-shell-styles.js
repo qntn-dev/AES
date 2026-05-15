@@ -1572,6 +1572,168 @@
             .at-tabs-settings-backdrop.closing {
                 animation: aes-backdrop-out 220ms ease-in both;
             }
+            .at-tabs-welcome-backdrop {
+                position: fixed;
+                inset: 0;
+                z-index: 2147483645;
+                background: rgba(15, 23, 42, 0.36);
+                animation: at-tabs-backdrop-in 140ms ease-out;
+            }
+            .at-tabs-welcome-backdrop.closing {
+                opacity: 0;
+                transition: opacity 140ms ease;
+            }
+            .at-tabs-welcome-modal {
+                position: fixed;
+                z-index: 2147483646;
+                top: 50%;
+                left: 50%;
+                width: min(560px, calc(100vw - 32px));
+                max-height: calc(100vh - 48px);
+                transform: translate(-50%, -50%);
+                display: flex;
+                flex-direction: column;
+                overflow: hidden;
+                border-radius: 12px;
+                border: 1px solid rgba(148, 163, 184, 0.35);
+                background: #ffffff;
+                box-shadow: 0 22px 60px rgba(15, 23, 42, 0.28);
+                color: #0f172a;
+                font-family: "Segoe UI", Arial, sans-serif;
+                animation: at-tabs-modal-in 160ms ease-out;
+            }
+            .at-tabs-welcome-modal.closing {
+                opacity: 0;
+                transform: translate(-50%, calc(-50% + 8px)) scale(0.985);
+                transition: opacity 140ms ease, transform 140ms ease;
+            }
+            .at-tabs-welcome-header {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 14px;
+                padding: 18px 20px 12px;
+                border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+                background: #ffffff;
+            }
+            .at-tabs-welcome-title {
+                font-size: 18px;
+                font-weight: 700;
+                letter-spacing: -0.01em;
+                color: #0f172a;
+            }
+            .at-tabs-welcome-close {
+                width: 30px;
+                height: 30px;
+                border: 0;
+                border-radius: 8px;
+                background: transparent;
+                color: #64748b;
+                cursor: pointer;
+                font-size: 22px;
+                line-height: 1;
+            }
+            .at-tabs-welcome-close:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .at-tabs-welcome-body {
+                padding: 18px 20px;
+                overflow: auto;
+                font-size: 13px;
+                line-height: 1.55;
+                color: #334155;
+            }
+            .at-tabs-welcome-intro {
+                margin: 0 0 12px;
+            }
+            .at-tabs-welcome-intro:last-child {
+                margin-bottom: 0;
+            }
+            .at-tabs-welcome-intro a {
+                color: var(--aes-accent-color);
+                font-weight: 600;
+                text-decoration: none;
+            }
+            .at-tabs-welcome-intro a:hover {
+                text-decoration: underline;
+            }
+            .at-tabs-welcome-actions {
+                display: flex;
+                justify-content: flex-end;
+                gap: 10px;
+                padding: 14px 20px 18px;
+                border-top: 1px solid rgba(226, 232, 240, 0.9);
+                background: #f8fafc;
+            }
+            .at-tabs-welcome-action {
+                border: 1px solid rgba(148, 163, 184, 0.6);
+                border-radius: 8px;
+                background: #ffffff;
+                color: #334155;
+                cursor: pointer;
+                font-size: 12px;
+                font-weight: 700;
+                padding: 8px 12px;
+            }
+            .at-tabs-welcome-action:hover {
+                background: #f1f5f9;
+                color: #0f172a;
+            }
+            .at-tabs-welcome-open {
+                border-color: var(--aes-accent-color);
+                background: var(--aes-accent-color);
+                color: #ffffff;
+            }
+            .at-tabs-welcome-open:hover {
+                filter: brightness(0.96);
+                color: #ffffff;
+            }
+            html.aes-dark .at-tabs-welcome-backdrop {
+                background: rgba(0, 0, 0, 0.55);
+            }
+            html.aes-dark .at-tabs-welcome-modal {
+                border-color: rgba(71, 85, 105, 0.7);
+                background: #0f172a;
+                color: #e2e8f0;
+                box-shadow: 0 22px 60px rgba(0, 0, 0, 0.45);
+            }
+            html.aes-dark .at-tabs-welcome-header {
+                border-bottom-color: rgba(51, 65, 85, 0.9);
+                background: #111827;
+            }
+            html.aes-dark .at-tabs-welcome-title {
+                color: #f8fafc;
+            }
+            html.aes-dark .at-tabs-welcome-close {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-welcome-close:hover {
+                background: rgba(148, 163, 184, 0.14);
+                color: #ffffff;
+            }
+            html.aes-dark .at-tabs-welcome-body {
+                color: #cbd5e1;
+            }
+            html.aes-dark .at-tabs-welcome-actions {
+                border-top-color: rgba(51, 65, 85, 0.9);
+                background: #111827;
+            }
+            html.aes-dark .at-tabs-welcome-action {
+                border-color: rgba(71, 85, 105, 0.9);
+                background: #1e293b;
+                color: #e2e8f0;
+            }
+            html.aes-dark .at-tabs-welcome-action:hover {
+                background: #334155;
+                color: #ffffff;
+            }
+            html.aes-dark .at-tabs-welcome-open,
+            html.aes-dark .at-tabs-welcome-open:hover {
+                border-color: var(--aes-accent-color);
+                background: var(--aes-accent-color);
+                color: #ffffff;
+            }
             .at-tabs-release-notes-backdrop {
                 position: fixed;
                 inset: 0;
@@ -2786,6 +2948,10 @@
                 line-height: 1.4;
                 max-width: 34rem;
             }
+            .at-tabs-setting-warning-inline {
+                color: #b45309;
+                font-weight: 750;
+            }
             .at-tabs-setting-toggle {
                 position: relative;
                 display: inline-flex;
@@ -3840,6 +4006,9 @@
             }
             html.aes-dark .at-tabs-setting-description {
                 color: #94a3b8;
+            }
+            html.aes-dark .at-tabs-setting-warning-inline {
+                color: #fbbf24;
             }
             html.aes-dark .at-tabs-setting-toggle-ui {
                 background: #475569;

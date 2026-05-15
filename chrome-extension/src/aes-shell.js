@@ -276,6 +276,9 @@
     const IS_SAFARI_WEBKIT = navigator.vendor === 'Apple Computer, Inc.' &&
         /Safari/i.test(navigator.userAgent || '') &&
         !/(Chrome|Chromium|CriOS|FxiOS|Edg|OPR)\//i.test(navigator.userAgent || '');
+    const IS_FIREFOX_BROWSER = /Firefox\/\d+/i.test(navigator.userAgent || '') ||
+        /FxiOS\/\d+/i.test(navigator.userAgent || '');
+    const DEFAULT_ROUNDED_PAGE_FRAMES_ENABLED = !IS_FIREFOX_BROWSER;
     const RELEASE_NOTES_URL = 'https://github.com/qntn-dev/AES/releases/latest';
     const FEEDBACK_URL = 'https://github.com/qntn-dev/AES/issues/new';
     const GITHUB_LATEST_RELEASE_URL = 'https://github.com/qntn-dev/AES/releases/latest';
@@ -284,20 +287,75 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
-        version: '0.11.0',
-        sections: [
-            {
-                title: 'In progress',
-                items: [
-                    'Release notes for 0.11.0 are not written yet.',
-                ],
-            },
-        ],
+            version: '0.11.0',
+            sections: [
+                {
+                    title: 'AES Tip',
+                    items: [
+                        'Drag a tab into the page area to split your workspace.',
+                    ],
+                },
+                {
+                    title: 'Highlights',
+                    items: [
+                        'Biggest update so far for working with multiple Autotask pages at once.',
+                        'Drag to Split.',
+                        'Better split-view controls.',
+                        'More CRM and opportunity pages now open inside AES.',
+                    ],
+                },
+                {
+                    title: 'New Features',
+                    items: [
+                        'Added Drag to Split. Drag a tab into the page area to open it side-by-side with the current tab.',
+                        'Added left, right, and middle split drop zones with a smooth hover indicator.',
+                        'Added compact split-pane buttons to close or detach a pane directly from the frame.',
+                    ],
+                },
+                {
+                    title: 'Compatibility',
+                    intro: 'Added/improved AES Tab support for:',
+                    items: [
+                        'Copy Ticket / New Ticket create flows.',
+                        'Timesheets.',
+                        'Won, Lost, and Cancel Opportunity wizards.',
+                        'New Contact and New CRM Note from Account.',
+                    ],
+                },
+                {
+                    title: 'Peek Compatibility',
+                    intro: 'Added/improved AES Peek support for:',
+                    items: [
+                        'Reassign Lead wizard.',
+                        'Account history, document merge, and account visibility popups.',
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'Split views now show a clearer active-frame border.',
+                        'Split placeholders now reserve space more smoothly before dropping a tab.',
+                        'Project Task title bars now receive AES branding.',
+                        'Project Task metadata now includes the Project field as line 2 metadata.',
+                        'CRM wizard tabs now use the correct Opportunity, Note, and Contact icons.',
+                        'Firefox now defaults Rounded page frames to off and shows a warning because the setting can blur iframe content on ultrawide screens.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Fixed split tabs not always becoming visible immediately after drag-and-drop.',
+                        'Fixed closing tabs inside split view sometimes returning to Home instead of the remaining split pane.',
+                        'Fixed a syncSplitButtons is not defined error.',
+                        'Fixed a mergeMetadataFields is not defined error on native Onyx pages.',
+                    ],
+                },
+            ],
     };
     const RELEASE_NOTES_HISTORY = [
         RELEASE_NOTES,
         {
-            version: '0.10.0',
+            version: '0.10.1',
             sections: [
                 {
                     title: 'AES Tip',
@@ -327,6 +385,7 @@
                     title: 'Compatibility',
                     intro: 'Added and improved AES Tab support for more Autotask areas:',
                     items: [
+                        '0.10.1: Approve & Post.',
                         'Service Calls.',
                         'Inventory-related tabs.',
                         'Project Tasks.',
@@ -570,7 +629,7 @@
         product: faIcon('fa-box-open fa-regular'),
         account: faIcon('fa-building fa-regular'),
         device: faIcon('fa-laptop-mobile fa-regular'),
-        note: faIcon('fa-laptop-mobile fa-regular'),
+        note: faIcon('fa-note-sticky fa-regular'),
         opportunity: faIcon('fa-lightbulb fa-regular'),
         salesorder: faIcon('fa-cash-register fa-regular'),
         purchaseorder: faIcon('fa-receipt fa-regular'),
@@ -3766,14 +3825,23 @@
         if (p === '/mvc/knowledgebase/articlenew.mvc/article') return 'knowledgebase';
         if (p === '/mvc/crm/accountnew.mvc' || p === '/mvc/crm/accountdetail.mvc') return 'account';
         if (p === '/mvc/crm/installedproductdetail.mvc') return 'device';
-        if (p === '/mvc/crm/note.mvc/view') return 'note';
-        if (p === '/mvc/crm/opportunitydetail.mvc') return 'opportunity';
+        if (p === '/mvc/crm/note.mvc/view' ||
+            p === '/mvc/crm/editcrmnote.mvc/createforaccount') return 'note';
+        if (p === '/mvc/crm/opportunitydetail.mvc' ||
+            p === '/mvc/crm/wonopportunitywizard.mvc/wonopportunitywizard' ||
+            p === '/opportunity/wizards/lostopp/popwiz_frames.asp' ||
+            p === '/opportunity/wizards/cancelacc/popwiz_frames.asp' ||
+            p === '/opportunity/wizards/reassignlead/popwiz_frames.asp') return 'opportunity';
         if (p === '/autotask35/crm/salesorder/salesorderdetail.aspx') return 'salesorder';
         if (/\/inventory\/inventory_edit_order\.aspx$/i.test(p || '')) return 'purchaseorder';
         if (p === '/opportunity/quotes/quote.asp' ||
             p === '/opportunity/quotes/newquote.asp' ||
             p === '/mvc/crm/quotetemplate.mvc/editproperties') return 'quote';
-        if (p.includes('/contactdetail') || p.includes('/resourcedetail') || p.includes('/persondetail') || p === '/autotask35/grapevine/profile.aspx') return 'person';
+        if (p === '/mvc/crm/contactnewpage.mvc/create' ||
+            p.includes('/contactdetail') ||
+            p.includes('/resourcedetail') ||
+            p.includes('/persondetail') ||
+            p === '/autotask35/grapevine/profile.aspx') return 'person';
         if (p === '/autotask/views/crm/contact_group_management.aspx' ||
             p === '/autotask35/crm/contactgroupmanager.aspx') return 'group';
         if (p === '/home/timeentry/wrkentryframes.asp' ||
@@ -5756,25 +5824,25 @@
         if (state.releaseNotesModal || state.releaseNotesClosing) return false;
 
         const backdrop = document.createElement('div');
-        backdrop.className = 'at-tabs-release-notes-backdrop';
+        backdrop.className = 'at-tabs-welcome-backdrop';
         backdrop.addEventListener('click', function () {
             closeReleaseNotesModal();
             markWelcomeNoticeAsSeen();
         });
 
         const modal = document.createElement('div');
-        modal.className = 'at-tabs-release-notes-modal';
+        modal.className = 'at-tabs-welcome-modal';
 
         const header = document.createElement('div');
-        header.className = 'at-tabs-release-notes-header';
+        header.className = 'at-tabs-welcome-header';
 
         const title = document.createElement('div');
-        title.className = 'at-tabs-release-notes-title';
+        title.className = 'at-tabs-welcome-title';
         title.textContent = 'Thank you for installing AES: Tabs for Autotask!';
 
         const close = document.createElement('button');
         close.type = 'button';
-        close.className = 'at-tabs-release-notes-close';
+        close.className = 'at-tabs-welcome-close';
         close.textContent = '×';
         close.title = 'Close welcome notice';
         close.addEventListener('click', function () {
@@ -5783,15 +5851,15 @@
         });
 
         const body = document.createElement('div');
-        body.className = 'at-tabs-release-notes-body';
+        body.className = 'at-tabs-welcome-body';
 
         const description = document.createElement('p');
-        description.className = 'at-tabs-release-notes-intro';
+        description.className = 'at-tabs-welcome-intro';
         description.textContent = 'This extension enhances the Autotask PSA experience by adding a native-looking tabbar preventing Autotask from creating loads of browser tabs.';
         body.appendChild(description);
 
         const feedback = document.createElement('p');
-        feedback.className = 'at-tabs-release-notes-intro';
+        feedback.className = 'at-tabs-welcome-intro';
         feedback.append(
             'This extension is being very actively developed so expect bugs and visual issues or even complete Autotask crashes. Please provide feedback of these cases in the Issues page of the GitHub repo or email me directly via ',
             Object.assign(document.createElement('a'), {
@@ -5802,11 +5870,11 @@
         body.appendChild(feedback);
 
         const actions = document.createElement('div');
-        actions.className = 'at-tabs-release-notes-actions';
+        actions.className = 'at-tabs-welcome-actions';
 
         const githubButton = document.createElement('button');
         githubButton.type = 'button';
-        githubButton.className = 'at-tabs-release-notes-action at-tabs-release-notes-open';
+        githubButton.className = 'at-tabs-welcome-action at-tabs-welcome-open';
         githubButton.textContent = 'Open GitHub Issues';
         githubButton.addEventListener('click', function () {
             markWelcomeNoticeAsSeen();
@@ -5818,7 +5886,7 @@
 
         const confirmButton = document.createElement('button');
         confirmButton.type = 'button';
-        confirmButton.className = 'at-tabs-release-notes-action';
+        confirmButton.className = 'at-tabs-welcome-action';
         confirmButton.textContent = 'Got it';
         confirmButton.addEventListener('click', function () {
             markWelcomeNoticeAsSeen();
@@ -6194,7 +6262,7 @@
             showTabBarOnNonIframePages: true,
             resizableTabBarEnabled: true,
             horizontalCompactTabsEnabled: false,
-            roundedPageFramesEnabled: true,
+            roundedPageFramesEnabled: DEFAULT_ROUNDED_PAGE_FRAMES_ENABLED,
             experimentalUmbrellaContractFrameTabs: false,
             autotaskBrandColorEnabled: false,
             autotaskBrandColor: DEFAULT_AUTOTASK_BRAND_COLOR,
@@ -6317,6 +6385,13 @@
         });
         const roundedPageFramesRow = roundedPageFramesControl.row;
         const roundedPageFramesInput = roundedPageFramesControl.input;
+        if (IS_FIREFOX_BROWSER) {
+            const roundedPageFramesWarning = document.createElement('span');
+            roundedPageFramesWarning.className = 'at-tabs-setting-description at-tabs-setting-warning-inline';
+            roundedPageFramesWarning.textContent = 'Firefox only: This setting may cause content to appear blurry on ultrawide screens.';
+            roundedPageFramesControl.label.classList.add('has-description');
+            roundedPageFramesControl.label.appendChild(roundedPageFramesWarning);
+        }
 
         const improvedScrollbarsControl = createSettingsToggleRow({
             name: 'Improved scrollbars',
@@ -8845,6 +8920,8 @@
     function shouldOpenUrlInPeek(url) {
         const path = AES.normalizeHandledPath(AES.pathOf(url)).toLowerCase();
         return shouldAllowProgrammaticPeekConversion(url) ||
+            path === '/billing/invoices/popups/wrkdetails.asp' ||
+            path === '/autotask/views/contracts/cost.aspx' ||
             path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
             path === '/mvc/administrationsetup/invoicetemplate.mvc/editproperties';
     }
@@ -10444,11 +10521,17 @@
         if (AES.state.defaultEnabledSettingsMigration !== 'hide-rounded-peek-2026-05-09') {
             state.hideEarlyAccessLabels = true;
             AES.state.hideEarlyAccessLabels = true;
-            state.roundedPageFramesEnabled = true;
-            AES.state.roundedPageFramesEnabled = true;
+            state.roundedPageFramesEnabled = DEFAULT_ROUNDED_PAGE_FRAMES_ENABLED;
+            AES.state.roundedPageFramesEnabled = DEFAULT_ROUNDED_PAGE_FRAMES_ENABLED;
             state.peekMoveResizeEnabled = true;
             AES.state.peekMoveResizeEnabled = true;
             AES.state.defaultEnabledSettingsMigration = 'hide-rounded-peek-2026-05-09';
+            void AES.saveSettings();
+        }
+        if (IS_FIREFOX_BROWSER && AES.state.firefoxRoundedPageFramesDefaultMigration !== 'off-by-default-2026-05-14') {
+            state.roundedPageFramesEnabled = false;
+            AES.state.roundedPageFramesEnabled = false;
+            AES.state.firefoxRoundedPageFramesDefaultMigration = 'off-by-default-2026-05-14';
             void AES.saveSettings();
         }
         if (typeof AES.state.autotaskBrandColorEnabled === 'boolean') {

@@ -439,10 +439,13 @@
                 path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
                 path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
                 path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
+                path === '/billing/invoices/popups/wrkdetails.asp' ||
+                path === '/opportunity/wizards/reassignlead/popwiz_frames.asp' ||
                 path === '/mvc/projects/projectnote.mvc/newprojectnote' ||
                 path === '/projects/calendar/prjcalendar.asp' ||
                 path === '/mvc/file/attachment.mvc/projectattachment' ||
                 path === '/mvc/projects/teammember.mvc/add' ||
+                path === '/autotask/views/contracts/cost.aspx' ||
                 path === '/autotask/views/projects/project_cost.aspx' ||
                 path === '/mvc/timesheets/expense.mvc/createnewprojectexpense' ||
                 path === '/projects/wizards/transformations/copyattributes/popwiz_frames.asp' ||
@@ -453,6 +456,9 @@
                 path === '/servicedesk/popups/forward/svcforward.asp' ||
                 path === '/servicedesk/reports/togoreportframe.asp' ||
                 path === '/mvc/servicedesk/tickethistory.mvc/servicetickethistory' ||
+                path === '/mvc/crm/accounthistory.mvc/entitychangehistory' ||
+                path === '/mvc/crm/documentmerge.mvc/accountdocumentmerge' ||
+                path === '/mvc/crm/security.mvc/whocanviewaccount' ||
                 path === '/popups/work/svcdetail.asp' ||
                 path === '/popups/searches/srcclient.asp' ||
                 path === '/administrator/roles/tabroleview.asp' ||
