@@ -1,5 +1,85 @@
 # Changelog
 
+## v1.0.0
+
+AES: Tabs for Autotask is now stable enough for v1.0. Releases will be less frequent from now on because AES now covers most of Autotask's areas.
+
+### Highlights
+
+- Accidentally closed a tab? Restore it via the new Tab History feature.
+- External Autotask links now open in AES when pasted or typed into the browser's URL bar.
+
+### New features
+
+- Added a button in the tab bar that shows the last 10 closed tabs so you can restore them.
+- Added a Copy Autotask Link button to the right-click menu on a tab. This copies the link to the frame and opens within an AES Tab on browsers that have the extension installed.
+- Added an extension shortcut to close all tabs except the Home tab, configurable in the extension settings of your browser. Set to Ctrl+Shift+X by default.
+
+### Compatibility
+
+Added/improved AES Tab support for:
+
+- Datto RMM links to tickets.
+- Pop-out buttons within Ticket Notes and Time Entries.
+- New Tickets (again).
+
+### Improvements
+
+- Copy buttons on hover cards now inherit the branding color.
+- Datto RMM links to tickets now open properly within AES Tabs.
+- Automatic collapsing of the vertical tab bar now has a 1-second delay to prevent the bar from collapsing too quickly.
+- Opening a compatible AES link directly from the browser's URL bar now detects if there is already an open Autotask page and opens it within an AES Tab. Previously this only worked with links on pages.
+- Empty metadata now shows that there is no data, for example "No contact", so tabs are more consistent in layout.
+
+### Fixes
+
+- Copy buttons on hover cards can no longer be colored white when Autotask is set to light mode.
+- Contact tabs no longer show the ID prefix twice when selected as metadata.
+
+## v0.11.0
+
+Release focused on Drag to Split and broader compatibility.
+
+### Highlights
+
+- Drag to Split.
+- More compatibility across Autotask flows.
+
+### New features
+
+- Added Drag to Split. Drag a tab into the page area to open it side-by-side with the current tab.
+- Added left, right, and middle split drop zones with a smooth hover indicator.
+- Added compact split-pane buttons to close or detach a pane directly from the frame.
+
+### Compatibility
+
+Added/improved AES Tab support for:
+
+- Copy Ticket / New Ticket create flows.
+- Timesheets.
+- Won, Lost, and Cancel Opportunity wizards.
+- New Contact and New CRM Note from Account.
+
+Added/improved AES Peek support for:
+
+- Reassign Lead wizard.
+- Account history, document merge, and account visibility popups.
+- Organization/Company history.
+- Document Merge wizard.
+
+### Improvements
+
+- Project Task title bars now receive AES branding.
+- Project Task metadata now includes the Project field as line 2 metadata.
+- CRM wizard tabs now use the correct Opportunity, Note, and Contact icons.
+- Firefox now defaults Rounded page frames to off and shows a warning because the setting can blur iframe content on ultrawide screens.
+
+### Fixes
+
+- Fixed closing tabs inside split view sometimes returning to Home instead of the remaining split pane.
+- Fixed a `syncSplitButtons is not defined` error.
+- Fixed a `mergeMetadataFields is not defined` error on native Onyx pages.
+
 ## v0.9.0
 
 Experimental release focused on Projects, Branding, invoices, and safer Umbrella Contract handling.

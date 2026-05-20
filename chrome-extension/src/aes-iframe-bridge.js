@@ -238,9 +238,7 @@
                 path.includes('installedproduct') ||
                 path.includes('contract_products')
             )) return true;
-            return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
-                path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
-                path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+            return path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
                 path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
                 path === '/billing/invoices/popups/wrkdetails.asp' ||
                 path === '/opportunity/wizards/reassignlead/popwiz_frames.asp' ||
@@ -281,9 +279,13 @@
         const anchorTargetUrl = extractAnchorUrl(anchor);
         if (anchorTargetUrl) return anchorTargetUrl;
 
-        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick]') : null;
+        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick], span[onclick]') : null;
         if (!el) return null;
         const onclickText = el.getAttribute('onclick') || '';
+        const ticketByNumberMatch = onclickText.match(/openTicketByTicketNumber\s*\(\s*['"]([^'"]+)['"]/i);
+        if (ticketByNumberMatch) {
+            return AES.toAbsoluteUrl('/Mvc/ServiceDesk/TicketDetail.mvc/TicketByTicketNumber?ticketNumber=' + encodeURIComponent(ticketByNumberMatch[1]));
+        }
         if (!onclickText.includes('NewWindowPage') && !onclickText.includes('window.open')) return null;
 
         const targetUrl = extractUrlFromOnclick(onclickText) || extractWindowOpenUrl(onclickText);
@@ -548,7 +550,8 @@
             const title = cleanText(titleEl && titleEl.textContent)
                 .toLowerCase()
                 .replace(/\s*[-–]\s*$/, '')
-                .replace(/^edit\s+/, '');
+                .replace(/^edit\s+/, '')
+                .replace(/^new\s+/, '');
             bar.classList.toggle('aes-brand-entity-titlebar', BRANDABLE_ENTITY_TITLEBAR_TITLES.has(title));
         });
     }
@@ -802,6 +805,12 @@
 
     function isLegacyContractViewUrl(url) {
         return AES.normalizeHandledPath(AES.pathOf(url || '')) === '/contracts/views/contractview.asp';
+    }
+
+    function isDialogPopOutFromDialogUrl(url) {
+        const path = AES.normalizeHandledPath(AES.pathOf(url || ''));
+        return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog';
     }
 
     function umbrellaContractIdFromFrameUrl(url) {
@@ -1526,7 +1535,7 @@ html.aes-embedded-umbrella-contract .o-view-layout {
         let number = '', title = '';
         if (heading) {
             const idEl = heading.querySelector('.IdentificationText');
-            if (idEl) number = cleanText(idEl.textContent).replace(/^ID:\s*/i, '');
+            if (idEl) number = cleanText(idEl.textContent).replace(/^ID\b\s*:?\s*/i, '');
             const titleEl = heading.querySelector('.Title > .Text');
             if (titleEl) title = cleanText(titleEl.textContent);
         }
@@ -1547,7 +1556,7 @@ html.aes-embedded-umbrella-contract .o-view-layout {
         let number = '', title = '';
         if (heading) {
             const idEl = heading.querySelector('.IdentificationText');
-            if (idEl) number = cleanText(idEl.textContent).replace(/^ID:\s*/i, '');
+            if (idEl) number = cleanText(idEl.textContent).replace(/^ID\b\s*:?\s*/i, '');
             const titleEl = heading.querySelector('.Title > .Text');
             if (titleEl) title = cleanText(titleEl.textContent);
         }
@@ -1576,7 +1585,7 @@ html.aes-embedded-umbrella-contract .o-view-layout {
         let number = '', title = '';
         if (heading) {
             const idEl = heading.querySelector('.IdentificationText');
-            if (idEl) number = cleanText(idEl.textContent).replace(/^ID:\s*/i, '');
+            if (idEl) number = cleanText(idEl.textContent).replace(/^ID\b\s*:?\s*/i, '');
             const titleEl = heading.querySelector('.Title > .Text');
             if (titleEl) title = cleanText(titleEl.textContent);
         }
@@ -2454,6 +2463,18 @@ html.aes-embedded-umbrella-contract .o-view-layout {
             if (data.type === 'close-frame' || data.type === 'close-peek') {
                 postToTop({ type: 'close-frame', target: data.target || '' });
             }
+            if (data.type === 'open-dialog-popout' && data.url && Array.isArray(data.fields)) {
+                // The page-bridge caught a dialog PopOut form.submit() and
+                // sent the payload our way. Forward it to the top shell
+                // which will spin up an AES tab and re-POST the form
+                // into it.
+                postToTop({
+                    type: 'open-dialog-popout',
+                    url: data.url,
+                    method: data.method || 'post',
+                    fields: data.fields,
+                });
+            }
         }, true);
 
         function requestAllShellStates() {
@@ -2548,6 +2569,46 @@ html.aes-embedded-umbrella-contract .o-view-layout {
             postToTop({ type: 'open-duplicate', url: targetUrl });
         }, true);
 
+        // Autotask's PopOut button on note / time-entry dialogs submits a
+        // hidden POST form with target="_blank" — the response is what
+        // becomes the standalone popout window. The endpoint can't be
+        // opened with a bare GET because it depends on the form's
+        // payload (session token, ticket id, dialog state). Cancel the
+        // native submit and forward the full payload to the top shell,
+        // which re-submits the same form into a fresh AES-tab iframe.
+        document.addEventListener('submit', function (event) {
+            if (!featureEnabled) return;
+            const form = event.target;
+            if (!form || form.tagName !== 'FORM') return;
+            let actionUrl = '';
+            try { actionUrl = new URL(form.action, location.href).href; }
+            catch (e) { return; }
+            if (!isDialogPopOutFromDialogUrl(actionUrl)) return;
+            const target = (form.target || '').toLowerCase();
+            if (target !== '_blank' && target !== 'new') return;
+            event.preventDefault();
+            event.stopPropagation();
+            const fields = [];
+            Array.prototype.forEach.call(form.elements, function (el) {
+                if (!el || !el.name) return;
+                if (el.disabled) return;
+                const elType = (el.type || '').toLowerCase();
+                if (elType === 'submit' || elType === 'button' || elType === 'reset'
+                    || elType === 'image' || elType === 'file') return;
+                if ((elType === 'checkbox' || elType === 'radio') && !el.checked) return;
+                fields.push({
+                    name: el.name,
+                    value: typeof el.value === 'string' ? el.value : '',
+                });
+            });
+            postToTop({
+                type: 'open-dialog-popout',
+                url: actionUrl,
+                method: (form.method || 'post').toLowerCase(),
+                fields: fields,
+            });
+        }, true);
+
         if (!window.__AESWindowOpenInterceptInstalled) {
             window.__AESWindowOpenInterceptInstalled = true;
             const originalOpen = window.open;
@@ -2558,6 +2619,16 @@ html.aes-embedded-umbrella-contract .o-view-layout {
                     pendingMapOpenUntil = 0;
                     postToTop({ type: 'map', url: targetUrl });
                     return createMapWindow(targetUrl);
+                }
+                if (targetUrl && isDialogPopOutFromDialogUrl(targetUrl)) {
+                    // Same reasoning as the page-bridge override:
+                    // don't let popout URLs spawn a real browser tab
+                    // here. The form.submit intercept in the
+                    // page-bridge has already pushed the right POST
+                    // payload to the shell so an AES tab is being
+                    // created — opening a browser tab in parallel
+                    // would just produce an Autotask error page.
+                    return createHandledWindow(targetUrl);
                 }
                 if (targetUrl && (AES.isHandledUrl(targetUrl) || isPeekPopupUrl(targetUrl))) {
                     postHandledNavigation(targetUrl);

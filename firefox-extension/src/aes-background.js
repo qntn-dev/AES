@@ -15,6 +15,8 @@
     const GITHUB_LATEST_RELEASE_API_URL = 'https://api.github.com/repos/qntn-dev/AES/releases/latest';
     const SETTINGS_STORAGE_KEY = 'autotask-tabs-settings-v1';
     const UMBRELLA_CONTRACT_FRAME_RULE_ID = 1101;
+    const lastKnownTabUrls = new Map();
+    const registeredShellTabs = new Map();
 
     if (!globalThis.__AES_ROUTE_REGISTRY__ && typeof importScripts === 'function') {
         try {
@@ -106,11 +108,38 @@
         return false;
     }
 
+    function toAbsoluteUrl(url, baseUrl) {
+        try {
+            return new URL(String(url || ''), baseUrl).href;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function extractInnerUrlFromLandingPageUrl(url) {
+        try {
+            const landingUrl = new URL(String(url || ''));
+            if (normalizePath(landingUrl.pathname) !== '/autotaskonyx/landingpage') return '';
+
+            const rawViewData = landingUrl.searchParams.get('view-data');
+            if (!rawViewData) return '';
+
+            const parsed = JSON.parse(atob(rawViewData));
+            const innerUrl = parsed && typeof parsed.url === 'string' ? parsed.url : '';
+            return innerUrl ? toAbsoluteUrl(innerUrl, landingUrl.origin) : '';
+        } catch (e) {
+            return '';
+        }
+    }
+
     function normalizeExternalAutotaskUrl(url) {
         try {
             const parsed = new URL(String(url || ''));
             const path = normalizePath(parsed.pathname);
             if (!isRegionalAutotaskHost(parsed.hostname)) return '';
+            const innerUrl = extractInnerUrlFromLandingPageUrl(parsed.href);
+            if (innerUrl) return normalizeExternalAutotaskUrl(innerUrl);
+            if (isDialogPopOutFromDialogPath(path)) return '';
             if (!isHandledAutotaskPath(path)) return '';
             return parsed.href;
         } catch (e) {
@@ -230,10 +259,148 @@
     function isExternalOpenerUrl(url) {
         try {
             const parsed = new URL(url || '');
-            return /^https?:$/i.test(parsed.protocol) && !isRegionalAutotaskHost(parsed.hostname);
+            return /^https?:$/i.test(parsed.protocol) && (
+                !isRegionalAutotaskHost(parsed.hostname) ||
+                isAutotaskExternalBridgeOpenerUrl(parsed.href)
+            );
         } catch (e) {
             return false;
         }
+    }
+
+    function isAutotaskExternalBridgeOpenerUrl(url) {
+        try {
+            const parsed = new URL(url || '');
+            if (!isRegionalAutotaskHost(parsed.hostname)) return false;
+            if (normalizePath(parsed.pathname) !== '/autotask/autotaskextend/executecommand.aspx') return false;
+            return String(parsed.searchParams.get('Code') || '').toLowerCase() === 'openticketdetail';
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function shouldCloseSameTabExternalOpenSource(url) {
+        return isAutotaskExternalBridgeOpenerUrl(url);
+    }
+
+    function isDialogPopOutFromDialogPath(path) {
+        return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog';
+    }
+
+    function dialogPopOutPathFromUrl(url) {
+        try {
+            const parsed = new URL(String(url || ''));
+            if (!isRegionalAutotaskHost(parsed.hostname)) return '';
+            return normalizePath(parsed.pathname);
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function isRegisteredShellUrl(url) {
+        try {
+            const parsed = new URL(url || '');
+            if (!isRegionalAutotaskHost(parsed.hostname)) return false;
+            const path = normalizePath(parsed.pathname);
+            return path === '/autotaskonyx' || path.startsWith('/autotaskonyx/');
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function registerShellTab(tab) {
+        if (!tab || typeof tab.id !== 'number' || !isRegisteredShellUrl(tab.url || '')) return false;
+        registeredShellTabs.set(tab.id, {
+            id: tab.id,
+            windowId: tab.windowId,
+            url: tab.url || '',
+            lastSeenAt: Date.now(),
+        });
+        return true;
+    }
+
+    function chooseRegisteredShellTab(tabs, sender) {
+        const senderTab = sender && sender.tab;
+        const senderTabId = senderTab && typeof senderTab.id === 'number' ? senderTab.id : null;
+        const senderWindowId = senderTab && typeof senderTab.windowId === 'number' ? senderTab.windowId : null;
+        const candidates = (tabs || []).filter(function (tab) {
+            if (!tab || typeof tab.id !== 'number') return false;
+            if (senderTabId !== null && tab.id === senderTabId) return false;
+            if (!registeredShellTabs.has(tab.id)) return false;
+            if (!isRegisteredShellUrl(tab.url || '')) {
+                registeredShellTabs.delete(tab.id);
+                return false;
+            }
+            return true;
+        });
+
+        return candidates.find(tab => tab.active && tab.windowId === senderWindowId)
+            || candidates.find(tab => tab.windowId === senderWindowId)
+            || candidates.find(tab => tab.active)
+            || candidates[0]
+            || null;
+    }
+
+    function openDirectHandledUrlInExistingShell(message, sender, sendResponse) {
+        const rawUrl = normalizeExternalAutotaskUrl(message && message.url);
+        const senderTab = sender && sender.tab;
+        if (!rawUrl || !senderTab || typeof senderTab.id !== 'number') {
+            sendResponse({ ok: false, reason: 'unsupported-url' });
+            return;
+        }
+
+        callApi(api.tabs.query.bind(api.tabs), [{ url: ['https://*.autotask.net/*'] }])
+            .then(function (tabs) {
+                const targetTab = chooseRegisteredShellTab(tabs, sender);
+                if (!targetTab) {
+                    sendResponse({ ok: false, reason: 'no-registered-shell' });
+                    return null;
+                }
+                const targetUrl = rewriteToTabRegion(rawUrl, targetTab.url);
+                return focusTab(targetTab)
+                    .then(function () {
+                        return sendMessageToTab(targetTab.id, {
+                            __aesExternalOpen: true,
+                            type: 'open-autotask-url',
+                            url: targetUrl,
+                        });
+                    })
+                    .then(function () {
+                        callApi(api.tabs.remove.bind(api.tabs), [senderTab.id]).catch(function () {});
+                        sendResponse({ ok: true, mode: 'registered-shell', url: targetUrl });
+                    })
+                    .catch(function (error) {
+                        registeredShellTabs.delete(targetTab.id);
+                        sendResponse({
+                            ok: false,
+                            reason: String(error && error.message || error || 'shell-message-failed'),
+                        });
+                    });
+            })
+            .catch(function (error) {
+                sendResponse({ ok: false, reason: String(error && error.message || error || 'unknown-error') });
+            });
+    }
+
+    function rememberTabUrl(tabId, url) {
+        if (typeof tabId !== 'number' || !url) return;
+        lastKnownTabUrls.set(tabId, String(url));
+    }
+
+    function restoreExternalTabUrl(tabId, externalUrl, openedAutotaskUrl) {
+        if (typeof tabId !== 'number' || !externalUrl) return;
+        callApi(api.tabs.get.bind(api.tabs), [tabId])
+            .then(function (tab) {
+                if (!tab || typeof tab.id !== 'number') return;
+                const currentAutotaskUrl = normalizeExternalAutotaskUrl(tab.url || '');
+                if (currentAutotaskUrl && currentAutotaskUrl === openedAutotaskUrl) {
+                    rememberTabUrl(tabId, externalUrl);
+                    return callApi(api.tabs.update.bind(api.tabs), [tabId, { url: externalUrl }]);
+                }
+                return null;
+            })
+            .catch(function () {});
     }
 
     function chooseAutotaskTab(tabs, sender, excludedTabId) {
@@ -300,20 +467,51 @@
             });
     }
 
-    api.action.onClicked.addListener(function (tab) {
+    function sendShellUiMessage(tab, message) {
         if (!tab || typeof tab.id !== 'number') return;
         try {
-            const sending = api.tabs.sendMessage(tab.id, {
-                __aesToolbar: true,
-                type: 'open-settings'
-            });
+            const sending = api.tabs.sendMessage(tab.id, message);
             if (sending && typeof sending.catch === 'function') {
                 sending.catch(function () { /* ignore: not an AES tab */ });
             }
         } catch (e) {
             // ignore — tab not injectable / no listener
         }
+    }
+
+    api.action.onClicked.addListener(function (tab) {
+        sendShellUiMessage(tab, {
+            __aesToolbar: true,
+            type: 'open-settings'
+        });
     });
+
+    if (api.commands && api.commands.onCommand) {
+        api.commands.onCommand.addListener(function (command, tab) {
+            if (command !== 'close-all-tabs') return;
+            // Chrome sometimes invokes the command without a tab
+            // context (e.g. when focus is on DevTools, the extensions
+            // page, or some Mac focus edge cases). Fall back to the
+            // active tab in the last-focused normal window.
+            if (tab && typeof tab.id === 'number') {
+                sendShellUiMessage(tab, {
+                    __aesCommand: true,
+                    type: 'close-all-tabs'
+                });
+                return;
+            }
+            try {
+                api.tabs.query({ active: true, lastFocusedWindow: true }, function (tabs) {
+                    const resolved = tabs && tabs[0];
+                    if (!resolved) return;
+                    sendShellUiMessage(resolved, {
+                        __aesCommand: true,
+                        type: 'close-all-tabs'
+                    });
+                });
+            } catch (e) {}
+        });
+    }
 
     if (api.runtime && api.runtime.onMessage) {
         api.runtime.onMessage.addListener(function (message, sender, sendResponse) {
@@ -332,6 +530,14 @@
                     });
                 return true;
             }
+            if (message && message.__aesShellReady && message.type === 'shell-ready') {
+                sendResponse({ ok: registerShellTab(sender && sender.tab) });
+                return false;
+            }
+            if (message && message.__aesDirectHandledOpen && message.type === 'open-in-existing-shell') {
+                openDirectHandledUrlInExistingShell(message, sender, sendResponse);
+                return true;
+            }
             if (!message || !message.__aesExternalOpen || message.type !== 'open-autotask-url') return false;
             openExternalAutotaskUrl(message, sender, sendResponse);
             return true;
@@ -348,8 +554,15 @@
 
     if (api.tabs.onCreated) {
         api.tabs.onCreated.addListener(function (tab) {
-            const openedUrl = normalizeExternalAutotaskUrl(tab && (tab.pendingUrl || tab.url));
-            if (!openedUrl || !tab || typeof tab.id !== 'number' || typeof tab.openerTabId !== 'number') return;
+            const rawUrl = tab && (tab.pendingUrl || tab.url);
+            const openedUrl = normalizeExternalAutotaskUrl(rawUrl);
+            if (tab && typeof tab.id === 'number') {
+                rememberTabUrl(tab.id, rawUrl);
+            }
+            if (!openedUrl || !tab || typeof tab.id !== 'number') return;
+            if (typeof tab.openerTabId !== 'number') {
+                return;
+            }
 
             callApi(api.tabs.get.bind(api.tabs), [tab.openerTabId])
                 .then(function (openerTab) {
@@ -367,8 +580,37 @@
 
     if (api.tabs.onUpdated) {
         api.tabs.onUpdated.addListener(function (tabId, changeInfo, tab) {
-            const openedUrl = normalizeExternalAutotaskUrl(changeInfo && changeInfo.url);
-            if (!openedUrl || !tab || typeof tab.openerTabId !== 'number') return;
+            const previousUrl = lastKnownTabUrls.get(tabId) || '';
+            const rawUrl = changeInfo && changeInfo.url;
+            const openedUrl = normalizeExternalAutotaskUrl(rawUrl);
+            if (changeInfo && changeInfo.url) {
+                rememberTabUrl(tabId, changeInfo.url);
+                if (registeredShellTabs.has(tabId) && !isRegisteredShellUrl(changeInfo.url)) {
+                    registeredShellTabs.delete(tabId);
+                }
+            }
+            if (!openedUrl || !tab) return;
+
+            if (typeof tab.openerTabId !== 'number') {
+                if (!isExternalOpenerUrl(previousUrl)) {
+                    return;
+                }
+                openExternalAutotaskUrl(
+                    { url: openedUrl },
+                    { tab: { id: tabId, windowId: tab.windowId, url: previousUrl } },
+                    function (response) {
+                        if (response && response.ok && response.mode === 'aes-tab') {
+                            if (shouldCloseSameTabExternalOpenSource(previousUrl)) {
+                                callApi(api.tabs.remove.bind(api.tabs), [tabId]).catch(function () {});
+                                return;
+                            }
+                            restoreExternalTabUrl(tabId, previousUrl, openedUrl);
+                        }
+                    },
+                    { excludeTabId: tabId, noNativeFallback: true }
+                );
+                return;
+            }
 
             callApi(api.tabs.get.bind(api.tabs), [tab.openerTabId])
                 .then(function (openerTab) {
@@ -381,6 +623,13 @@
                     );
                 })
                 .catch(function () {});
+        });
+    }
+
+    if (api.tabs.onRemoved) {
+        api.tabs.onRemoved.addListener(function (tabId) {
+            lastKnownTabUrls.delete(tabId);
+            registeredShellTabs.delete(tabId);
         });
     }
 

@@ -225,10 +225,23 @@
         if (!path) {
             return false;
         }
+        if (isDialogPopOutFromDialogPath(path)) {
+            return false;
+        }
         if (ROUTES.isHandledPath) {
             return ROUTES.isHandledPath(path);
         }
         return false;
+    }
+
+    function isDialogPopOutFromDialogPath(path) {
+        const normalizedPath = String(path || '').toLowerCase().replace(/\/index$/, '');
+        return normalizedPath === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            normalizedPath === '/mvc/servicedesk/note.mvc/notepopoutfromdialog';
+    }
+
+    function isDialogPopOutFromDialogUrl(url) {
+        return isDialogPopOutFromDialogPath(pathOf(url));
     }
 
     function absoluteUrl(url) {
@@ -317,6 +330,7 @@
         if (!featureEnabled) return false;
         const targetUrl = absoluteUrl(url);
         if (!targetUrl) return false;
+        if (isDialogPopOutFromDialogUrl(targetUrl)) return false;
         if (isUmbrellaContractUrl(targetUrl)) {
             window.postMessage({ __ns: MSG_NS, type: 'umbrella-open', url: targetUrl }, location.origin);
             return true;
@@ -435,9 +449,7 @@
                 path.includes('installedproduct') ||
                 path.includes('contract_products')
             )) return true;
-            return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
-                path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
-                path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+            return path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
                 path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
                 path === '/billing/invoices/popups/wrkdetails.asp' ||
                 path === '/opportunity/wizards/reassignlead/popwiz_frames.asp' ||
@@ -567,9 +579,13 @@
             if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
         }
 
-        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick]') : null;
+        const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick], span[onclick]') : null;
         if (!el) return '';
         const onclickText = el.getAttribute('onclick') || '';
+        const ticketByNumberMatch = onclickText.match(/openTicketByTicketNumber\s*\(\s*['"]([^'"]+)['"]/i);
+        if (ticketByNumberMatch) {
+            return absoluteUrl('/Mvc/ServiceDesk/TicketDetail.mvc/TicketByTicketNumber?ticketNumber=' + encodeURIComponent(ticketByNumberMatch[1]));
+        }
         const newWindowMatch = onclickText.match(
             /NewWindowPage\s*\(\s*'[^']*'\s*,\s*'([^']+)'\s*,\s*(?:true|false)\s*,\s*'([^']+)'\s*,\s*'([^']+)'/
         );
@@ -696,6 +712,15 @@
         if (!hasUserNavigationActivation() && !isPendingDuplicateOpen() && !isPendingMapOpen()) {
             return originalOpen.apply(window, arguments);
         }
+        if (url && isDialogPopOutFromDialogUrl(absoluteUrl(url))) {
+            // Autotask's PopOut button sometimes invokes window.open
+            // alongside the hidden form.submit(). The form.submit
+            // override above has already posted the prepared form
+            // payload to the shell, which creates a proper AES tab
+            // with the right POST request. Return a synthetic window
+            // so the caller doesn't choke on a null.
+            return createHandledWindow(url);
+        }
         if (postPeek(url)) return createPeekWindow(url);
         if (postMap(url)) return createMapWindow(url);
         if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return createHandledWindow(url);
@@ -707,6 +732,53 @@
     window.close = function () {
         if (postCloseFrame()) return;
         return originalClose.apply(window, arguments);
+    };
+
+    // Autotask's dialog PopOut button calls `form.submit()` directly on
+    // a hidden POST form with target="_blank". The submit event is NOT
+    // dispatched for the programmatic call, so a content-script-level
+    // `submit` listener can never see it. Override the prototype here
+    // (in the page world) and ferry the payload out via postMessage so
+    // an AES tab opens instead of a new browser tab.
+    const originalFormSubmit = HTMLFormElement.prototype.submit;
+    HTMLFormElement.prototype.submit = function () {
+        try {
+            let actionUrl = '';
+            try { actionUrl = absoluteUrl(this.action || ''); }
+            catch (e) { actionUrl = ''; }
+            const target = String(this.target || '').toLowerCase();
+            if (featureEnabled) {
+                const isPopoutTarget = target === '_blank' || target === 'new';
+                if (actionUrl && isPopoutTarget && isDialogPopOutFromDialogUrl(actionUrl)) {
+                    const fields = [];
+                    try {
+                        Array.prototype.forEach.call(this.elements, function (el) {
+                            if (!el || !el.name) return;
+                            if (el.disabled) return;
+                            const t = String(el.type || '').toLowerCase();
+                            if (t === 'submit' || t === 'button' || t === 'reset'
+                                || t === 'image' || t === 'file') return;
+                            if ((t === 'checkbox' || t === 'radio') && !el.checked) return;
+                            fields.push({
+                                name: el.name,
+                                value: typeof el.value === 'string' ? el.value : '',
+                            });
+                        });
+                    } catch (e) {}
+                    try {
+                        window.postMessage({
+                            __ns: MSG_NS,
+                            type: 'open-dialog-popout',
+                            url: actionUrl,
+                            method: String(this.method || 'post').toLowerCase(),
+                            fields: fields,
+                        }, location.origin);
+                    } catch (e) {}
+                    return;
+                }
+            }
+        } catch (e) {}
+        return originalFormSubmit.apply(this, arguments);
     };
 
     installAesSyntheticOpener();

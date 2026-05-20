@@ -17,6 +17,7 @@
     const AES_RUNTIME_BUILD_ID = '0.8.0-stable-1';
     const AES_RUNTIME_BUILD_STORAGE_KEY = 'aes-runtime-build-id';
     const AES_RUNTIME_BUILD_RELOAD_KEY = 'aes-runtime-build-reload-id';
+    const DIRECT_HANDLED_OPEN_STORAGE_KEY = 'autotask-tabs-direct-handled-open-url-v1';
 
     function readRuntimeBuildStorage(storage, key) {
         try { return storage.getItem(key) || ''; }
@@ -128,6 +129,8 @@
         nativeSettingsObserver: null,
         nativeSettingsRaf: 0,
         nativeSettingsAvailable: false,
+        closedTabs: [],
+        closedTabsButton: null,
         resourcePlannerShortcutObserver: null,
         resourcePlannerShortcutRaf: 0,
         topLevelRouteWatchInstalled: false,
@@ -262,6 +265,7 @@
         tabBarWidth: AES.state && typeof AES.state.tabBarWidth === 'number' ? AES.state.tabBarWidth : AES.BAR_W,
         tabBarHoverExpanded: false,
         tabBarExpandTimer: 0,
+        tabBarCollapseTimer: 0,
         tabBarLastExpandedWidth: AES.BAR_W || 240,
         tabBarResizeHandleHovered: false,
         tabBarResizing: false,
@@ -287,6 +291,69 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
+            version: '1.0.0',
+            sections: [
+                {
+                    title: 'AES Tip',
+                    items: [
+                        'Accidentally closed a tab? Open it again from the new Tab History button in the tab bar.',
+                    ],
+                },
+                {
+                    title: 'Highlights',
+                    intro: 'AES: Tabs for Autotask is now stable enough for v1.0! Releases will be less frequent from now on because we now cover most of Autotask\'s areas.',
+                    items: [
+                        'Accidentally closed a tab? Restore it via our new Tab History feature.',
+                        'External Autotask links now open in AES when pasted or typed into the browser\'s URL Bar.',
+                    ],
+                },
+                {
+                    title: 'New Features',
+                    items: [
+                        'Added a button in the tab bar that shows the last 10 closed tabs so you can easily restore them.',
+                        'Added a Copy Autotask Link button to the right-click menu on a tab. This copies the link to the frame and will open within an AES Tab if opened in a browser that has the extension installed.',
+                        'Added an extension shortcut to close all tabs except the Home tab, configurable in the extension settings of your browser. Set to Ctrl+Shift+X by default.',
+                    ],
+                },
+                {
+                    title: 'Compatibility',
+                    intro: 'Added/improved AES Tab support for:',
+                    items: [
+                        'Datto RMM links to tickets.',
+                        'Pop-out buttons within Ticket Notes and Time Entries.',
+                        'New Tickets (again).',
+                    ],
+                    subsections: [
+                        {
+                            title: 'Added/improved AES Peek support for:',
+                            items: [
+                                'No Peek improvements in this release.',
+                            ],
+                        },
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'Copy buttons on hover cards now inherit the branding color.',
+                        'Datto RMM links to tickets now open properly within AES Tabs.',
+                        'Automatic collapsing of the vertical tab bar now has a 1-second delay to prevent the bar from collapsing too quickly.',
+                        'Opening a compatible AES link directly from the browser\'s URL Bar now detects if there is already an open Autotask page and opens it within an AES Tab. Previously this only worked with links on pages.',
+                        'Empty metadata now shows that there is no data, for example "No contact", so tabs are more consistent in layout.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Copy buttons on hover cards can no longer be colored white when Autotask is set to light mode.',
+                        'Contact tabs no longer show the ID prefix twice when selected as metadata.',
+                    ],
+                },
+            ],
+    };
+    const RELEASE_NOTES_HISTORY = [
+        RELEASE_NOTES,
+        {
             version: '0.11.0',
             sections: [
                 {
@@ -298,10 +365,8 @@
                 {
                     title: 'Highlights',
                     items: [
-                        'Biggest update so far for working with multiple Autotask pages at once.',
-                        'Drag to Split.',
-                        'Better split-view controls.',
-                        'More CRM and opportunity pages now open inside AES.',
+                        'Drag to Split',
+                        'More compatibility',
                     ],
                 },
                 {
@@ -321,20 +386,21 @@
                         'Won, Lost, and Cancel Opportunity wizards.',
                         'New Contact and New CRM Note from Account.',
                     ],
-                },
-                {
-                    title: 'Peek Compatibility',
-                    intro: 'Added/improved AES Peek support for:',
-                    items: [
-                        'Reassign Lead wizard.',
-                        'Account history, document merge, and account visibility popups.',
+                    subsections: [
+                        {
+                            title: 'Added/improved AES Peek support for:',
+                            items: [
+                                'Reassign Lead wizard.',
+                                'Account history, document merge, and account visibility popups.',
+                                'Organization/Company history.',
+                                'Document Merge wizard.',
+                            ],
+                        },
                     ],
                 },
                 {
                     title: 'Improvements',
                     items: [
-                        'Split views now show a clearer active-frame border.',
-                        'Split placeholders now reserve space more smoothly before dropping a tab.',
                         'Project Task title bars now receive AES branding.',
                         'Project Task metadata now includes the Project field as line 2 metadata.',
                         'CRM wizard tabs now use the correct Opportunity, Note, and Contact icons.',
@@ -344,16 +410,13 @@
                 {
                     title: 'Bug Fixes',
                     items: [
-                        'Fixed split tabs not always becoming visible immediately after drag-and-drop.',
                         'Fixed closing tabs inside split view sometimes returning to Home instead of the remaining split pane.',
                         'Fixed a syncSplitButtons is not defined error.',
                         'Fixed a mergeMetadataFields is not defined error on native Onyx pages.',
                     ],
                 },
             ],
-    };
-    const RELEASE_NOTES_HISTORY = [
-        RELEASE_NOTES,
+        },
         {
             version: '0.10.1',
             sections: [
@@ -621,7 +684,8 @@
         home: faIcon('fa-house fa-regular'),
         umbrellacontract: faIcon('fa-umbrella fa-regular'),
         ticket: faIcon('fa-ticket fa-regular'),
-        ticketactivity: faIcon('fa-note-sticky fa-regular'),
+        ticketnote: faIcon('fa-note-sticky fa-regular'),
+        tickettimeentry: faIcon('fa-clock fa-regular'),
         servicecall: faIcon('fa-headset fa-regular'),
         knowledgebase: faIcon('fa-book fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
@@ -656,6 +720,7 @@
         duplicate: faIcon('fa-clone fa-regular'),
         peek: faIcon('fa-eye fa-regular'),
         copy: faIcon('fa-clipboard fa-regular'),
+        restoreClosed: faIcon('fa-clock-rotate-left fa-regular'),
     };
 
     const TAB_COLOR_PRESETS = [
@@ -1253,11 +1318,16 @@
         return defaults;
     }
 
+    function normalizeRepeatedIdPrefix(value) {
+        return String(value || '').trim().replace(/^(?:ID\b\s*:?\s*){2,}/i, 'ID ');
+    }
+
     function normalizeMetadataFields(fields) {
         if (!fields || typeof fields !== 'object') return {};
         const normalized = {};
         Object.keys(fields).forEach(function (key) {
-            const value = String(fields[key] || '').trim();
+            let value = String(fields[key] || '').trim();
+            if (key === 'id' || key === 'number') value = normalizeRepeatedIdPrefix(value);
             if (value) normalized[key] = value.slice(0, 160);
         });
         return normalized;
@@ -1513,10 +1583,19 @@
 
     function buildTabsPayload() {
         const updatedAt = Date.now();
+        // Dialog PopOut tabs (Note / Time Entry) cannot be restored:
+        // their endpoints require a session-bound POST with form
+        // fields that go stale immediately. A plain GET on refresh
+        // hits Autotask's native error page. Exclude them from
+        // persistence so refreshing simply drops the popout tab,
+        // matching how a real browser-tab popout would behave.
+        const persistableTabs = state.tabs.filter(function (t) {
+            return !AES.isDialogPopOutFromDialogUrl(t.url);
+        });
         return {
             updatedAt: updatedAt,
             clientId: state.tabsSyncClientId,
-            tabs: state.tabs.map(t => ({
+            tabs: persistableTabs.map(t => ({
                 syncKey: t.syncKey || (t.syncKey = createRandomId('tab-')),
                 url: canonicalTabUrl(t.url),
                 title: t.title,
@@ -1535,10 +1614,10 @@
             })),
             activeIndex: state.activeId === null
                 ? null
-                : state.tabs.findIndex(t => t.id === state.activeId),
+                : persistableTabs.findIndex(t => t.id === state.activeId),
             splitIndex: state.splitId === null
                 ? null
-                : state.tabs.findIndex(t => t.id === state.splitId),
+                : persistableTabs.findIndex(t => t.id === state.splitId),
             splitPairIndexes: getSplitPairIndexes(),
             splitPairColor: TAB_COLOR_PRESETS.includes(state.splitPairColor) ? state.splitPairColor : '',
             splitRatio: normalizeSplitRatio(state.splitRatio),
@@ -2154,6 +2233,17 @@
         state.tabBarCollapseButton.setAttribute('aria-label', collapsed ? 'Expand tab bar' : 'Collapse tab bar');
     }
 
+    function updateClosedTabsButton() {
+        if (!state.closedTabsButton) return;
+        const latest = state.closedTabs && state.closedTabs.length ? state.closedTabs[0] : null;
+        const title = latest && (latest.title || latest.number || latest.url)
+            ? 'Reopen closed tab: ' + (latest.title || latest.number || latest.url)
+            : 'Reopen closed tab';
+        state.closedTabsButton.disabled = !latest;
+        state.closedTabsButton.title = title;
+        state.closedTabsButton.setAttribute('aria-label', title);
+    }
+
     function toggleVerticalTabBarCollapse(event) {
         if (event) {
             event.preventDefault();
@@ -2187,13 +2277,34 @@
         state.tabBarExpandTimer = 0;
     }
 
+    function cancelTabBarCollapseTimer() {
+        if (!state.tabBarCollapseTimer) return;
+        window.clearTimeout(state.tabBarCollapseTimer);
+        state.tabBarCollapseTimer = 0;
+    }
+
     function isResizeHandleEvent(event) {
         return !!(event && event.target && event.target.closest && event.target.closest('.at-tabs-resize-handle'));
+    }
+
+    function isTabBarHoverExpandControlEvent(event) {
+        if (!event || typeof document.elementFromPoint !== 'function') return false;
+        const target = event.target && event.target.closest ? event.target : null;
+        const hovered = document.elementFromPoint(event.clientX, event.clientY);
+        return !!(
+            (target && target.closest('.at-tabs-collapse-button, .at-tabs-reopen-button')) ||
+            (hovered && hovered.closest && hovered.closest('.at-tabs-collapse-button, .at-tabs-reopen-button'))
+        );
     }
 
     function scheduleTabBarHoverExpand(event) {
         if (!isCompactVerticalBar() || state.tabBarResizing) return;
         if (isResizeHandleEvent(event)) return;
+        if (isTabBarHoverExpandControlEvent(event)) {
+            cancelTabBarExpandTimer();
+            return;
+        }
+        cancelTabBarCollapseTimer();
         if (state.tabBarResizeHandleHovered) return;
         if (state.tabBarHoverExpanded || state.tabBarExpandTimer) return;
         state.tabBarExpandTimer = window.setTimeout(function () {
@@ -2206,9 +2317,23 @@
 
     function collapseTabBarHoverExpand() {
         cancelTabBarExpandTimer();
+        cancelTabBarCollapseTimer();
         if (!state.tabBarHoverExpanded || state.tabBarResizing) return;
         state.tabBarHoverExpanded = false;
         updateResizableBarClasses();
+    }
+
+    function scheduleTabBarHoverCollapse() {
+        cancelTabBarExpandTimer();
+        if (!state.tabBarHoverExpanded || state.tabBarResizing) return;
+        cancelTabBarCollapseTimer();
+        state.tabBarCollapseTimer = window.setTimeout(function () {
+            state.tabBarCollapseTimer = 0;
+            if (state.bar && state.bar.matches(':hover')) return;
+            if (!isCompactVerticalBar() || state.tabBarResizing) return;
+            state.tabBarHoverExpanded = false;
+            updateResizableBarClasses();
+        }, 1000);
     }
 
     function reservationAxis(el) {
@@ -3728,6 +3853,7 @@
             ? state.splitPairIds.indexOf(id)
             : -1;
         const removed = state.tabs.splice(idx, 1)[0];
+        rememberClosedTab(removed);
         if (isNativeShellTab(removed)) state.nativeShellSuppressUrl = canonicalTabUrl(removed.url);
         try { if (removed.iframeEl) removed.iframeEl.remove(); } catch (e) {}
         try { if (removed.loaderEl) removed.loaderEl.remove(); } catch (e) {}
@@ -3764,7 +3890,112 @@
         renderTabs();
         syncTabPaneState();
         updateLoaderVisibility();
+        updateClosedTabsButton();
         saveTabs();
+    }
+
+    function closeAllTabs() {
+        if (!state.tabs.length) return;
+        closeTabContextMenu();
+        const ids = state.tabs.map(function (tab) { return tab.id; });
+        ids.forEach(closeTab);
+        activateHome();
+    }
+
+    function closedTabSnapshot(tab) {
+        if (!tab || !tab.url) return null;
+        return {
+            url: canonicalTabUrl(tab.url),
+            title: tab.title || '',
+            browserTitle: tab.browserTitle || '',
+            number: tab.number || '',
+            contact: tab.contact || '',
+            primaryResource: tab.primaryResource || null,
+            pinned: !!tab.pinned,
+            color: tab.color || '',
+            priority: tab.priority || '',
+            status: tab.status || '',
+            lastActivity: tab.lastActivity || '',
+            pageWarning: !!tab.pageWarning,
+            hoverFields: normalizeHoverFields(tab.hoverFields),
+            metadataFields: normalizeMetadataFields(tab.metadataFields),
+            closedAt: Date.now(),
+        };
+    }
+
+    function rememberClosedTab(tab) {
+        const snapshot = closedTabSnapshot(tab);
+        if (!snapshot || !snapshot.url) return;
+        state.closedTabs.unshift(snapshot);
+        state.closedTabs = state.closedTabs.slice(0, 10);
+        updateClosedTabsButton();
+    }
+
+    function reopenClosedTab(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        openClosedTabsMenu(state.closedTabsButton);
+    }
+
+    function restoreClosedTabSnapshot(snapshot) {
+        updateClosedTabsButton();
+        if (!snapshot || !snapshot.url) return;
+        const restored = createAndAddTab(snapshot.url, snapshot);
+        if (restored) {
+            restored.pinned = !!snapshot.pinned;
+            updateTabEl(restored);
+            renderTabs();
+            activateTab(restored.id);
+        }
+        updateClosedTabsButton();
+    }
+
+    function reopenClosedTabAt(index) {
+        const snapshot = state.closedTabs.splice(index, 1)[0];
+        restoreClosedTabSnapshot(snapshot);
+    }
+
+    function closedTabMenuLabel(snapshot) {
+        if (!snapshot) return 'Closed tab';
+        const preferredTitle = state.horizontalCompactTabsEnabled
+            ? (snapshot.browserTitle || snapshot.title)
+            : (snapshot.title || snapshot.browserTitle);
+        const title = String(preferredTitle || snapshot.number || snapshot.url || 'Closed tab').trim();
+        const secondary = String(snapshot.number || snapshot.contact || '').trim();
+        if (secondary && !title.includes(secondary)) return title + ' - ' + secondary;
+        return title || 'Closed tab';
+    }
+
+    function closedTabMenuIcon(snapshot) {
+        return ICONS[tabIconKey(snapshot)] || ICONS.restoreClosed;
+    }
+
+    function openClosedTabsMenu(button) {
+        closeTabContextMenu();
+        if (!state.closedTabs || !state.closedTabs.length || !button) return;
+        const menu = document.createElement('div');
+        menu.className = 'at-tabs-context-menu at-tabs-closed-tabs-menu';
+        menu.setAttribute('role', 'menu');
+
+        state.closedTabs.slice(0, 10).forEach(function (snapshot, index) {
+            const item = createContextMenuItem(
+                closedTabMenuLabel(snapshot),
+                closedTabMenuIcon(snapshot),
+                function () {
+                    closeTabContextMenu();
+                    reopenClosedTabAt(index);
+                }
+            );
+            item.title = snapshot.url || '';
+            menu.appendChild(item);
+        });
+
+        document.body.appendChild(menu);
+        state.tabContextMenu = menu;
+        const rect = button.getBoundingClientRect();
+        positionContextMenu(menu, rect.right + 6, rect.bottom + 6);
     }
 
     function findTabFromWindow(win) {
@@ -3817,10 +4048,13 @@
         if (innerUrl && innerUrl !== url) return tabTypeForUrl(innerUrl);
         const p = AES.normalizeHandledPath(AES.pathOf(url));
         if (p === '/mvc/servicedesk/ticketdetail.mvc') return 'ticket';
+        if (p === '/mvc/servicedesk/ticketdetail.mvc/ticketbyticketnumber') return 'ticket';
         if (p === '/mvc/servicedesk/ticketedit.mvc') return 'ticket';
         if (p === '/mvc/servicedesk/ticketnew.mvc') return 'ticket';
-        if (p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
-            p === '/mvc/servicedesk/note.mvc/newticketnotepage') return 'ticketactivity';
+        if (p === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage') return 'tickettimeentry';
+        if (p === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
+            p === '/mvc/servicedesk/note.mvc/newticketnotepage') return 'ticketnote';
         if (p === '/autotask/popups/techscheduling/service_call.aspx') return 'servicecall';
         if (p === '/mvc/knowledgebase/articlenew.mvc/article') return 'knowledgebase';
         if (p === '/mvc/crm/accountnew.mvc' || p === '/mvc/crm/accountdetail.mvc') return 'account';
@@ -3844,7 +4078,8 @@
             p === '/autotask35/grapevine/profile.aspx') return 'person';
         if (p === '/autotask/views/crm/contact_group_management.aspx' ||
             p === '/autotask35/crm/contactgroupmanager.aspx') return 'group';
-        if (p === '/home/timeentry/wrkentryframes.asp' ||
+        if (isUnsubmittedTimesheetsReportUrl(url) ||
+            p === '/home/timeentry/wrkentryframes.asp' ||
             p === '/timesheets/views/readonly/tmsreadonly_100.asp') return 'timesheet';
         if (p === '/mvc/inventory/costitem.mvc/shipping' ||
             p === '/mvc/inventory/receipthistory.mvc' ||
@@ -3891,6 +4126,20 @@
         return 'unknown';
     }
 
+    function isUnsubmittedTimesheetsReportUrl(url) {
+        return AES.normalizeHandledPath(AES.pathOf(url)) === '/reports/time_and_attendance/report/rptallmisstime.asp';
+    }
+
+    function unsubmittedTimesheetsMetadata() {
+        return {
+            title: 'Unsubmitted Timesheets',
+            number: '',
+            contact: '',
+            date: '',
+            secondaryTitle: '',
+        };
+    }
+
     function tabTypeLabel(tabOrType) {
         const type = normalizeTabType(typeof tabOrType === 'string' ? tabOrType : tabTypeForUrl(tabOrType && tabOrType.url || ''));
         return TAB_TYPE_LABELS[type] || 'Tab';
@@ -3932,6 +4181,28 @@
         return fields;
     }
 
+    // When the user has selected a metadata field for line 2 or 3
+    // and the value is empty, fall back to "No <field>" instead of
+    // the tab type label. Keeps the user's chosen field visible as
+    // a clear "this is empty" hint instead of a generic "Ticket".
+    const EMPTY_LINE_FALLBACKS = {
+        contact: 'No contact',
+        organization: 'No organization',
+        contractType: 'No contract type',
+        date: 'No date',
+        id: 'No ID',
+        model: 'No model',
+        number: 'No number',
+        productCategory: 'No category',
+        project: 'No project',
+        purchaseOrder: 'No purchase order',
+        secondaryTitle: 'No subtitle',
+        ticketTitle: 'No title',
+        vendor: 'No vendor',
+        externalPoNumber: 'No PO number',
+        quoteName: 'No quote name',
+    };
+
     function tabLineValue(tab, line) {
         if (!tab) return '';
         if (line === 3 && horizontalCompactTabsActive()) return '';
@@ -3966,6 +4237,7 @@
         if (key === 'none') return '';
         const value = String(fields[key] || '').trim();
         if (value) return value;
+        if (EMPTY_LINE_FALLBACKS[key]) return EMPTY_LINE_FALLBACKS[key];
         return line === 2 && type !== 'unknown' ? fields.type : '';
     }
 
@@ -3982,6 +4254,7 @@
         fields.type = fields.type || tabTypeLabel(type);
         const value = String(fields[key] || '').trim();
         if (value) return value;
+        if (EMPTY_LINE_FALLBACKS[key]) return EMPTY_LINE_FALLBACKS[key];
         return line === 2 ? fields.type : '';
     }
 
@@ -4049,9 +4322,27 @@
             };
         }
 
+        if (isUnsubmittedTimesheetsReportUrl(url)) {
+            return unsubmittedTimesheetsMetadata();
+        }
+
         if (path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage') {
             return {
                 title: 'New Ticket Time Entry',
+                number: '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog') {
+            return {
+                title: 'New Time Entry',
+                number: '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog') {
+            return {
+                title: 'New Note',
                 number: '',
                 contact: '',
             };
@@ -4080,6 +4371,14 @@
             return {
                 title: 'Ticket',
                 number: 'Ticket',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/servicedesk/ticketdetail.mvc/ticketbyticketnumber') {
+            const ticketNumber = params.get('ticketNumber') || params.get('ticketnumber') || '';
+            return {
+                title: 'Ticket',
+                number: ticketNumber,
                 contact: '',
             };
         }
@@ -5172,6 +5471,14 @@
             }
         );
         menu.appendChild(duplicateButton);
+        menu.appendChild(createContextMenuItem(
+            'Copy link',
+            ICONS.copy,
+            function () {
+                closeTabContextMenu();
+                copyTabLink(tab);
+            }
+        ));
 
         const peekButton = createContextMenuItem(
             'Peek',
@@ -5388,9 +5695,15 @@
         scrollWrap.appendChild(rightButton);
 
         state.bar.appendChild(scrollWrap);
+        state.closedTabsButton = createClosedTabsButton();
         state.tabBarCollapseButton = createTabBarCollapseButton();
-        state.bar.appendChild(state.tabBarCollapseButton);
+        const actionBar = document.createElement('div');
+        actionBar.className = 'at-tabs-bar-actions';
+        actionBar.appendChild(state.closedTabsButton);
+        actionBar.appendChild(state.tabBarCollapseButton);
+        state.bar.appendChild(actionBar);
         state.bar.appendChild(createResizeHandle());
+        updateClosedTabsButton();
         syncTabPaneState();
         updateHomeTabActive();
         updateResizableBarClasses();
@@ -5428,6 +5741,15 @@
         button.className = 'at-tabs-collapse-button';
         appendIconMarkup(button, faIcon('fa-chevron-left fa-solid'));
         button.addEventListener('click', toggleVerticalTabBarCollapse);
+        return button;
+    }
+
+    function createClosedTabsButton() {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'at-tabs-reopen-button';
+        appendIconMarkup(button, ICONS.restoreClosed);
+        button.addEventListener('click', reopenClosedTab);
         return button;
     }
 
@@ -8511,7 +8833,10 @@
                 copy.className = 'hc-copy';
                 copy.title = 'Copy ' + label;
                 copy.setAttribute('aria-label', 'Copy ' + label);
-                appendIconMarkup(copy, '<i class="fa-regular fa-copy" aria-hidden="true"></i>');
+                appendIconMarkup(copy, '<span class="hc-copy-icon fa-copy fa-regular" aria-hidden="true"></span>');
+                copy.style.setProperty('color', 'var(--aes-accent-color)', 'important');
+                const copyIcon = copy.querySelector('.hc-copy-icon');
+                if (copyIcon) copyIcon.style.setProperty('color', 'var(--aes-accent-color)', 'important');
                 copy.addEventListener('pointerdown', function (event) {
                     event.preventDefault();
                     event.stopPropagation();
@@ -8522,6 +8847,11 @@
                     void copyTextToClipboard(displayValue);
                 });
                 row.appendChild(copy);
+            } else {
+                const copyPlaceholder = document.createElement('span');
+                copyPlaceholder.className = 'hc-copy hc-copy-placeholder';
+                copyPlaceholder.setAttribute('aria-hidden', 'true');
+                row.appendChild(copyPlaceholder);
             }
             card.appendChild(row);
         }
@@ -8646,6 +8976,112 @@
         state.hoverHideTimer = setTimeout(doHide, HOVER_HIDE_DELAY_MS);
     }
 
+    // The Autotask dialog PopOut button submits a hidden POST form with
+    // target="_blank". The iframe bridge cancels that native submit and
+    // forwards the payload here; we re-submit the same form (same URL,
+    // same fields) into a fresh AES tab's iframe so the popout opens
+    // inside AES instead of a new browser tab. Tracks the originating
+    // ticket tab so closing the popout via Save & Quit can refresh the
+    // ticket.
+    function handleDialogPopoutMessage(sourceWindow, data) {
+        if (!featuresEnabled()) return;
+        if (!state.viewport) return;
+        let actionUrl;
+        try { actionUrl = new URL(data.url, location.origin).href; }
+        catch (e) { return; }
+        if (!AES.isDialogPopOutFromDialogUrl(actionUrl)) return;
+
+        const originTab = sourceWindow ? findTabFromWindow(sourceWindow) : null;
+        const originTabId = originTab ? originTab.id : null;
+
+        const iframeEl = createTabIframe(actionUrl, { deferLoad: true });
+        const loaderEl = createTabPaneLoader();
+
+        // The form submit needs a unique frame name to target. Set
+        // this BEFORE the iframe enters the DOM — the browser
+        // registers the iframe's browsing-context name at insertion
+        // time. Setting `.name` afterwards updates the attribute and
+        // `getElementsByName` lookups, but Chrome does not always
+        // retroactively update the BC name, so a form whose `target`
+        // matches would fall back to opening a new top-level tab.
+        const iframeName = 'aes-popout-target-'
+            + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        iframeEl.name = iframeName;
+        iframeEl.setAttribute('name', iframeName);
+        // Mark the iframe as actively loading so the normal lazy-load
+        // guards don't try to set src to actionUrl behind our back.
+        iframeEl.dataset.aesLoadStarted = 'true';
+        iframeEl.removeAttribute('data-aes-deferred-src');
+
+        state.viewport.appendChild(iframeEl);
+        state.viewport.appendChild(loaderEl);
+
+        const fallback = fallbackTabMetadataForUrl(actionUrl);
+        const type = tabTypeForUrl(actionUrl);
+        // Inherit the originating ticket's number and organization so
+        // the popout tab shows: title (line 1) / ticket # (line 2) /
+        // organization (line 3). originTab is the ticket tab the
+        // dialog was launched from.
+        const inheritedNumber = (originTab && originTab.number) || fallback.number || '';
+        const inheritedContact = (originTab && originTab.contact) || fallback.contact || '';
+        const enrichedFallback = Object.assign({}, fallback, {
+            number: inheritedNumber,
+            contact: inheritedContact,
+        });
+        const tab = {
+            id: state.nextId++,
+            url: actionUrl,
+            title: fallback.title || 'Popout',
+            number: inheritedNumber,
+            contact: inheritedContact,
+            primaryResource: null,
+            pinned: false,
+            color: '',
+            priority: '',
+            status: '',
+            lastActivity: '',
+            pageWarning: false,
+            hoverFields: [],
+            metadataFields: normalizeMetadataFields(fallbackMetadataFields(type, enrichedFallback)),
+            iframeEl: iframeEl,
+            loaderEl: loaderEl,
+            tabEl: null,
+            nativeShell: false,
+            loading: true,
+            loadStarted: true,
+            popoutOriginTabId: originTabId,
+        };
+        addTabToList(tab);
+        renderTabs();
+
+        // Build a hidden form in the top shell document and submit it
+        // with target = the new iframe's name. The browser POSTs into
+        // the iframe instead of opening a new browser tab.
+        const form = document.createElement('form');
+        form.method = data.method === 'get' ? 'get' : 'post';
+        form.action = actionUrl;
+        form.target = iframeName;
+        form.acceptCharset = 'UTF-8';
+        form.style.display = 'none';
+        (data.fields || []).forEach(function (field) {
+            if (!field || typeof field.name !== 'string' || !field.name) return;
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = field.name;
+            input.value = typeof field.value === 'string' ? field.value : '';
+            form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        try { form.submit(); } catch (e) {}
+        window.setTimeout(function () {
+            try { form.remove(); } catch (e) {}
+        }, 0);
+
+        activateTab(tab.id);
+        requestSyncGeometry();
+        saveTabs();
+    }
+
     function openTab(url, options) {
         if (!featuresEnabled()) return;
         const opts = options || {};
@@ -8654,6 +9090,26 @@
             return;
         }
         openTabDirect(url);
+    }
+
+    function consumePendingDirectHandledOpenUrl() {
+        try {
+            const pendingUrl = sessionStorage.getItem(DIRECT_HANDLED_OPEN_STORAGE_KEY) || '';
+            if (!pendingUrl) return '';
+            sessionStorage.removeItem(DIRECT_HANDLED_OPEN_STORAGE_KEY);
+            if (!AES.isHandledUrl || !AES.isHandledUrl(pendingUrl)) return '';
+            if (AES.extractHandledUrlFromLandingPageUrl && AES.extractHandledUrlFromLandingPageUrl(pendingUrl)) return '';
+            return pendingUrl;
+        } catch (e) {
+            return '';
+        }
+    }
+
+    function openPendingDirectHandledRoute() {
+        const pendingUrl = consumePendingDirectHandledOpenUrl();
+        if (!pendingUrl) return false;
+        openTab(pendingUrl);
+        return true;
     }
 
     function openNativeShellTab(url, options) {
@@ -8986,6 +9442,11 @@
         createAndAddTab(srcTab.url, srcTab);
     }
 
+    function copyTabLink(tab) {
+        if (!tab || !tab.url) return;
+        void copyTextToClipboard(canonicalTabUrl(tab.url));
+    }
+
     // Best-effort clipboard write. Uses async Clipboard API when available;
     // falls back to a hidden textarea + execCommand for older contexts.
     function copyTextToClipboard(text) {
@@ -9085,7 +9546,18 @@
             }
             const tab = findTabFromWindow(event.source);
             if (tab) {
+                // If this tab was opened as the popout child of another
+                // tab (Note / Time Entry popout), refresh the original
+                // tab so its in-place dialog content reflects any saves
+                // the user made before clicking Save & Quit.
+                const popoutOriginTabId = typeof tab.popoutOriginTabId === 'number'
+                    ? tab.popoutOriginTabId
+                    : null;
                 closeTab(tab.id);
+                if (popoutOriginTabId !== null) {
+                    const originTab = tabById(popoutOriginTabId);
+                    if (originTab) refreshTabIframe(originTab);
+                }
                 return;
             }
             return;
@@ -9093,6 +9565,11 @@
 
         if (data.type === 'open' && data.url) {
             openTab(data.url);
+            return;
+        }
+
+        if (data.type === 'open-dialog-popout' && data.url && Array.isArray(data.fields)) {
+            handleDialogPopoutMessage(event.source, data);
             return;
         }
 
@@ -9188,11 +9665,26 @@
             return;
         }
 
-        if (data.type === 'nav') {
+            if (data.type === 'nav') {
             const tab = findTabFromWindow(event.source);
             if (!tab) return;
             const isDirectTabFrame = !!(tab.iframeEl && event.source === tab.iframeEl.contentWindow);
             if (data.url && isDirectTabFrame) tab.url = data.url;
+            if (isUnsubmittedTimesheetsReportUrl(tab.url)) {
+                const fallback = unsubmittedTimesheetsMetadata();
+                tab.title = fallback.title;
+                tab.number = '';
+                tab.contact = '';
+                tab.primaryResource = null;
+                tab.priority = '';
+                tab.status = '';
+                tab.lastActivity = '';
+                tab.hoverFields = [];
+                tab.metadataFields = fallbackMetadataFields('timesheet', fallback);
+                updateTabEl(tab);
+                saveTabs();
+                return;
+            }
             const preservedRefreshMetadata = tab.preservedRefreshMetadata || null;
             const navHasRichMetadata = hasRichNavMetadata(data);
             const preserveRefreshMetadata = !!(preservedRefreshMetadata && !navHasRichMetadata);
@@ -10381,6 +10873,10 @@
             }
             if (msg.__aesToolbar && msg.type === 'open-settings') {
                 try { toggleSettingsModal(); } catch (e) {}
+                return;
+            }
+            if (msg.__aesCommand && msg.type === 'close-all-tabs') {
+                try { closeAllTabs(); } catch (e) {}
             }
         };
         try {
@@ -10388,6 +10884,20 @@
         } catch (e) {}
     }
     installToolbarMessageListener();
+
+    function registerShellWithBackground() {
+        const runtime = getRuntimeApi();
+        try {
+            if (!runtime || typeof runtime.sendMessage !== 'function') return;
+            const sending = runtime.sendMessage({
+                __aesShellReady: true,
+                type: 'shell-ready',
+            });
+            if (sending && typeof sending.catch === 'function') {
+                sending.catch(function () {});
+            }
+        } catch (e) {}
+    }
 
     AES.mount = async function mount() {
         if (state.bar) return;
@@ -10406,7 +10916,7 @@
             scheduleTabBarHoverExpand(event);
         });
         bar.addEventListener('mouseleave', function () {
-            collapseTabBarHoverExpand();
+            scheduleTabBarHoverCollapse();
         });
 
         const viewport = document.createElement('div');
@@ -10581,6 +11091,7 @@
             await restoreTabs();
             state.tabsRestored = true;
             maybePromoteTopLevelLandingRoute();
+            openPendingDirectHandledRoute();
             if (reloadFramesAfterUmbrellaContract) {
                 // Set the flag if it isn't already, so the WhenReady retry
                 // loop has something to clear on success.
@@ -10601,6 +11112,7 @@
         installNativeSettingsMenuItemWatcher();
         startMetadataRefreshTimer();
         if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
+        registerShellWithBackground();
     };
 
     AES.installTopLevelNavigationInterception = installTopLevelNavigationInterception;

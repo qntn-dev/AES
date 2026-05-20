@@ -1174,7 +1174,7 @@
                 left: 6px;
                 width: 11px;
                 height: 11px;
-                color: #64748b;
+                color: var(--aes-accent-color);
                 display: none;
                 pointer-events: none;
                 z-index: 1;
@@ -1414,7 +1414,15 @@
                 justify-content: center;
                 margin: 0;
             }
-            .at-tabs-collapse-button {
+            .at-tabs-bar-actions {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                flex: 0 0 auto;
+                z-index: 12;
+            }
+            .at-tabs-collapse-button,
+            .at-tabs-reopen-button {
                 display: none;
                 align-items: center;
                 justify-content: center;
@@ -1427,11 +1435,17 @@
                 -webkit-appearance: none;
                 flex: 0 0 auto;
             }
-            .at-tabs-collapse-button:hover {
+            .at-tabs-collapse-button:hover,
+            .at-tabs-reopen-button:hover:not(:disabled) {
                 background: var(--aes-native-bg-hover);
                 color: var(--aes-native-text-primary);
             }
-            .at-tabs-collapse-button :is(svg, span, i) {
+            .at-tabs-reopen-button:disabled {
+                cursor: default;
+                opacity: 0.42;
+            }
+            .at-tabs-collapse-button :is(svg, span, i),
+            .at-tabs-reopen-button :is(svg, span, i) {
                 width: 16px;
                 height: 16px;
                 display: inline-flex;
@@ -1441,6 +1455,24 @@
             }
             .at-tabs-collapse-button.collapsed :is(svg, span, i) {
                 transform: rotate(180deg);
+            }
+            html:not(.aes-bar-vertical) .at-tabs-bar-actions {
+                position: relative;
+                width: 44px;
+                height: 100%;
+                border-left: 1px solid var(--aes-native-border-primary);
+                background: var(--aes-native-bg-primary);
+            }
+            html:not(.aes-bar-vertical) .at-tabs-scroll-wrap {
+                box-sizing: border-box;
+            }
+            html:not(.aes-bar-vertical) .at-tabs-reopen-button {
+                display: flex;
+                width: 100%;
+                height: 100%;
+                border-radius: 0;
+                border: none;
+                box-shadow: none;
             }
             .at-tabs-context-menu {
                 position: fixed;
@@ -1454,6 +1486,11 @@
                 z-index: 1500;
                 font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
                 box-sizing: border-box;
+            }
+            .at-tabs-closed-tabs-menu {
+                width: min(360px, calc(100vw - 16px));
+                max-height: min(420px, calc(100vh - 16px));
+                overflow: auto;
             }
             .at-tabs-context-divider {
                 height: 1px;
@@ -1479,15 +1516,18 @@
                 position: relative;
             }
             .at-tabs-context-item:hover {
-                background: #edf4fb;
-                color: #12344f;
+                background: color-mix(in srgb, var(--aes-accent-color) 14%, transparent);
+                color: var(--aes-accent-color);
             }
             .at-tabs-context-label {
                 flex: 1 1 auto;
                 min-width: 0;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                white-space: nowrap;
             }
             .at-tabs-context-submenu-arrow {
-                color: #94a3b8;
+                color: var(--aes-accent-color);
                 flex: 0 0 auto;
                 font-size: 15px;
                 line-height: 1;
@@ -2219,8 +2259,8 @@
             .at-tabs-hover-card .hc-row {
                 margin-top: 6px;
                 display: grid;
-                grid-template-columns: 140px minmax(0, 1fr) auto;
-                align-items: baseline;
+                grid-template-columns: minmax(92px, 112px) minmax(0, 1fr) 22px;
+                align-items: center;
                 column-gap: 8px;
                 color: #334155;
             }
@@ -2232,6 +2272,7 @@
                 color: #0f172a;
                 min-width: 0;
                 overflow-wrap: anywhere;
+                line-height: 1.35;
             }
             .at-tabs-hover-card .hc-copy {
                 display: inline-flex;
@@ -2240,20 +2281,43 @@
                 width: 20px;
                 height: 20px;
                 border: 0;
-                border-radius: 5px;
-                background: transparent;
-                color: #64748b;
+                border-radius: 6px;
+                background: transparent !important;
+                color: var(--aes-accent-color) !important;
                 cursor: pointer;
                 justify-self: end;
                 padding: 0;
+                box-shadow: none;
+            }
+            .at-tabs-hover-card .hc-copy-placeholder {
+                visibility: hidden;
+                pointer-events: none;
             }
             .at-tabs-hover-card .hc-copy:hover {
-                background: #edf4fb;
-                color: #12344f;
+                background: color-mix(in srgb, var(--aes-accent-color) 14%, transparent) !important;
+                color: color-mix(in srgb, var(--aes-accent-color) 82%, #000000 18%) !important;
             }
-            .at-tabs-hover-card .hc-copy i {
+            .at-tabs-hover-card .hc-copy .hc-copy-icon,
+            .at-tabs-hover-card .hc-copy .hc-copy-icon::before,
+            .at-tabs-hover-card .hc-copy i,
+            .at-tabs-hover-card .hc-copy i::before,
+            .at-tabs-hover-card .hc-copy svg,
+            .at-tabs-hover-card .hc-copy svg * {
                 font-size: 11px;
                 line-height: 1;
+                color: var(--aes-accent-color) !important;
+                fill: currentColor !important;
+                stroke: currentColor !important;
+            }
+            .at-tabs-hover-card .hc-copy:hover .hc-copy-icon,
+            .at-tabs-hover-card .hc-copy:hover .hc-copy-icon::before,
+            .at-tabs-hover-card .hc-copy:hover i,
+            .at-tabs-hover-card .hc-copy:hover i::before,
+            .at-tabs-hover-card .hc-copy:hover svg,
+            .at-tabs-hover-card .hc-copy:hover svg * {
+                color: color-mix(in srgb, var(--aes-accent-color) 82%, #000000 18%) !important;
+                fill: currentColor !important;
+                stroke: currentColor !important;
             }
             .at-tabs-settings-modal {
                 position: fixed;
@@ -2579,6 +2643,12 @@
                 margin: 0;
                 color: #334155;
                 font-weight: 700;
+            }
+            .at-tabs-release-notes-subsection > h4 {
+                margin: 0;
+                color: #334155;
+                font-weight: 700;
+                font-size: 13px;
             }
             .at-tabs-release-notes-section:nth-of-type(2),
             .at-tabs-release-notes-section:nth-of-type(4) {
@@ -3745,8 +3815,8 @@
                 border-right-color: transparent;
             }
             html.aes-dark .at-tabs-settings-button:hover {
-                background: #262A30;
-                color: #f1f5f9;
+                background: color-mix(in srgb, var(--aes-accent-color) 18%, transparent);
+                color: var(--aes-accent-color);
             }
             html.aes-dark .at-tabs-scroll-button {
                 background: rgba(31, 34, 39, 0.94);
@@ -3969,7 +4039,8 @@
             html.aes-dark .at-tabs-release-notes-tip-text {
                 color: #f8fafc;
             }
-            html.aes-dark .at-tabs-release-notes-section-intro {
+            html.aes-dark .at-tabs-release-notes-section-intro,
+            html.aes-dark .at-tabs-release-notes-subsection > h4 {
                 color: #e2e8f0;
             }
             html.aes-dark .at-tabs-release-notes-section:nth-of-type(2),
@@ -4156,11 +4227,32 @@
                 color: #f1f5f9;
             }
             html.aes-dark .at-tabs-hover-card .hc-copy {
-                color: #94a3b8;
+                background: transparent !important;
+                color: var(--aes-accent-color) !important;
             }
             html.aes-dark .at-tabs-hover-card .hc-copy:hover {
-                background: #262A30;
-                color: #f1f5f9;
+                background: color-mix(in srgb, var(--aes-accent-color) 18%, transparent) !important;
+                color: color-mix(in srgb, var(--aes-accent-color) 78%, #ffffff 22%) !important;
+            }
+            html.aes-dark .at-tabs-hover-card .hc-copy .hc-copy-icon,
+            html.aes-dark .at-tabs-hover-card .hc-copy .hc-copy-icon::before,
+            html.aes-dark .at-tabs-hover-card .hc-copy i,
+            html.aes-dark .at-tabs-hover-card .hc-copy i::before,
+            html.aes-dark .at-tabs-hover-card .hc-copy svg,
+            html.aes-dark .at-tabs-hover-card .hc-copy svg * {
+                color: var(--aes-accent-color) !important;
+                fill: currentColor !important;
+                stroke: currentColor !important;
+            }
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover .hc-copy-icon,
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover .hc-copy-icon::before,
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover i,
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover i::before,
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover svg,
+            html.aes-dark .at-tabs-hover-card .hc-copy:hover svg * {
+                color: color-mix(in srgb, var(--aes-accent-color) 78%, #ffffff 22%) !important;
+                fill: currentColor !important;
+                stroke: currentColor !important;
             }
             html.aes-dark .at-tabs-setting-select {
                 background-color: #1F2227;
@@ -4250,6 +4342,9 @@
                 padding-right: 0;
                 min-height: 44px;
             }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab.home {
+                min-height: 32px;
+            }
             html.aes-compact-tabs.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tab {
                 min-height: 32px;
             }
@@ -4272,12 +4367,24 @@
             html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tabs-settings-button {
                 width: 100%;
             }
-            html.aes-bar-vertical .at-tabs-collapse-button {
+            html.aes-bar-vertical .at-tabs-bar-actions {
                 display: flex;
                 width: 100%;
-                height: 32px;
                 border-top: 1px solid var(--aes-native-border-primary);
+                transform: none;
             }
+            html.aes-bar-vertical .at-tabs-reopen-button {
+                display: flex;
+                width: 50%;
+                height: 32px;
+                border-right: 1px solid var(--aes-native-border-primary);
+            }
+            html.aes-bar-vertical .at-tabs-collapse-button {
+                display: flex;
+                width: 50%;
+                height: 32px;
+            }
+            html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tabs-reopen-button,
             html.aes-bar-vertical .at-tabs-bar.compact:not(.hover-expanded) .at-tabs-collapse-button {
                 height: 32px;
             }

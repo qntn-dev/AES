@@ -107,8 +107,15 @@
         return !!innerUrl && AES.isNativeHomeUrl(innerUrl);
     };
 
+    AES.isDialogPopOutFromDialogUrl = function isDialogPopOutFromDialogUrl(url) {
+        const path = AES.normalizeHandledPath(AES.pathOf(url));
+        return path === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
+            path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog';
+    };
+
     AES.isHandledUrl = function isHandledUrl(url) {
         if (AES.isNativeHomeUrl(url)) return false;
+        if (AES.isDialogPopOutFromDialogUrl(url)) return false;
 
         const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
         if (innerUrl) return AES.isHandledUrl(innerUrl);

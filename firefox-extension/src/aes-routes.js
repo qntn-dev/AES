@@ -15,6 +15,7 @@
     // the page bridge, shared helpers, and background script cannot drift.
     const HANDLED_PATHS = [
         '/mvc/servicedesk/ticketdetail.mvc',
+        '/mvc/servicedesk/ticketdetail.mvc/ticketbyticketnumber',
         '/mvc/servicedesk/ticketedit.mvc',
         '/mvc/servicedesk/ticketnew.mvc',
         '/mvc/servicedesk/ticketnew.mvc/create',
@@ -59,6 +60,7 @@
         '/autotask/views/crm/contact_group_management.aspx',
         '/autotask35/crm/contactgroupmanager.aspx',
         '/home/timeentry/wrkentryframes.asp',
+        '/reports/time_and_attendance/report/rptallmisstime.asp',
         '/timesheets/views/readonly/tmsreadonly_100.asp',
         '/autotask/views/servicedesk/servicedeskticket/service_ticket_panel_edit.aspx',
         '/mvc/crm/contractbillingruleassociation.mvc/editcontact',
