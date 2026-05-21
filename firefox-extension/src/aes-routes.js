@@ -97,7 +97,8 @@
         '/mvc/inventory/inventoryproduct.mvc/edit',
         '/autotask/inventory/inventory_edit_order.aspx',
         '/mvc/inventory/receipthistory.mvc',
-        '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder'
+        '/mvc/inventory/emailpurchaseorder.mvc/emailpurchaseorder',
+        '/mvc/security/authorization.mvc/failure'
     ];
 
     // Native home surfaces are allowed to load, but AES should not intercept

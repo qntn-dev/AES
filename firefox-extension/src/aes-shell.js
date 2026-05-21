@@ -686,6 +686,7 @@
         ticket: faIcon('fa-ticket fa-regular'),
         ticketnote: faIcon('fa-note-sticky fa-regular'),
         tickettimeentry: faIcon('fa-clock fa-regular'),
+        authorizationfailure: faIcon('fa-lock fa-regular'),
         servicecall: faIcon('fa-headset fa-regular'),
         knowledgebase: faIcon('fa-book fa-regular'),
         contract: faIcon('fa-file-contract fa-regular'),
@@ -3926,6 +3927,11 @@
     function rememberClosedTab(tab) {
         const snapshot = closedTabSnapshot(tab);
         if (!snapshot || !snapshot.url) return;
+        // Dialog PopOut tabs (Note / Time Entry) can't be restored —
+        // their endpoints require a session-bound POST that's gone the
+        // moment the tab closes. Skip them so they don't clutter
+        // Recently Closed with un-restorable entries.
+        if (AES.isDialogPopOutFromDialogUrl(snapshot.url)) return;
         state.closedTabs.unshift(snapshot);
         state.closedTabs = state.closedTabs.slice(0, 10);
         updateClosedTabsButton();
@@ -4055,6 +4061,7 @@
             p === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage') return 'tickettimeentry';
         if (p === '/mvc/servicedesk/note.mvc/notepopoutfromdialog' ||
             p === '/mvc/servicedesk/note.mvc/newticketnotepage') return 'ticketnote';
+        if (p === '/mvc/security/authorization.mvc/failure') return 'authorizationfailure';
         if (p === '/autotask/popups/techscheduling/service_call.aspx') return 'servicecall';
         if (p === '/mvc/knowledgebase/articlenew.mvc/article') return 'knowledgebase';
         if (p === '/mvc/crm/accountnew.mvc' || p === '/mvc/crm/accountdetail.mvc') return 'account';
@@ -4343,6 +4350,13 @@
         if (path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog') {
             return {
                 title: 'New Note',
+                number: '',
+                contact: '',
+            };
+        }
+        if (path === '/mvc/security/authorization.mvc/failure') {
+            return {
+                title: 'Access Denied',
                 number: '',
                 contact: '',
             };

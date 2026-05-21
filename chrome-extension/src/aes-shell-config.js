@@ -82,6 +82,7 @@ const TAB_LINE_OPTIONS_BY_TYPE = {
     inventory: ['type', 'number', 'id', 'organization', 'none'],
     charge: ['type', 'id', 'number', 'organization', 'contact', 'primaryResource', 'none'],
     group: ['type', 'id', 'none'],
+    authorizationfailure: ['type', 'none'],
 };
 const TAB_LINE_DEFAULT_BY_TYPE = {
     ticket: { line2: 'organization', line3: 'contact' },
@@ -109,6 +110,7 @@ const TAB_LINE_DEFAULT_BY_TYPE = {
     inventory: { line2: 'id', line3: 'organization' },
     charge: { line2: 'id', line3: 'organization' },
     group: { line2: 'none', line3: 'none' },
+    authorizationfailure: { line2: 'none', line3: 'none' },
 };
 const TAB_LINE_RECOMMENDED_BY_TYPE = {
     ticket: { line2: 'organization', line3: 'contact' },
@@ -136,6 +138,7 @@ const TAB_LINE_RECOMMENDED_BY_TYPE = {
     inventory: { line2: 'id', line3: 'organization' },
     charge: { line2: 'id', line3: 'organization' },
     group: { line2: 'none', line3: 'none' },
+    authorizationfailure: { line2: 'none', line3: 'none' },
 };
 const TAB_TYPE_LABELS = {
     ticket: 'Ticket',
@@ -163,6 +166,7 @@ const TAB_TYPE_LABELS = {
     inventory: 'Inventory',
     charge: 'Charge',
     group: 'Group',
+    authorizationfailure: 'Access Denied',
 };
 const CUSTOMIZATION_TAB_TYPE_ICONS = {
     ticket: '<span class="fa-ticket fa-regular" aria-hidden="true"></span>',
@@ -189,6 +193,7 @@ const CUSTOMIZATION_TAB_TYPE_ICONS = {
     inventory: '<span class="fa-boxes-stacked fa-regular" aria-hidden="true"></span>',
     charge: '<span class="fa-file-plus-minus fa-regular" aria-hidden="true"></span>',
     group: '<span class="fa-users fa-regular" aria-hidden="true"></span>',
+    authorizationfailure: '<span class="fa-lock fa-regular" aria-hidden="true"></span>',
 };
 
     runtime.config = {
