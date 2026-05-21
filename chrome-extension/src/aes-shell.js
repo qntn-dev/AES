@@ -4153,9 +4153,14 @@
     }
 
     function tabEffectiveType(tab) {
+        const metadataType = String(tab && tab.metadataFields && tab.metadataFields.type || '').trim().toLowerCase();
+        // Access Denied wins over any URL-based type — even when the
+        // iframe URL stays on the original entity (e.g. a Contract
+        // the user can't view), the page itself is showing the
+        // Access Denied state and the lock icon should reflect that.
+        if (metadataType === 'access denied') return 'authorizationfailure';
         const urlType = tabTypeForUrl(tab && tab.url || '');
         if (urlType !== 'unknown') return urlType;
-        const metadataType = String(tab && tab.metadataFields && tab.metadataFields.type || '').trim().toLowerCase();
         if (metadataType === 'admin' || metadataType === 'administration') return 'administration';
         if (metadataType === 'contract') return 'contract';
         if (metadataType === 'umbrella contract' || metadataType === 'umbrella contracts') return 'umbrellacontract';

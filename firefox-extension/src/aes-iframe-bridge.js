@@ -2302,6 +2302,27 @@ html.aes-embedded-umbrella-contract .o-view-layout {
         return !!(warning && cleanText(warning.textContent));
     }
 
+    // Autotask renders an Access Denied state whenever the user lacks
+    // permission to view the requested entity (e.g. a Contract the
+    // user can't see). Sometimes that means navigating to
+    // /Mvc/Security/Authorization.mvc/Failure; sometimes the URL stays
+    // on the entity page and only the body changes. We detect either
+    // case via title / URL / DOM markers so the shell can force the
+    // lock icon regardless of how the tab was opened.
+    function isAccessDeniedPage() {
+        try {
+            const titleText = String(document.title || '').toLowerCase();
+            if (/access\s*denied/.test(titleText)) return true;
+            const path = AES.normalizeHandledPath(location.pathname);
+            if (path === '/mvc/security/authorization.mvc/failure') return true;
+            if (document.querySelector(
+                '[class*="AccessDenied" i], [id*="AccessDenied" i],'
+                + ' [class*="access-denied" i], [id*="access-denied" i]'
+            )) return true;
+        } catch (e) {}
+        return false;
+    }
+
     function reportSelf() {
         if (!isReportableFrameUrl(location.href)) return;
         let info;
@@ -2316,6 +2337,19 @@ html.aes-embedded-umbrella-contract .o-view-layout {
                 primaryResource: null,
                 hoverFields: [],
             };
+        }
+        if (isAccessDeniedPage()) {
+            info.title = 'Access Denied';
+            info.number = '';
+            info.contact = '';
+            info.primaryResource = null;
+            info.priority = '';
+            info.status = '';
+            info.lastActivity = '';
+            info.hoverFields = [];
+            info.metadataFields = Object.assign({}, info.metadataFields || {}, {
+                type: 'access denied',
+            });
         }
         const pageWarning = hasPageLevelWarning();
         const primaryResource = info.primaryResource || null;
