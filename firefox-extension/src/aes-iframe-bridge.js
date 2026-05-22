@@ -2302,23 +2302,22 @@ html.aes-embedded-umbrella-contract .o-view-layout {
         return !!(warning && cleanText(warning.textContent));
     }
 
-    // Autotask renders an Access Denied state whenever the user lacks
-    // permission to view the requested entity (e.g. a Contract the
-    // user can't see). Sometimes that means navigating to
-    // /Mvc/Security/Authorization.mvc/Failure; sometimes the URL stays
-    // on the entity page and only the body changes. We detect either
-    // case via title / URL / DOM markers so the shell can force the
-    // lock icon regardless of how the tab was opened.
+    // Autotask renders an Access Denied state when the user lacks
+    // permission to view the requested entity. This is intentionally
+    // STRICT — earlier heuristics (substring class/id match, body
+    // text scans) false-positived on innocent pages and broke tabs.
+    // Only two signals trigger the override:
+    //   1. URL pathname exactly equals the Authorization Failure
+    //      endpoint Autotask redirects to.
+    //   2. document.title begins with "Access Denied" (allowing
+    //      trailing " - Autotask" style suffixes). This catches the
+    //      inline render case where the URL stays on the entity.
     function isAccessDeniedPage() {
         try {
-            const titleText = String(document.title || '').toLowerCase();
-            if (/access\s*denied/.test(titleText)) return true;
             const path = AES.normalizeHandledPath(location.pathname);
             if (path === '/mvc/security/authorization.mvc/failure') return true;
-            if (document.querySelector(
-                '[class*="AccessDenied" i], [id*="AccessDenied" i],'
-                + ' [class*="access-denied" i], [id*="access-denied" i]'
-            )) return true;
+            const titleText = String(document.title || '').trim();
+            if (/^access\s*denied\b/i.test(titleText)) return true;
         } catch (e) {}
         return false;
     }
