@@ -137,4 +137,108 @@
         const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
         return innerUrl && AES.isHandledUrl(innerUrl) ? innerUrl : null;
     };
+
+    // Detect when our extension context becomes invalid (Chrome auto-
+    // update, manual reload, disable) so the still-running OLD
+    // content scripts in this tab can gracefully clean up. Without
+    // this, every chrome.runtime.* call from the orphaned scripts
+    // throws "Extension context invalidated", the AES tab bar stays
+    // visible but unresponsive, and the user sees the extension as
+    // "broken" until they refresh manually.
+    //
+    // On detection we strip AES-injected DOM and (top frame only)
+    // show a small toast asking the user to refresh.
+    if (!AES.lifecycleWatchInstalled) {
+        AES.lifecycleWatchInstalled = true;
+
+        let invalidated = false;
+
+        function isExtensionContextValid() {
+            try {
+                return !!(chrome && chrome.runtime && chrome.runtime.id);
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function removeAesDomElements() {
+            try {
+                const selectors = [
+                    '.at-tabs-bar',
+                    '.at-tabs-peek-wrapper',
+                    '.at-tabs-modal',
+                    '.at-tabs-modal-backdrop',
+                    '.at-tabs-settings-backdrop',
+                    '.at-tabs-release-notes-backdrop',
+                    '.at-tabs-context-menu',
+                    '.at-tabs-map-modal',
+                    '.at-tabs-split-buttons',
+                    '.at-tabs-viewport',
+                    '.at-tabs-home-cover',
+                ];
+                document.querySelectorAll(selectors.join(','))
+                    .forEach(function (el) { try { el.remove(); } catch (e) {} });
+            } catch (e) {}
+            try {
+                if (document.body && document.body.style) {
+                    document.body.style.paddingTop = '';
+                }
+                if (document.documentElement && document.documentElement.classList) {
+                    document.documentElement.classList.remove(
+                        'aes-dark', 'aes-shell-active', 'aes-brand-link-colors'
+                    );
+                }
+            } catch (e) {}
+        }
+
+        function showRefreshToast() {
+            if (document.getElementById('aes-update-toast')) return;
+            const host = document.body || document.documentElement;
+            if (!host) return;
+            const toast = document.createElement('div');
+            toast.id = 'aes-update-toast';
+            toast.setAttribute('role', 'status');
+            toast.style.cssText = [
+                'position:fixed', 'z-index:2147483647', 'left:50%',
+                'bottom:24px', 'transform:translateX(-50%)',
+                'background:#1f2937', 'color:#f9fafb',
+                'font:500 13px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif',
+                'padding:12px 16px', 'border-radius:8px',
+                'box-shadow:0 8px 24px rgba(0,0,0,0.3)',
+                'display:flex', 'align-items:center', 'gap:12px',
+                'max-width:90vw',
+            ].join(';') + ';';
+            const text = document.createElement('span');
+            text.textContent = 'AES has been updated. Please refresh to continue.';
+            const button = document.createElement('button');
+            button.textContent = 'Refresh';
+            button.style.cssText = [
+                'background:#3b82f6', 'color:#ffffff', 'border:0',
+                'padding:6px 12px', 'border-radius:6px',
+                'font:600 12px/1 system-ui,-apple-system,sans-serif',
+                'cursor:pointer',
+            ].join(';') + ';';
+            button.addEventListener('click', function () {
+                try { location.reload(); } catch (e) {}
+            });
+            toast.appendChild(text);
+            toast.appendChild(button);
+            host.appendChild(toast);
+        }
+
+        function handleExtensionContextInvalidated() {
+            if (invalidated) return;
+            invalidated = true;
+            removeAesDomElements();
+            if (window === window.top) {
+                try { showRefreshToast(); } catch (e) {}
+            }
+        }
+
+        const intervalId = setInterval(function () {
+            if (isExtensionContextValid()) return;
+            try { clearInterval(intervalId); } catch (e) {}
+            handleExtensionContextInvalidated();
+        }, 3000);
+    }
 })();
