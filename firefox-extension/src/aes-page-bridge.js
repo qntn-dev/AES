@@ -474,6 +474,7 @@
                 path === '/popups/work/svcdetail.asp' ||
                 path === '/popups/searches/srcclient.asp' ||
                 path === '/administrator/roles/tabroleview.asp' ||
+                path === '/mvc/administrationsetup/privacy.mvc/redactresource' ||
                 path === '/autotask/views/administration/companysetup/neweditallocationcode.aspx' ||
                 path === '/mvc/contracts/contract.mvc/edit' ||
                 path === '/mvc/contracts/newcontractwizard.mvc/renewcontractwizard' ||
