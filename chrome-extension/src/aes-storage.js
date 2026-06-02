@@ -18,6 +18,9 @@
     if (typeof AES.state.phoneLinksEnabled !== 'boolean') {
         AES.state.phoneLinksEnabled = true;
     }
+    if (typeof AES.state.ticketLinksEnabled !== 'boolean') {
+        AES.state.ticketLinksEnabled = true;
+    }
     if (typeof AES.state.themePreference !== 'string'
         || !['auto', 'light', 'dark'].includes(AES.state.themePreference)) {
         AES.state.themePreference = 'auto';
@@ -339,6 +342,9 @@
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
                 : true;
+            AES.state.ticketLinksEnabled = settings && typeof settings.ticketLinksEnabled === 'boolean'
+                ? settings.ticketLinksEnabled
+                : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
             AES.state.hideEarlyAccessLabels = settings && typeof settings.hideEarlyAccessLabels === 'boolean'
@@ -404,6 +410,9 @@
             AES.state.openNewTabsAtStart = !!(settings && settings.openNewTabsAtStart);
             AES.state.phoneLinksEnabled = settings && typeof settings.phoneLinksEnabled === 'boolean'
                 ? settings.phoneLinksEnabled
+                : true;
+            AES.state.ticketLinksEnabled = settings && typeof settings.ticketLinksEnabled === 'boolean'
+                ? settings.ticketLinksEnabled
                 : true;
             AES.state.themePreference = readThemePreference(settings);
             AES.state.barOrientation = readBarOrientation(settings);
@@ -479,6 +488,7 @@
             rememberTabsAfterClose: !!AES.state.rememberTabsAfterClose,
             openNewTabsAtStart: !!AES.state.openNewTabsAtStart,
             phoneLinksEnabled: !!AES.state.phoneLinksEnabled,
+            ticketLinksEnabled: !!AES.state.ticketLinksEnabled,
             themePreference: readThemePreference(AES.state),
             barOrientation: readBarOrientation(AES.state),
             hideEarlyAccessLabels: !!AES.state.hideEarlyAccessLabels,

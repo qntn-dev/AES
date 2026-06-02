@@ -61,6 +61,7 @@ runtime_files=(
   src/aes-iframe-bridge.js
   src/aes-page-bridge.js
   src/aes-phone-links.js
+  src/aes-ticket-links.js
   src/aes-shared.js
   src/aes-shell-runtime.js
   src/aes-shell-config.js

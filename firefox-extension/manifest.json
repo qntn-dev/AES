@@ -40,6 +40,7 @@
         "src/aes-shared.js",
         "src/aes-storage.js",
         "src/aes-phone-links.js",
+        "src/aes-ticket-links.js",
         "src/aes-shell-runtime.js",
         "src/aes-shell-config.js",
         "src/aes-shell-styles.js",

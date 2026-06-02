@@ -94,6 +94,9 @@
             if (AES.initPhoneLinks) {
                 AES.initPhoneLinks();
             }
+            if (AES.initTicketLinks) {
+                AES.initTicketLinks();
+            }
         });
     }
 

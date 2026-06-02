@@ -227,6 +227,9 @@
         phoneLinksEnabled: AES.state && typeof AES.state.phoneLinksEnabled === 'boolean'
             ? AES.state.phoneLinksEnabled
             : true,
+        ticketLinksEnabled: AES.state && typeof AES.state.ticketLinksEnabled === 'boolean'
+            ? AES.state.ticketLinksEnabled
+            : true,
         improvedScrollbarsEnabled: AES.state && typeof AES.state.improvedScrollbarsEnabled === 'boolean'
             ? AES.state.improvedScrollbarsEnabled
             : true,
@@ -3060,6 +3063,7 @@
             clearNonIframeReservation();
             stopNonIframeTitleWatcher();
             if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(false);
+            if (AES.setTicketLinksEnabled) AES.setTicketLinksEnabled(false);
             syncImprovedScrollbarsState();
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
@@ -3067,6 +3071,7 @@
             applyAutotaskLogoOverride();
         } else {
             if (AES.initPhoneLinks) AES.initPhoneLinks();
+            if (AES.initTicketLinks) AES.initTicketLinks();
             injectTopLevelPageBridgeFromShell();
             if (AES.installTopLevelNavigationInterception) AES.installTopLevelNavigationInterception();
             installTopLevelRouteWatchers();
@@ -6596,6 +6601,7 @@
             rememberTabsAfterClose: true,
             openNewTabsAtStart: false,
             phoneLinksEnabled: true,
+            ticketLinksEnabled: true,
             themePreference: 'auto',
             barOrientation: 'horizontal',
             hideEarlyAccessLabels: true,
@@ -7487,6 +7493,20 @@
         const phoneRow = phoneControl.row;
         const phoneInput = phoneControl.input;
 
+        const ticketControl = createSettingsToggleRow({
+            name: 'Clickable ticket numbers',
+            info: 'Turn ticket numbers (e.g. T20240501.0001) into links that open the ticket in an AES tab.',
+            checked: !!state.ticketLinksEnabled,
+            onChange: function (input) {
+                state.ticketLinksEnabled = input.checked;
+                AES.state.ticketLinksEnabled = input.checked;
+                if (AES.setTicketLinksEnabled) AES.setTicketLinksEnabled(input.checked);
+                void AES.saveSettings();
+            }
+        });
+        const ticketRow = ticketControl.row;
+        const ticketInput = ticketControl.input;
+
         // Tabbar section --------------------------------------------------
         const section = document.createElement('div');
         section.className = 'at-tabs-settings-section';
@@ -7865,6 +7885,7 @@
         uiSection.appendChild(roundedPageFramesRow);
         uiSection.appendChild(improvedScrollbarsRow);
         uiSection.appendChild(phoneRow);
+        uiSection.appendChild(ticketRow);
         peekSection.appendChild(peekConfirmRow);
         peekSection.appendChild(peekMoveResizeRow);
         if (experimentalUmbrellaContractsRow) experimentalSection.appendChild(experimentalUmbrellaContractsRow);
@@ -7982,6 +8003,7 @@
             void syncUmbrellaContractFrameRules(defaults.experimentalUmbrellaContractFrameTabs);
             improvedScrollbarsInput.checked = defaults.improvedScrollbarsEnabled;
             phoneInput.checked = defaults.phoneLinksEnabled;
+            ticketInput.checked = defaults.ticketLinksEnabled;
             setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
             updateCustomizationCompactState();
 
@@ -7997,6 +8019,7 @@
             applyEarlyAccessLabelVisibility(document);
             applyResourcePlannerCalendarShortcut(document);
             if (AES.setPhoneLinksEnabled) AES.setPhoneLinksEnabled(defaults.phoneLinksEnabled);
+            if (AES.setTicketLinksEnabled) AES.setTicketLinksEnabled(defaults.ticketLinksEnabled);
             if (state.showTabBarOnNonIframePages) ensureNonIframeTitleWatcher();
             else stopNonIframeTitleWatcher();
             state.tabs.forEach(updateTabEl);
