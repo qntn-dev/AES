@@ -239,12 +239,15 @@
                 path.includes('contract_products')
             )) return true;
             return path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentrypage' ||
+                path === '/mvc/servicedesk/timeentry.mvc/newtickettimeentryfromservicecall' ||
+                path === '/autotask/popups/tickets/contractorallocationcodechanged.aspx' ||
                 path === '/mvc/servicedesk/note.mvc/newticketnotepage' ||
                 path === '/billing/invoices/popups/wrkdetails.asp' ||
                 path === '/opportunity/wizards/reassignlead/popwiz_frames.asp' ||
                 path === '/mvc/projects/projectnote.mvc/newprojectnote' ||
                 path === '/projects/calendar/prjcalendar.asp' ||
                 path === '/mvc/file/attachment.mvc/projectattachment' ||
+                path === '/mvc/file/attachment.mvc/ticketattachment' ||
                 path === '/mvc/projects/teammember.mvc/add' ||
                 path === '/autotask/views/contracts/cost.aspx' ||
                 path === '/autotask/views/projects/project_cost.aspx' ||
