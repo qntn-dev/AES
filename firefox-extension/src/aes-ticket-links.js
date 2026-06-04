@@ -57,7 +57,7 @@
                 cursor: pointer;
             }
             a.${TICKET_LINK_CLASS}:hover {
-                color: #1d4ed8;
+                color: var(--aes-accent-link-color, #1d4ed8);
             }
         `;
         (document.head || document.documentElement).appendChild(style);
