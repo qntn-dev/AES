@@ -459,6 +459,7 @@
                 path === '/projects/calendar/prjcalendar.asp' ||
                 path === '/mvc/file/attachment.mvc/projectattachment' ||
                 path === '/mvc/file/attachment.mvc/ticketattachment' ||
+                path === '/autotask/inventory/inventory_order_receive.aspx' ||
                 path === '/mvc/projects/teammember.mvc/add' ||
                 path === '/autotask/views/contracts/cost.aspx' ||
                 path === '/autotask/views/projects/project_cost.aspx' ||
