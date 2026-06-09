@@ -17,6 +17,10 @@
     const UMBRELLA_CONTRACT_FRAME_RULE_ID = 1101;
     const lastKnownTabUrls = new Map();
     const registeredShellTabs = new Map();
+    // Mirrors the "Enable AES: Tabs for Autotask" general switch. When that
+    // switch is off we must not redirect externally-opened Autotask URLs into
+    // AES. Defaults to enabled until storage is read (matches content scripts).
+    let extensionEnabled = true;
 
     if (!globalThis.__AES_ROUTE_REGISTRY__ && typeof importScripts === 'function') {
         try {
@@ -222,6 +226,15 @@
         return !!(settings && settings.experimentalUmbrellaContractFrameTabs);
     }
 
+    // The general switch defaults on, so only an explicit `false` disables it.
+    function readExtensionEnabledSetting(settings) {
+        return !(settings && settings.extensionEnabled === false);
+    }
+
+    function isUrlRedirectionEnabled() {
+        return extensionEnabled;
+    }
+
     function syncUmbrellaContractFrameRulesFromStorage() {
         if (!api.storage || !api.storage.local || !api.storage.local.get) return;
         try {
@@ -230,6 +243,7 @@
                 maybePromise
                     .then(function (result) {
                         const settings = result && result[SETTINGS_STORAGE_KEY];
+                        extensionEnabled = readExtensionEnabledSetting(settings);
                         return setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
                     })
                     .catch(function () {});
@@ -237,6 +251,7 @@
             }
             api.storage.local.get([SETTINGS_STORAGE_KEY], function (result) {
                 const settings = result && result[SETTINGS_STORAGE_KEY];
+                extensionEnabled = readExtensionEnabledSetting(settings);
                 setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
             });
         } catch (e) {}
@@ -343,6 +358,10 @@
     }
 
     function openDirectHandledUrlInExistingShell(message, sender, sendResponse) {
+        if (!isUrlRedirectionEnabled()) {
+            sendResponse({ ok: false, reason: 'extension-disabled' });
+            return;
+        }
         const rawUrl = normalizeExternalAutotaskUrl(message && message.url);
         const senderTab = sender && sender.tab;
         if (!rawUrl || !senderTab || typeof senderTab.id !== 'number') {
@@ -420,6 +439,10 @@
     }
 
     function openExternalAutotaskUrl(message, sender, sendResponse, options) {
+        if (!isUrlRedirectionEnabled()) {
+            sendResponse({ ok: false, reason: 'extension-disabled' });
+            return;
+        }
         const rawUrl = normalizeExternalAutotaskUrl(message && message.url);
         if (!rawUrl) {
             sendResponse({ ok: false, reason: 'unsupported-url' });
@@ -548,6 +571,7 @@
         api.storage.onChanged.addListener(function (changes, areaName) {
             if (areaName !== 'local' || !changes || !changes[SETTINGS_STORAGE_KEY]) return;
             const settings = changes[SETTINGS_STORAGE_KEY].newValue;
+            extensionEnabled = readExtensionEnabledSetting(settings);
             setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
         });
     }
