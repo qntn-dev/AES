@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.1.0
+
+A follow-up release that adds more clickable links, routes more Autotask pages into AES, and smooths over what happens when the extension updates.
+
+### New features
+
+- Ticket numbers in regular Autotask text (the `T...` format) are now clickable and open as an AES Tab, just like clickable phone numbers. Can be turned off in the settings under "Clickable phone numbers".
+
+### Compatibility
+
+Added/improved AES Tab and Peek support for:
+
+- Ticket attachments now open as a Peek window instead of a separate browser tab.
+- The "Contract or Allocation Code Changed" prompt now opens as a Peek.
+- "New Time Entry from Service Call" now opens as a Peek.
+- The Privacy "Redact Resource" page now opens as a Peek.
+- The "Receive Order" page for purchase orders now opens as a Peek. Saving with "Save & Close" refreshes the page behind it, the same as other Peeks.
+- Authorization Failure pages now show as an Access Denied tab.
+
+### Improvements
+
+- When the extension updates or reloads, already-open Autotask tabs now clean up the old AES interface and show a "Please refresh" prompt instead of leaving a broken, unresponsive UI behind.
+- The hover color on clickable phone numbers and ticket numbers now follows your branding accent color.
+
+### Fixes
+
+- Access Denied detection is more reliable and no longer triggers on pages that aren't actually access-denied.
+- The lock icon now shows consistently on any Access Denied page.
+- Turning off the main "Enable AES: Tabs for Autotask" switch now also stops external Autotask links (typed or pasted into the address bar) from being redirected into AES. Previously redirection kept working even with AES switched off.
+
 ## v1.0.0
 
 AES: Tabs for Autotask is now stable enough for v1.0. Releases will be less frequent from now on because AES now covers most of Autotask's areas.
