@@ -294,6 +294,64 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
+            version: '1.1.0',
+            sections: [
+                {
+                    title: 'AES Tip',
+                    items: [
+                        'See a ticket number written in plain text? It is now clickable. Click it to open the ticket in an AES Tab.',
+                    ],
+                },
+                {
+                    title: 'Highlights',
+                    items: [
+                        'Clickable ticket numbers',
+                        'More pages open as Peeks',
+                    ],
+                },
+                {
+                    title: 'New Features',
+                    items: [
+                        'Ticket numbers written in regular Autotask text are now clickable and open in an AES Tab, just like clickable phone numbers. You can turn this off in the settings under "Clickable phone numbers".',
+                    ],
+                },
+                {
+                    title: 'Compatibility',
+                    intro: 'Added/improved AES Tab support for:',
+                    items: [
+                        'Authorization Failure pages now show as an Access Denied tab.',
+                    ],
+                    subsections: [
+                        {
+                            title: 'Added/improved AES Peek support for:',
+                            items: [
+                                'Ticket attachments.',
+                                'The Contract or Allocation Code Changed prompt.',
+                                'New Time Entry from a Service Call.',
+                                'The Privacy Redact Resource page.',
+                                'Receiving a Purchase Order, which refreshes the page behind it when you Save & Close.',
+                            ],
+                        },
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'When the extension updates or reloads, already-open Autotask tabs now tidy up the old AES interface and prompt you to refresh, instead of leaving a broken, unresponsive interface behind.',
+                        'The hover color on clickable phone numbers and ticket numbers now follows your branding accent color.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Turning off the main "Enable AES: Tabs for Autotask" switch now also stops external Autotask links (typed or pasted into the URL Bar) from being redirected into AES. Previously redirection kept working even with AES switched off.',
+                        'Access Denied detection is more reliable and no longer triggers on pages that are not actually access-denied.',
+                        'The lock icon now shows consistently on any Access Denied page.',
+                    ],
+                },
+            ],
+    };
+    const RELEASE_NOTES_V1_0_0 = {
             version: '1.0.0',
             sections: [
                 {
@@ -356,6 +414,7 @@
     };
     const RELEASE_NOTES_HISTORY = [
         RELEASE_NOTES,
+        RELEASE_NOTES_V1_0_0,
         {
             version: '0.11.0',
             sections: [
