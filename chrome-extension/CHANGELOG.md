@@ -19,6 +19,7 @@ Route eligibility flips from an explicit allowlist to opt-out. Instead of adding
 - Links and popups are gated on scheme and host before AES considers them. Without that gate, URL parsing turns `javascript:void(0)` into the path `void(0)`, which the broad rule accepted — AES would swallow the click, `javascript:` links would stop working, and external links and `mailto:` addresses would be pulled into an AES Tab.
 - Pages that belong in the Home tab, such as search results and list views, no longer also open as a separate Tab. Promotions that come from the page itself (Home's own frame navigating, an inner URL unwrapped from an Onyx landing page) stay on the curated list; only navigation you perform yourself gets the broad rule.
 - A direct navigation captured for promotion is no longer dropped when the setting is switched off in between; the browser goes to the requested page instead.
+- Ticket numbers in Autotask's entity title bar are no longer turned into clickable links. That bar names the record you already have open, so the link led nowhere, and it is the one place the branding accent is used as a background colour — which painted an accent-coloured link onto an accent-coloured bar. `.TitleBar` and `.TitleBarItem` were added to the skip list in `aes-ticket-links.js`.
 
 ## v1.1.0
 
