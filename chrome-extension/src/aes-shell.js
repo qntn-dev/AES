@@ -299,26 +299,20 @@
                 {
                     title: 'AES Tip',
                     items: [
-                        'Ran into a page that does not look right inside AES? Open Settings and switch off "Increase page compatibility" to send pages back to a normal browser tab.',
-                    ],
-                },
-                {
-                    title: 'Highlights',
-                    items: [
-                        'Almost every Autotask page now opens in an AES Tab',
+                        'If a page looks wrong inside AES, switch off "Increase page compatibility" in the settings. That page then opens in a normal browser tab again.',
                     ],
                 },
                 {
                     title: 'New Features',
                     items: [
-                        'New setting "Increase page compatibility", on by default. AES used to open only the pages that had been added to it one by one; it now opens almost every Autotask page in a Tab. Pages that are not built to run in a frame may misbehave, so switch the setting off if you run into one.',
+                        'New setting "Increase page compatibility", on by default. AES used to open only the pages that had been added to it one by one. It now opens most Autotask pages in a Tab. Some pages are not built to run in a frame, so switch it off if you hit one.',
                     ],
                 },
                 {
                     title: 'Improvements',
                     items: [
-                        'Pages that belong in the Home tab, such as search results and list views, stay in Home instead of also opening as a separate Tab.',
-                        'The ticket number in the title bar at the top of a ticket is no longer clickable. It pointed at the ticket you already had open, and against your branding color it was hard to read.',
+                        'Search results and list views stay in the Home tab instead of also opening as a separate Tab.',
+                        'The ticket number in a ticket\'s title bar is no longer a link. It pointed at the ticket you already had open.',
                     ],
                 },
             ],
