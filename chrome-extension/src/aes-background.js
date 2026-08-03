@@ -231,6 +231,16 @@
         return !(settings && settings.extensionEnabled === false);
     }
 
+    function readIncreasedPageCompatibilitySetting(settings) {
+        return !(settings && settings.increasedPageCompatibility === false);
+    }
+
+    function applyIncreasedPageCompatibilitySetting(settings) {
+        if (ROUTES.setCompatibilityMode) {
+            ROUTES.setCompatibilityMode(readIncreasedPageCompatibilitySetting(settings));
+        }
+    }
+
     function isUrlRedirectionEnabled() {
         return extensionEnabled;
     }
@@ -244,6 +254,7 @@
                     .then(function (result) {
                         const settings = result && result[SETTINGS_STORAGE_KEY];
                         extensionEnabled = readExtensionEnabledSetting(settings);
+                        applyIncreasedPageCompatibilitySetting(settings);
                         return setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
                     })
                     .catch(function () {});
@@ -252,6 +263,7 @@
             api.storage.local.get([SETTINGS_STORAGE_KEY], function (result) {
                 const settings = result && result[SETTINGS_STORAGE_KEY];
                 extensionEnabled = readExtensionEnabledSetting(settings);
+                applyIncreasedPageCompatibilitySetting(settings);
                 setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
             });
         } catch (e) {}
@@ -572,6 +584,7 @@
             if (areaName !== 'local' || !changes || !changes[SETTINGS_STORAGE_KEY]) return;
             const settings = changes[SETTINGS_STORAGE_KEY].newValue;
             extensionEnabled = readExtensionEnabledSetting(settings);
+            applyIncreasedPageCompatibilitySetting(settings);
             setUmbrellaContractFrameRulesEnabled(readUmbrellaContractFrameSetting(settings));
         });
     }
