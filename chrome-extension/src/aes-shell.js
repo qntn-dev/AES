@@ -6654,6 +6654,13 @@
         return settingsUi.createFooterButton(config);
     }
 
+    function syncPageCompatibilityState() {
+        const enabled = state.increasedPageCompatibility !== false;
+        if (AES.ROUTES && AES.ROUTES.setCompatibilityMode) {
+            AES.ROUTES.setCompatibilityMode(enabled);
+        }
+    }
+
     function defaultSettingsState() {
         return {
             extensionEnabled: true,
@@ -6676,6 +6683,7 @@
             autotaskLogoOverrideEnabled: false,
             autotaskLogoDataUrl: '',
             improvedScrollbarsEnabled: true,
+            increasedPageCompatibility: true,
             skipPeekBackdropCloseWarning: false,
             peekMoveResizeEnabled: true,
             tabLine2Fields: defaultTabLineSettings(2),
@@ -6812,6 +6820,20 @@
         });
         const improvedScrollbarsRow = improvedScrollbarsControl.row;
         const improvedScrollbarsInput = improvedScrollbarsControl.input;
+
+        const pageCompatibilityControl = createSettingsToggleRow({
+            name: 'Increase page compatibility',
+            info: 'Opens far more Autotask pages inside AES instead of in a browser tab. Some pages are not built to run in a frame and may misbehave — switch this off if you run into one.',
+            checked: state.increasedPageCompatibility !== false,
+            onChange: function (input) {
+                state.increasedPageCompatibility = input.checked;
+                AES.state.increasedPageCompatibility = input.checked;
+                syncPageCompatibilityState();
+                void AES.saveSettings();
+            }
+        });
+        const pageCompatibilityRow = pageCompatibilityControl.row;
+        const pageCompatibilityInput = pageCompatibilityControl.input;
 
         const brandColorRow = document.createElement('div');
         brandColorRow.className = 'at-tabs-branding-card';
@@ -7938,6 +7960,7 @@
         section.appendChild(openAtStartRow);
         section.appendChild(persistRow);
         generalSection.appendChild(enabledRow);
+        generalSection.appendChild(pageCompatibilityRow);
         generalSection.appendChild(enabledReloadNote);
         uiSection.appendChild(earlyAccessRow);
         uiSection.appendChild(resourcePlannerRow);
@@ -8061,6 +8084,9 @@
             }
             void syncUmbrellaContractFrameRules(defaults.experimentalUmbrellaContractFrameTabs);
             improvedScrollbarsInput.checked = defaults.improvedScrollbarsEnabled;
+            pageCompatibilityInput.checked = defaults.increasedPageCompatibility;
+            state.increasedPageCompatibility = defaults.increasedPageCompatibility;
+            AES.state.increasedPageCompatibility = defaults.increasedPageCompatibility;
             phoneInput.checked = defaults.phoneLinksEnabled;
             ticketInput.checked = defaults.ticketLinksEnabled;
             setCustomizationSelectValues(defaults.tabLine2Fields, defaults.tabLine3Fields);
@@ -8072,6 +8098,7 @@
             applyBarOrientationClass();
             applyPageFrameClass();
             syncImprovedScrollbarsState();
+            syncPageCompatibilityState();
             updateResizableBarClasses();
             updateShellVisibility();
             applyExtensionEnabledState();
@@ -11161,10 +11188,14 @@
         if (typeof AES.state.improvedScrollbarsEnabled === 'boolean') {
             state.improvedScrollbarsEnabled = AES.state.improvedScrollbarsEnabled;
         }
+        if (typeof AES.state.increasedPageCompatibility === 'boolean') {
+            state.increasedPageCompatibility = AES.state.increasedPageCompatibility;
+        }
         applyAutotaskBrandColor();
         applyAutotaskLogoOverride();
         applyPageFrameClass();
         syncImprovedScrollbarsState();
+        syncPageCompatibilityState();
         state.tabLine2Fields = normalizeTabLineSettings(AES.state.tabLine2Fields, 2);
         state.tabLine3Fields = normalizeTabLineSettings(AES.state.tabLine3Fields, 3);
         state.tabBarWidth = normalizedTabBarWidth(AES.state.tabBarWidth);
