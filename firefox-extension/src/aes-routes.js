@@ -153,6 +153,47 @@
         '/autotask35/grapevine/profile.aspx'
     ];
 
+    // Synchrone spiegel van de "Increase page compatibility"-setting.
+    //
+    // De echte setting staat in chrome.storage en is asynchroon, maar de
+    // eerste routeringsbeslissing valt al bij document_start — en in de
+    // MAIN world is chrome.storage sowieso niet beschikbaar. De shell
+    // schrijft de waarde daarom óók naar deze localStorage-sleutel, die
+    // elke browsercontext synchroon kan lezen. De service worker heeft
+    // geen localStorage en krijgt de waarde via setCompatibilityMode().
+    const COMPATIBILITY_MIRROR_KEY = 'aes-page-compatibility-v1';
+    const NATIVE_ONYX_PATH = '/autotaskonyx';
+    const ONYX_LANDING_PAGE_PATH = '/autotaskonyx/landingpage';
+
+    let compatibilityMode = true;
+
+    function readCompatibilityMirror() {
+        try {
+            if (typeof localStorage === 'undefined' || !localStorage) {
+                return null;
+            }
+            const raw = localStorage.getItem(COMPATIBILITY_MIRROR_KEY);
+            if (raw === '0') return false;
+            if (raw === '1') return true;
+            return null;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function writeCompatibilityMirror(enabled) {
+        try {
+            if (typeof localStorage === 'undefined' || !localStorage) {
+                return;
+            }
+            localStorage.setItem(COMPATIBILITY_MIRROR_KEY, enabled ? '1' : '0');
+        } catch (e) {}
+    }
+
+    function isNativeOnyxPath(path) {
+        return path === NATIVE_ONYX_PATH || path.indexOf(NATIVE_ONYX_PATH + '/') === 0;
+    }
+
     function unique(values) {
         const seen = new Set();
         const result = [];
@@ -187,18 +228,31 @@
         DYNAMIC_EXACT_PATHS: unique(DYNAMIC_EXACT_PATHS),
         normalizePath,
         includesAny,
+        getCompatibilityMode() {
+            return compatibilityMode;
+        },
+        setCompatibilityMode(enabled) {
+            compatibilityMode = enabled !== false;
+            writeCompatibilityMirror(compatibilityMode);
+        },
         isNativeHomePath(pathname) {
             const path = normalizePath(pathname);
+            if (isNativeOnyxPath(path) && path !== ONYX_LANDING_PAGE_PATH) {
+                return true;
+            }
             return routes.NATIVE_HOME_PATHS.includes(path);
         },
         isExcludedPath(pathname) {
             const path = normalizePath(pathname);
             return routes.EXCLUDED_PATHS.includes(path) || includesAny(path, routes.EXCLUDED_PATH_INCLUDES);
         },
-        isHandledPath(pathname) {
+        // De curated allowlist. Blijft in gebruik als fallback wanneer de
+        // compatibiliteitsmodus uit staat, en voor de fuzzy URL-scanner in
+        // aes-page-bridge.js die géén brede regel mag gebruiken.
+        isKnownRoutePath(pathname) {
             const path = normalizePath(pathname);
 
-            if (!path || routes.isNativeHomePath(path)) {
+            if (!path) {
                 return false;
             }
 
@@ -206,8 +260,34 @@
                 || includesAny(path, routes.HANDLED_PATH_INCLUDES)
                 || routes.DYNAMIC_EXACT_PATHS.includes(path)
                 || includesAny(path, routes.DYNAMIC_PATH_FRAGMENTS);
+        },
+        isHandledPath(pathname) {
+            const path = normalizePath(pathname);
+
+            if (!path || path === '/') {
+                return false;
+            }
+            if (routes.isNativeHomePath(path)) {
+                return false;
+            }
+            if (routes.isExcludedPath(path)) {
+                return false;
+            }
+            // Onyx-paden krijgen nooit het blanket "ja". De landingpage
+            // wordt door de callers uitgepakt naar zijn inner URL; die
+            // inner URL doorloopt deze functie daarna opnieuw.
+            if (compatibilityMode && !isNativeOnyxPath(path)) {
+                return true;
+            }
+
+            return routes.isKnownRoutePath(path);
         }
     };
+
+    const mirroredCompatibilityMode = readCompatibilityMirror();
+    if (mirroredCompatibilityMode !== null) {
+        compatibilityMode = mirroredCompatibilityMode;
+    }
 
     root.__AES_ROUTE_REGISTRY__ = routes;
 })();

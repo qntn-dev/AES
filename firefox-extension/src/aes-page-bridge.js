@@ -234,6 +234,22 @@
         return false;
     }
 
+    // Strenge variant voor plekken waar we niet van een brede regel uit
+    // mogen gaan — zie extractHandledUrlFromPageObject.
+    function isKnownRouteUrl(url) {
+        const path = pathOf(url);
+        if (!path) {
+            return false;
+        }
+        if (isDialogPopOutFromDialogPath(path)) {
+            return false;
+        }
+        if (ROUTES.isKnownRoutePath) {
+            return ROUTES.isKnownRoutePath(path);
+        }
+        return false;
+    }
+
     function isDialogPopOutFromDialogPath(path) {
         const normalizedPath = String(path || '').toLowerCase().replace(/\/index$/, '');
         return normalizedPath === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
@@ -281,7 +297,7 @@
         collectStrings(pageObject, strings, 0);
 
         const rawUrl = strings.find(function (value) {
-            return isHandledUrl(absoluteUrl(value));
+            return isKnownRouteUrl(absoluteUrl(value));
         });
         if (!rawUrl) return '';
 
