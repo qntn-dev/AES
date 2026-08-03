@@ -24,6 +24,12 @@
         '.at-tabs-bar',
         '.at-tabs-viewport',
         '.at-tabs-settings-modal',
+        // Autotask's entity title bar names the record you already have
+        // open, so a link there leads nowhere new. It is also the one
+        // place the branding accent is used as a background, which would
+        // paint an accent-colored link onto an accent-colored bar.
+        '.TitleBar',
+        '.TitleBarItem',
     ].join(',');
     const TICKET_HREF_PATH = '/Mvc/ServiceDesk/TicketDetail.mvc/TicketByTicketNumber?ticketNumber=';
 
