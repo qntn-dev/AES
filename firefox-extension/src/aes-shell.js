@@ -1756,7 +1756,13 @@
         if (!url || url === 'about:blank') return;
         syncHomeStateForNativeUrl(url, frame);
 
-        if (state.activeId === null && AES.isHandledUrl(url)) {
+        // Home's own frame just navigated. Lifting that into a tab is only
+        // right for the curated entity routes: the frame keeps rendering the
+        // page regardless, so lifting anything else means the same page shows
+        // up as Home and as a separate tab at once. List views, dashboards and
+        // search results are supposed to stay in Home, and the broad
+        // compatibility rule cannot tell them apart from an entity page.
+        if (state.activeId === null && AES.isKnownRouteUrl(url)) {
             if (url !== state.nativeLastUrl) {
                 openTab(url);
             }

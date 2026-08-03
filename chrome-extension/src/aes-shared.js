@@ -133,6 +133,23 @@
             AES.HANDLED_PATH_INCLUDES.some(fragment => path.includes(fragment));
     };
 
+    // Strict counterpart of isHandledUrl, on the curated route list only.
+    // For promotions that are not an explicit user navigation — Home's own
+    // frame loading a page, an inner URL scraped out of a landing page — the
+    // broad compatibility rule would lift practically every page into a tab
+    // while the original still renders underneath, showing it twice.
+    AES.isKnownRouteUrl = function isKnownRouteUrl(url) {
+        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(url, location.href)) return false;
+        if (AES.isNativeHomeUrl(url)) return false;
+        if (AES.isDialogPopOutFromDialogUrl(url)) return false;
+
+        const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
+        if (innerUrl) return AES.isKnownRouteUrl(innerUrl);
+
+        const path = AES.normalizeHandledPath(AES.pathOf(url));
+        return !!ROUTES.isKnownRoutePath && ROUTES.isKnownRoutePath(path);
+    };
+
     AES.toAbsoluteUrl = function toAbsoluteUrl(url) {
         return new URL(url, location.origin).href;
     };
@@ -152,13 +169,7 @@
     AES.extractKnownRouteUrlFromLandingPageUrl = function extractKnownRouteUrlFromLandingPageUrl(url) {
         if (AES.isNativeOnyxUrl(url)) return null;
         const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
-        if (!innerUrl) return null;
-        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(innerUrl, location.href)) return null;
-        if (AES.isNativeHomeUrl(innerUrl)) return null;
-        if (AES.isDialogPopOutFromDialogUrl(innerUrl)) return null;
-        if (!ROUTES.isKnownRoutePath) return null;
-        const path = AES.normalizeHandledPath(AES.pathOf(innerUrl));
-        return ROUTES.isKnownRoutePath(path) ? innerUrl : null;
+        return innerUrl && AES.isKnownRouteUrl(innerUrl) ? innerUrl : null;
     };
 
     // Detect when our extension context becomes invalid (Chrome auto-
