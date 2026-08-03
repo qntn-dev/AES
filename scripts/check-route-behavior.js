@@ -34,6 +34,21 @@ assert.strictEqual(routes.isHandledPath('/mvc/servicedesk/ticketdetail.mvc'), tr
 assert.strictEqual(routes.isHandledPath('/some/page/nobody/added.aspx'), false,
     'compat off: unknown route is not handled');
 
+// Ticket print view staat bewust in zowel de handled- als de excluded-
+// lijst: een window.open ervan wordt in een AES-tab gevangen, en binnen
+// die tab blijft AES er vervolgens vanaf. De curated lijst wint dus van
+// de excluded-check — in beide modi.
+assert.strictEqual(routes.isHandledPath('/mvc/servicedesk/ticketprintview.mvc'), true,
+    'compat off: dual-listed print view stays handled (curated list wins)');
+
+assert.strictEqual(routes.isHandledPath('/mvc/framework/authentication.mvc/authenticate'), false,
+    'compat off: excluded-only paths stay excluded');
+
+// Native-home paden zijn ook voor de curated lijst geen route, ook al
+// matcht dit pad het /billingproduct-fragment in HANDLED_PATH_INCLUDES.
+assert.strictEqual(routes.isKnownRoutePath('/mvc/contracts/billingproductmapping.mvc/installedproductmapping'), false,
+    'known route: native home paths are refused even when a fragment matches');
+
 // --- Compatibiliteitsmodus laat alles door, op de uitzonderingen na ---
 routes.setCompatibilityMode(true);
 
@@ -58,10 +73,30 @@ assert.strictEqual(routes.isNativeHomePath('/autotaskonyx/landingpage'), false,
 
 assert.strictEqual(routes.isHandledPath('/mvc/user/preferences.mvc/index'), false,
     'compat on: native home paths stay native');
-assert.strictEqual(routes.isHandledPath('/mvc/servicedesk/ticketprintview.mvc'), false,
-    'compat on: excluded paths stay excluded');
+assert.strictEqual(routes.isHandledPath('/mvc/servicedesk/ticketprintview.mvc'), true,
+    'compat on: dual-listed print view stays handled (curated list wins)');
+assert.strictEqual(routes.isHandledPath('/mvc/framework/authentication.mvc/authenticate'), false,
+    'compat on: excluded-only paths stay excluded');
 assert.strictEqual(routes.isHandledPath('/help/content/whatever.htm'), false,
     'compat on: excluded path fragments stay excluded');
+
+// --- isRoutableUrl: alleen http(s) op een regionale Autotask-host ---
+assert.strictEqual(routes.isRoutableUrl('javascript:void(0)'), false,
+    'routable: javascript: URLs are never routable');
+assert.strictEqual(routes.isRoutableUrl('mailto:a@b.c'), false,
+    'routable: mailto: URLs are never routable');
+assert.strictEqual(routes.isRoutableUrl('https://example.com/foo'), false,
+    'routable: third-party hosts are not routable');
+assert.strictEqual(routes.isRoutableUrl('http://ww5.autotask.net/x'), true,
+    'routable: http on a regional host is routable');
+assert.strictEqual(routes.isRoutableUrl('https://ww5.autotask.net/x'), true,
+    'routable: https on a regional host is routable');
+assert.strictEqual(routes.isRoutableUrl('https://www.autotask.net/x'), false,
+    'routable: non-regional autotask.net hosts are not routable');
+assert.strictEqual(routes.isRoutableUrl('/mvc/crm/accountdetail.mvc', 'https://ww5.autotask.net/'), true,
+    'routable: relative URL resolves against a regional base');
+assert.strictEqual(routes.isRoutableUrl('/mvc/crm/accountdetail.mvc'), false,
+    'routable: relative URL without a base is not routable');
 
 // --- De modus is per wereld instelbaar en uitleesbaar ---
 assert.strictEqual(routes.getCompatibilityMode(), true, 'mode is readable');

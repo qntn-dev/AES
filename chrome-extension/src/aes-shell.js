@@ -9225,8 +9225,6 @@
             const pendingUrl = sessionStorage.getItem(DIRECT_HANDLED_OPEN_STORAGE_KEY) || '';
             if (!pendingUrl) return '';
             sessionStorage.removeItem(DIRECT_HANDLED_OPEN_STORAGE_KEY);
-            if (!AES.isHandledUrl || !AES.isHandledUrl(pendingUrl)) return '';
-            if (AES.extractHandledUrlFromLandingPageUrl && AES.extractHandledUrlFromLandingPageUrl(pendingUrl)) return '';
             return pendingUrl;
         } catch (e) {
             return '';
@@ -9236,6 +9234,18 @@
     function openPendingDirectHandledRoute() {
         const pendingUrl = consumePendingDirectHandledOpenUrl();
         if (!pendingUrl) return false;
+        if (AES.extractHandledUrlFromLandingPageUrl && AES.extractHandledUrlFromLandingPageUrl(pendingUrl)) {
+            return false;
+        }
+        // De route is vastgelegd onder de compatibiliteitsmodus die op
+        // dat moment actief was. Kwalificeert hij nu niet meer voor een
+        // AES-tab, dan moet de navigatie die de gebruiker vroeg alsnog
+        // gebeuren — de promotie-redirect heeft hem al uit de historie
+        // vervangen.
+        if (!AES.isHandledUrl || !AES.isHandledUrl(pendingUrl)) {
+            try { location.assign(pendingUrl); } catch (e) {}
+            return false;
+        }
         openTab(pendingUrl);
         return true;
     }

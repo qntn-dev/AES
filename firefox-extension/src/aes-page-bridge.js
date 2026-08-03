@@ -221,6 +221,13 @@
     }
 
     function isHandledUrl(url) {
+        // isHandledPath ziet alleen een pathname en zegt in
+        // compatibiliteitsmodus op bijna alles "ja" — ook op wat URL-
+        // parsing maakt van javascript:, mailto: en third-party URLs.
+        // Vanaf een URL moet dus eerst scheme + host vaststaan.
+        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(url, window.location.href)) {
+            return false;
+        }
         const path = pathOf(url);
         if (!path) {
             return false;
@@ -237,6 +244,9 @@
     // Strenge variant voor plekken waar we niet van een brede regel uit
     // mogen gaan — zie extractHandledUrlFromPageObject.
     function isKnownRouteUrl(url) {
+        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(url, window.location.href)) {
+            return false;
+        }
         const path = pathOf(url);
         if (!path) {
             return false;

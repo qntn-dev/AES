@@ -114,6 +114,11 @@
     };
 
     AES.isHandledUrl = function isHandledUrl(url) {
+        // isHandledPath ziet alleen een pathname en zegt in
+        // compatibiliteitsmodus op bijna alles "ja" — ook op wat URL-
+        // parsing maakt van javascript:, mailto: en third-party URLs.
+        // Vanaf een URL moet dus eerst scheme + host vaststaan.
+        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(url, location.href)) return false;
         if (AES.isNativeHomeUrl(url)) return false;
         if (AES.isDialogPopOutFromDialogUrl(url)) return false;
 

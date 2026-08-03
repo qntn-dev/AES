@@ -218,6 +218,27 @@
         return fragments.some((fragment) => pathname.includes(fragment));
     }
 
+    const REGIONAL_AUTOTASK_HOST = /^ww\d+\.autotask\.net$/i;
+
+    // Guard for the URL-level callers. isHandledPath() only ever sees a
+    // pathname, and in compatibility mode it says yes to almost any
+    // pathname — including the ones URL parsing produces for
+    // javascript:, mailto: and third-party https URLs. Every caller that
+    // starts from a URL must therefore establish scheme and host first.
+    function isRoutableUrl(url, baseUrl) {
+        try {
+            const parsed = baseUrl
+                ? new URL(String(url || ''), baseUrl)
+                : new URL(String(url || ''));
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+                return false;
+            }
+            return REGIONAL_AUTOTASK_HOST.test(parsed.hostname);
+        } catch (e) {
+            return false;
+        }
+    }
+
     const routes = {
         HANDLED_PATHS: unique(HANDLED_PATHS),
         NATIVE_HOME_PATHS: unique(NATIVE_HOME_PATHS),
@@ -228,6 +249,7 @@
         DYNAMIC_EXACT_PATHS: unique(DYNAMIC_EXACT_PATHS),
         normalizePath,
         includesAny,
+        isRoutableUrl,
         getCompatibilityMode() {
             return compatibilityMode;
         },
@@ -252,7 +274,7 @@
         isKnownRoutePath(pathname) {
             const path = normalizePath(pathname);
 
-            if (!path) {
+            if (!path || routes.isNativeHomePath(path)) {
                 return false;
             }
 
@@ -270,17 +292,23 @@
             if (routes.isNativeHomePath(path)) {
                 return false;
             }
+            // De curated lijst behoudt zijn betekenis van vóór de
+            // compatibiliteitsmodus, inclusief het handjevol paden dat
+            // bewust in zowel de handled- als de excluded-lijst staat:
+            // gevangen in een AES-tab, en daarbinnen met rust gelaten.
+            if (routes.isKnownRoutePath(path)) {
+                return true;
+            }
+            if (!compatibilityMode) {
+                return false;
+            }
             if (routes.isExcludedPath(path)) {
                 return false;
             }
             // Onyx-paden krijgen nooit het blanket "ja". De landingpage
             // wordt door de callers uitgepakt naar zijn inner URL; die
             // inner URL doorloopt deze functie daarna opnieuw.
-            if (compatibilityMode && !isNativeOnyxPath(path)) {
-                return true;
-            }
-
-            return routes.isKnownRoutePath(path);
+            return !isNativeOnyxPath(path);
         }
     };
 
