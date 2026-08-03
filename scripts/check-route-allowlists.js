@@ -69,6 +69,15 @@ for (const rel of consumers) {
     }
 }
 
+const bridgeSource = fs.readFileSync(path.join(root, 'chrome-extension/src/aes-page-bridge.js'), 'utf8');
+const bridgeScannerMatch = bridgeSource.match(/function\s+extractHandledUrlFromPageObject\s*\([\s\S]*?\n    \}/);
+if (!bridgeScannerMatch) {
+    throw new Error('aes-page-bridge.js no longer defines extractHandledUrlFromPageObject');
+}
+if (!bridgeScannerMatch[0].includes('isKnownRouteUrl')) {
+    throw new Error('extractHandledUrlFromPageObject must use the curated route list, not the broad rule');
+}
+
 const runtimeRoots = [
     'chrome-extension/src',
     'firefox-extension/src',
