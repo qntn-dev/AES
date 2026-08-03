@@ -143,6 +143,24 @@
         return innerUrl && AES.isHandledUrl(innerUrl) ? innerUrl : null;
     };
 
+    // Alleen de curated routes worden uit een landing page opgetild naar
+    // een eigen AES-tab. In compatibiliteitsmodus zegt isHandledUrl op
+    // bijna elke inner URL "ja", en dan zou elke pagina die Autotask via
+    // een landing page rendert zowel in Home als in een losse tab komen.
+    // Die promotie komt niet van de gebruiker maar uit de pagina, dus
+    // hoort hij op de strenge lijst.
+    AES.extractKnownRouteUrlFromLandingPageUrl = function extractKnownRouteUrlFromLandingPageUrl(url) {
+        if (AES.isNativeOnyxUrl(url)) return null;
+        const innerUrl = AES.extractInnerUrlFromLandingPageUrl(url);
+        if (!innerUrl) return null;
+        if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(innerUrl, location.href)) return null;
+        if (AES.isNativeHomeUrl(innerUrl)) return null;
+        if (AES.isDialogPopOutFromDialogUrl(innerUrl)) return null;
+        if (!ROUTES.isKnownRoutePath) return null;
+        const path = AES.normalizeHandledPath(AES.pathOf(innerUrl));
+        return ROUTES.isKnownRoutePath(path) ? innerUrl : null;
+    };
+
     // Detect when our extension context becomes invalid (Chrome auto-
     // update, manual reload, disable) so the still-running OLD
     // content scripts in this tab can gracefully clean up. Without

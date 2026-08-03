@@ -9912,7 +9912,10 @@
 
         function intercept(originalFn, stateArg, unusedTitle, urlArg) {
             if (!featuresEnabled()) return originalFn(stateArg, unusedTitle, urlArg);
-            const handledUrl = urlArg ? AES.extractHandledUrlFromLandingPageUrl(urlArg) : null;
+            // Strenge extractor: alleen curated routes worden uit de
+            // landing page naar een AES-tab getild; de rest valt door
+            // naar de echte pushState/replaceState en rendert in Home.
+            const handledUrl = urlArg ? AES.extractKnownRouteUrlFromLandingPageUrl(urlArg) : null;
             if (handledUrl) {
                 openTab(handledUrl);
                 return;
@@ -9996,7 +9999,9 @@
             return;
         }
 
-        const handledUrl = AES.extractHandledUrlFromLandingPageUrl(topHref);
+        // Strenge extractor: zie intercept() hierboven — niet-curated
+        // landing pages blijven in Home in plaats van dubbel te openen.
+        const handledUrl = AES.extractKnownRouteUrlFromLandingPageUrl(topHref);
         if (!handledUrl) {
             const active = state.activeId === null ? null : tabById(state.activeId);
             if (hrefChanged && !firstObservation && active && shouldMoveLegacyContractRedirectToHome(active, topHref)) {
