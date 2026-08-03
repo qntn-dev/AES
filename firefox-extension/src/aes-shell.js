@@ -318,6 +318,7 @@
                     title: 'Improvements',
                     items: [
                         'Pages that belong in the Home tab, such as search results and list views, stay in Home instead of also opening as a separate Tab.',
+                        'The ticket number in the title bar at the top of a ticket is no longer clickable. It pointed at the ticket you already had open, and against your branding color it was hard to read.',
                     ],
                 },
             ],
