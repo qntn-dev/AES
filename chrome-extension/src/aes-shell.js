@@ -294,6 +294,35 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
+            version: '1.1.1',
+            sections: [
+                {
+                    title: 'AES Tip',
+                    items: [
+                        'Ran into a page that does not look right inside AES? Open Settings and switch off "Increase page compatibility" to send pages back to a normal browser tab.',
+                    ],
+                },
+                {
+                    title: 'Highlights',
+                    items: [
+                        'Almost every Autotask page now opens in an AES Tab',
+                    ],
+                },
+                {
+                    title: 'New Features',
+                    items: [
+                        'New setting "Increase page compatibility", on by default. AES used to open only the pages that had been added to it one by one; it now opens almost every Autotask page in a Tab. Pages that are not built to run in a frame may misbehave, so switch the setting off if you run into one.',
+                    ],
+                },
+                {
+                    title: 'Improvements',
+                    items: [
+                        'Pages that belong in the Home tab, such as search results and list views, stay in Home instead of also opening as a separate Tab.',
+                    ],
+                },
+            ],
+    };
+    const RELEASE_NOTES_V1_1_0 = {
             version: '1.1.0',
             sections: [
                 {
@@ -414,6 +443,7 @@
     };
     const RELEASE_NOTES_HISTORY = [
         RELEASE_NOTES,
+        RELEASE_NOTES_V1_1_0,
         RELEASE_NOTES_V1_0_0,
         {
             version: '0.11.0',

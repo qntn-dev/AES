@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.1.1
+
+Route eligibility flips from an explicit allowlist to opt-out. Instead of adding pages to AES one at a time, AES now opens almost every Autotask page in a Tab unless something explicitly keeps it out.
+
+### New features
+
+- New setting "Increase page compatibility", on by default. Turning it off restores the previous allowlist-only behavior exactly.
+
+### Compatibility
+
+- `isHandledPath` in `aes-routes.js` now returns true for any path except the bare root, the native Autotask shell (`/AutotaskOnyx/*`), `NATIVE_HOME_PATHS`, and the excluded lists. The curated list survives as `isKnownRoutePath` and keeps its old precedence, so paths that sit in both the handled and excluded lists (ticket print view, the shipping grids) behave exactly as before.
+- Adding a route to `tabTypeForUrl` is now cosmetic only: it sets the tab icon and type, and is no longer required for a page to open in AES. Pages AES has never seen fall back to the type read from the page's own entity header.
+- `EXCLUDED_PATHS` / `EXCLUDED_PATH_INCLUDES` are now the list that gets maintained: they are what keeps a page out of AES.
+
+### Bug fixes
+
+- Links and popups are gated on scheme and host before AES considers them. Without that gate, URL parsing turns `javascript:void(0)` into the path `void(0)`, which the broad rule accepted — AES would swallow the click, `javascript:` links would stop working, and external links and `mailto:` addresses would be pulled into an AES Tab.
+- Pages that belong in the Home tab, such as search results and list views, no longer also open as a separate Tab. Promotions that come from the page itself (Home's own frame navigating, an inner URL unwrapped from an Onyx landing page) stay on the curated list; only navigation you perform yourself gets the broad rule.
+- A direct navigation captured for promotion is no longer dropped when the setting is switched off in between; the browser goes to the requested page instead.
+
 ## v1.1.0
 
 A follow-up release that adds more clickable links, routes more Autotask pages into AES, and smooths over what happens when the extension updates.
