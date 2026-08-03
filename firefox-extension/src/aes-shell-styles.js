@@ -2450,8 +2450,8 @@
                 margin: 0;
             }
             .at-tabs-release-notes-intro {
-                font-weight: 700;
-                color: #334155;
+                font-weight: 400;
+                color: #64748b;
             }
             .at-tabs-release-notes-section {
                 display: flex;
@@ -2460,9 +2460,10 @@
             }
             .at-tabs-release-notes-section h3 {
                 margin: 0;
-                font-size: 12px;
-                font-weight: 800;
-                color: #0f172a;
+                font-size: 11px;
+                font-weight: 500;
+                letter-spacing: 0.04em;
+                color: #64748b;
                 text-transform: uppercase;
             }
             .at-tabs-release-notes-section ul {
@@ -2496,7 +2497,7 @@
                 background: #ffffff;
                 color: #334155;
                 cursor: pointer;
-                font: 700 12px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+                font: 500 13px/1.2 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
                 padding: 10px 12px;
                 min-height: 36px;
             }
@@ -2515,82 +2516,25 @@
                 border-color: #2c567a;
                 color: #ffffff;
             }
-            .at-tabs-release-notes-backdrop {
-                background:
-                    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--aes-accent-color) 22%, transparent), transparent 34%),
-                    radial-gradient(circle at 82% 10%, rgba(245, 158, 11, 0.16), transparent 30%),
-                    rgba(15, 23, 42, 0.34);
-            }
-            .at-tabs-release-notes-modal {
-                width: min(760px, calc(100vw - 48px));
-                max-height: min(800px, calc(100vh - 48px));
-                border-color: color-mix(in srgb, var(--aes-accent-color) 24%, #dbe2ea);
-                border-radius: 22px;
-                background:
-                    linear-gradient(180deg, #fffaf2 0, #ffffff 155px),
-                    #ffffff;
-                box-shadow: 0 28px 80px rgba(15, 23, 42, 0.32);
-            }
-            .at-tabs-release-notes-header {
-                padding: 20px 22px 18px;
-                border-bottom-color: rgba(255, 255, 255, 0.26);
-                background:
-                    radial-gradient(circle at 16% 18%, rgba(255, 255, 255, 0.32), transparent 28%),
-                    linear-gradient(135deg, var(--aes-accent-color) 0%, color-mix(in srgb, var(--aes-accent-color) 70%, #f59e0b) 100%);
-            }
-            .at-tabs-release-notes-title {
-                color: #ffffff;
-                font-size: 18px;
-                font-weight: 800;
-                line-height: 1.22;
-                letter-spacing: -0.02em;
-            }
-            .at-tabs-release-notes-close {
-                background: rgba(255, 255, 255, 0.14);
-                color: #ffffff;
-            }
-            .at-tabs-release-notes-close:hover {
-                background: rgba(255, 255, 255, 0.24);
-                color: #ffffff;
-            }
-            .at-tabs-release-notes-body {
-                display: grid;
-                grid-template-columns: 1fr;
-                gap: 12px;
-                padding: 18px 20px 16px;
-            }
-            .at-tabs-release-notes-intro {
-                grid-column: 1 / -1;
-                justify-self: start;
-                padding: 7px 11px;
-                border: 1px solid color-mix(in srgb, var(--aes-accent-color) 20%, #dbe2ea);
-                border-radius: 999px;
-                background: color-mix(in srgb, var(--aes-accent-color) 10%, #ffffff);
-                color: color-mix(in srgb, var(--aes-accent-color) 72%, #0f172a);
-                font-weight: 800;
-            }
             .at-tabs-release-notes-version-pill {
                 display: inline-flex;
                 align-items: center;
-                gap: 8px;
-            }
-            .at-tabs-release-notes-version-label {
-                opacity: 0.78;
+                gap: 6px;
+                color: #64748b;
+                font-size: 12px;
             }
             .at-tabs-release-notes-version-select {
                 appearance: auto;
                 border: 0;
-                border-radius: 999px;
                 background: transparent;
                 color: inherit;
                 cursor: pointer;
                 font: inherit;
-                font-weight: 900;
                 margin: 0;
                 padding: 0 2px;
             }
             .at-tabs-release-notes-version-select:focus-visible {
-                outline: 2px solid color-mix(in srgb, var(--aes-accent-color) 40%, transparent);
+                outline: 2px solid var(--aes-accent-color);
                 outline-offset: 2px;
             }
             .at-tabs-release-notes-version-select option {
@@ -2598,111 +2542,35 @@
                 background: #ffffff;
             }
             .at-tabs-release-notes-sections {
-                grid-column: 1 / -1;
                 display: flex;
                 flex-direction: column;
-                gap: 12px;
+                gap: 16px;
             }
-            .at-tabs-release-notes-section {
-                gap: 9px;
-                padding: 13px 14px;
-                border: 1px solid #e6edf4;
-                border-radius: 16px;
-                background: rgba(255, 255, 255, 0.82);
-                box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+            .at-tabs-release-notes-section + .at-tabs-release-notes-section {
+                padding-top: 16px;
+                border-top: 1px solid #eef2f7;
             }
+            /* The accent is load-bearing in exactly two places: the tip rule
+               and the primary action. Everywhere else it was decoration. */
             .at-tabs-release-notes-tip-section {
-                position: relative;
-                overflow: hidden;
-                border-color: color-mix(in srgb, var(--aes-accent-color) 38%, #fcd34d);
-                background:
-                    radial-gradient(circle at 94% 16%, rgba(245, 158, 11, 0.22), transparent 32%),
-                    linear-gradient(135deg, color-mix(in srgb, var(--aes-accent-color) 13%, #ffffff), #fff8e7);
-                box-shadow: 0 12px 30px color-mix(in srgb, var(--aes-accent-color) 14%, rgba(15, 23, 42, 0.08));
-            }
-            .at-tabs-release-notes-tip-section::before {
-                content: "";
-                position: absolute;
-                inset: 0 auto 0 0;
-                width: 5px;
-                background: linear-gradient(180deg, var(--aes-accent-color), #f59e0b);
-            }
-            .at-tabs-release-notes-tip-section h3 {
-                padding-left: 4px;
+                gap: 4px;
+                padding-left: 12px;
+                border-left: 3px solid var(--aes-accent-color);
             }
             .at-tabs-release-notes-tip-text {
-                position: relative;
                 margin: 0;
-                padding-left: 4px;
-                color: #1e293b;
-                font-size: 13.5px;
-                font-weight: 700;
-                line-height: 1.45;
+                color: #0f172a;
+                line-height: 1.55;
             }
             .at-tabs-release-notes-section-intro {
                 margin: 0;
-                color: #334155;
-                font-weight: 700;
+                color: #475569;
             }
             .at-tabs-release-notes-subsection > h4 {
                 margin: 0;
-                color: #334155;
-                font-weight: 700;
-                font-size: 13px;
-            }
-            .at-tabs-release-notes-section:nth-of-type(2),
-            .at-tabs-release-notes-section:nth-of-type(4) {
-                background: color-mix(in srgb, var(--aes-accent-color) 6%, #ffffff);
-            }
-            .at-tabs-release-notes-section:nth-of-type(3),
-            .at-tabs-release-notes-section:nth-of-type(5) {
-                background: linear-gradient(180deg, rgba(255, 251, 235, 0.76), #ffffff);
-            }
-            .at-tabs-release-notes-section h3 {
-                color: color-mix(in srgb, var(--aes-accent-color) 68%, #0f172a);
-                font-size: 12.5px;
-                letter-spacing: 0.06em;
-            }
-            .at-tabs-release-notes-section ul {
-                display: flex;
-                flex-direction: column;
-                gap: 7px;
-                padding-left: 0;
-                list-style: none;
-            }
-            .at-tabs-release-notes-section li {
-                position: relative;
-                display: block;
-                margin: 0;
-                padding-left: 18px;
-            }
-            .at-tabs-release-notes-section li::before {
-                content: "";
-                position: absolute;
-                left: 0;
-                top: 0.58em;
-                width: 7px;
-                height: 7px;
-                border-radius: 999px;
-                background: linear-gradient(135deg, var(--aes-accent-color), #f59e0b);
-                box-shadow: 0 0 0 3px color-mix(in srgb, var(--aes-accent-color) 12%, transparent);
-            }
-            .at-tabs-release-notes-actions {
-                padding: 14px 20px 18px;
-                border-top: 1px solid #eef2f7;
-                background: rgba(248, 250, 252, 0.86);
-            }
-            .at-tabs-release-notes-action {
-                border-radius: 999px;
-            }
-            .at-tabs-release-notes-open {
-                border-color: transparent;
-                background: linear-gradient(135deg, var(--aes-accent-color), color-mix(in srgb, var(--aes-accent-color) 72%, #f59e0b));
-                box-shadow: 0 8px 18px color-mix(in srgb, var(--aes-accent-color) 24%, transparent);
-            }
-            .at-tabs-release-notes-open:hover {
-                border-color: transparent;
-                background: linear-gradient(135deg, color-mix(in srgb, var(--aes-accent-color) 88%, #0f172a), color-mix(in srgb, var(--aes-accent-color) 68%, #f59e0b));
+                color: #475569;
+                font-size: 12px;
+                font-weight: 500;
             }
             @media (max-width: 720px) {
                 .at-tabs-release-notes-open {
@@ -3989,76 +3857,29 @@
                 border-color: #475569;
                 color: #f1f5f9;
             }
-            html.aes-dark .at-tabs-release-notes-backdrop {
-                background:
-                    radial-gradient(circle at 18% 14%, color-mix(in srgb, var(--aes-accent-color) 28%, transparent), transparent 34%),
-                    radial-gradient(circle at 82% 10%, rgba(245, 158, 11, 0.1), transparent 30%),
-                    rgba(0, 0, 0, 0.62);
+            html.aes-dark .at-tabs-release-notes-intro,
+            html.aes-dark .at-tabs-release-notes-section h3 {
+                color: #94a3b8;
             }
-            html.aes-dark .at-tabs-release-notes-modal {
-                background:
-                    linear-gradient(180deg, color-mix(in srgb, var(--aes-accent-color) 12%, #1F2227) 0, #1F2227 155px),
-                    #1F2227;
-                border-color: color-mix(in srgb, var(--aes-accent-color) 30%, #2a2e34);
-            }
-            html.aes-dark .at-tabs-release-notes-header {
-                border-bottom-color: rgba(255, 255, 255, 0.12);
-            }
-            html.aes-dark .at-tabs-release-notes-close {
-                background: rgba(255, 255, 255, 0.12);
-                color: #ffffff;
-            }
-            html.aes-dark .at-tabs-release-notes-close:hover {
-                background: rgba(255, 255, 255, 0.22);
-                color: #ffffff;
-            }
-            html.aes-dark .at-tabs-release-notes-intro {
-                background: color-mix(in srgb, var(--aes-accent-color) 16%, #1A1D22);
-                border-color: color-mix(in srgb, var(--aes-accent-color) 32%, #2a2e34);
-                color: #f8fafc;
+            html.aes-dark .at-tabs-release-notes-version-pill {
+                color: #94a3b8;
             }
             html.aes-dark .at-tabs-release-notes-version-select {
-                color: #f8fafc;
+                color: #cbd5e1;
             }
             html.aes-dark .at-tabs-release-notes-version-select option {
                 color: #0f172a;
                 background: #ffffff;
             }
-            html.aes-dark .at-tabs-release-notes-section {
-                background: #23272f;
-                border-color: #2f3743;
-                box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
-            }
-            html.aes-dark .at-tabs-release-notes-tip-section {
-                border-color: color-mix(in srgb, var(--aes-accent-color) 46%, #5f4f2c);
-                background:
-                    radial-gradient(circle at 94% 16%, rgba(245, 158, 11, 0.16), transparent 32%),
-                    linear-gradient(135deg, color-mix(in srgb, var(--aes-accent-color) 16%, #23272f), #302b22);
-                box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+            html.aes-dark .at-tabs-release-notes-section + .at-tabs-release-notes-section {
+                border-top-color: #2a2e34;
             }
             html.aes-dark .at-tabs-release-notes-tip-text {
-                color: #f8fafc;
+                color: #f1f5f9;
             }
             html.aes-dark .at-tabs-release-notes-section-intro,
             html.aes-dark .at-tabs-release-notes-subsection > h4 {
-                color: #e2e8f0;
-            }
-            html.aes-dark .at-tabs-release-notes-section:nth-of-type(2),
-            html.aes-dark .at-tabs-release-notes-section:nth-of-type(4) {
-                background: color-mix(in srgb, var(--aes-accent-color) 9%, #23272f);
-            }
-            html.aes-dark .at-tabs-release-notes-section:nth-of-type(3),
-            html.aes-dark .at-tabs-release-notes-section:nth-of-type(5) {
-                background: linear-gradient(180deg, rgba(74, 62, 31, 0.36), #23272f);
-            }
-            html.aes-dark .at-tabs-release-notes-actions {
-                background: rgba(26, 29, 34, 0.92);
-                border-top-color: #2a2e34;
-            }
-            html.aes-dark .at-tabs-release-notes-open,
-            html.aes-dark .at-tabs-release-notes-open:hover {
-                border-color: transparent;
-                color: #ffffff;
+                color: #cbd5e1;
             }
 
             /* Settings modal interior in dark mode */
