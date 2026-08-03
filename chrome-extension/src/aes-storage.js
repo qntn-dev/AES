@@ -71,6 +71,9 @@
     if (typeof AES.state.improvedScrollbarsEnabled !== 'boolean') {
         AES.state.improvedScrollbarsEnabled = true;
     }
+    if (typeof AES.state.increasedPageCompatibility !== 'boolean') {
+        AES.state.increasedPageCompatibility = true;
+    }
     if (typeof AES.state.skipPeekBackdropCloseWarning !== 'boolean') {
         AES.state.skipPeekBackdropCloseWarning = false;
     }
@@ -372,6 +375,9 @@
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
+            AES.state.increasedPageCompatibility = settings && typeof settings.increasedPageCompatibility === 'boolean'
+                ? settings.increasedPageCompatibility
+                : true;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
@@ -441,6 +447,9 @@
             AES.state.improvedScrollbarsEnabled = settings && typeof settings.improvedScrollbarsEnabled === 'boolean'
                 ? settings.improvedScrollbarsEnabled
                 : true;
+            AES.state.increasedPageCompatibility = settings && typeof settings.increasedPageCompatibility === 'boolean'
+                ? settings.increasedPageCompatibility
+                : true;
             AES.state.skipPeekBackdropCloseWarning = settings && typeof settings.skipPeekBackdropCloseWarning === 'boolean'
                 ? settings.skipPeekBackdropCloseWarning
                 : false;
@@ -504,6 +513,7 @@
             autotaskLogoOverrideEnabled: !!readAutotaskLogoDataUrl({ autotaskLogoDataUrl: savedLogoDataUrl }),
             autotaskLogoDataUrl: readAutotaskLogoDataUrl({ autotaskLogoDataUrl: savedLogoDataUrl }),
             improvedScrollbarsEnabled: !!AES.state.improvedScrollbarsEnabled,
+            increasedPageCompatibility: !!AES.state.increasedPageCompatibility,
             skipPeekBackdropCloseWarning: !!AES.state.skipPeekBackdropCloseWarning,
             peekMoveResizeEnabled: !!AES.state.peekMoveResizeEnabled,
             defaultEnabledSettingsMigration: typeof AES.state.defaultEnabledSettingsMigration === 'string'
