@@ -11,7 +11,7 @@ AES is a no-build WebExtension project. Chrome and Firefox folders must remain d
 
 ## Common changes
 
-- Add AES tab compatibility: add route eligibility in `chrome-extension/src/aes-routes.js` first. Then update type/fallback logic in `aes-shell.js` and iframe extraction in `aes-iframe-bridge.js` only when the tab needs custom metadata.
+- Add AES tab compatibility: pages open in AES by default via the "Increase page compatibility" setting, so no route entry is needed to make a page work. Add a route to `tabTypeForUrl` in `aes-shell.js` only to give the tab a proper icon and type, and to `aes-iframe-bridge.js` only when the tab needs custom metadata. Add to `EXCLUDED_PATHS` / `EXCLUDED_PATH_INCLUDES` in `aes-routes.js` when a page must stay out of AES.
 - Change tab metadata display options: edit `aes-shell-config.js` for tab line options, defaults, labels, and customization icons.
 - Change metadata extraction: edit `aes-iframe-bridge.js` for iframe-page extraction and `aes-shell.js` only when shell-side fallback/type handling changes.
 - Change settings: edit the settings modal section in `aes-shell.js` and keep reset/default logic in the same pass. Rounded page frames, improved scrollbars, and phone links are normal settings, not experimental settings.
@@ -25,3 +25,5 @@ AES is a no-build WebExtension project. Chrome and Firefox folders must remain d
 - If a settings row is removed, also remove its reset/default/input references.
 - If a runtime file is added, update both manifests and `scripts/verify-extension-sources.sh`.
 - If Firefox validation warns about dynamic HTML APIs, prefer DOM construction helpers over `innerHTML` or `createContextualFragment`.
+- `extractHandledUrlFromPageObject` in `aes-page-bridge.js` must keep using `isKnownRoutePath` / `isKnownRouteUrl`. It scans arbitrary page strings, so the broad compatibility rule would make it match the first string that looks like a path.
+- Route behavior is asserted by `scripts/check-route-behavior.js`. Run it alongside `scripts/check-route-allowlists.js` after touching `aes-routes.js`.
