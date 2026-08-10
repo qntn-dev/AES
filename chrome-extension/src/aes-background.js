@@ -573,6 +573,20 @@
                 openDirectHandledUrlInExistingShell(message, sender, sendResponse);
                 return true;
             }
+            // "Open in original screen" from the tab context menu.
+            // Opens the URL as a fresh top-level browser tab so the
+            // user gets a clean native Autotask render (AES bails on
+            // the aes-skip=1 sentinel embedded in the URL).
+            if (message && message.__aesOpenNative && message.type === 'open-native-tab' && message.url) {
+                try {
+                    api.tabs.create({ url: String(message.url) }, function () {
+                        try { sendResponse({ ok: true }); } catch (e) {}
+                    });
+                } catch (e) {
+                    try { sendResponse({ ok: false }); } catch (err) {}
+                }
+                return true;
+            }
             if (!message || !message.__aesExternalOpen || message.type !== 'open-autotask-url') return false;
             openExternalAutotaskUrl(message, sender, sendResponse);
             return true;

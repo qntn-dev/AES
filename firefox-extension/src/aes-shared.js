@@ -113,12 +113,27 @@
             path === '/mvc/servicedesk/note.mvc/notepopoutfromdialog';
     };
 
+    // "Open in original screen" sentinel: URLs opened from the tab
+    // context menu with this flag are user-requested escape hatches
+    // that should render as native Autotask (no AES tab shell, no
+    // route interception). Handy when the AES iframe is stuck.
+    AES.AES_SKIP_PARAM = 'aes-skip';
+    AES.hasAesSkipSentinel = function hasAesSkipSentinel(url) {
+        try {
+            const parsed = new URL(url || location.href, location.origin);
+            return parsed.searchParams.get(AES.AES_SKIP_PARAM) === '1';
+        } catch (e) {
+            return false;
+        }
+    };
+
     AES.isHandledUrl = function isHandledUrl(url) {
         // isHandledPath ziet alleen een pathname en zegt in
         // compatibiliteitsmodus op bijna alles "ja" — ook op wat URL-
         // parsing maakt van javascript:, mailto: en third-party URLs.
         // Vanaf een URL moet dus eerst scheme + host vaststaan.
         if (ROUTES.isRoutableUrl && !ROUTES.isRoutableUrl(url, location.href)) return false;
+        if (AES.hasAesSkipSentinel(url)) return false;
         if (AES.isNativeHomeUrl(url)) return false;
         if (AES.isDialogPopOutFromDialogUrl(url)) return false;
 

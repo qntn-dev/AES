@@ -809,6 +809,7 @@
         peek: faIcon('fa-eye fa-regular'),
         copy: faIcon('fa-clipboard fa-regular'),
         restoreClosed: faIcon('fa-clock-rotate-left fa-regular'),
+        openExternal: faIcon('fa-arrow-up-right-from-square fa-regular'),
     };
 
     const TAB_COLOR_PRESETS = [
@@ -4869,8 +4870,40 @@
         el.appendChild(meta);
         el.appendChild(umbrellaInfo);
         el.addEventListener('click', activateHome);
+        el.addEventListener('contextmenu', function (ev) {
+            ev.preventDefault();
+            ev.stopPropagation();
+            hideHoverCard(true);
+            openHomeTabContextMenu(ev.clientX, ev.clientY);
+        });
         state.homeTabEl = el;
         updateHomeTabMetadata();
+    }
+
+    function openHomeTabContextMenu(x, y) {
+        closeTabContextMenu();
+        const menu = document.createElement('div');
+        menu.className = 'at-tabs-context-menu';
+        menu.setAttribute('role', 'menu');
+
+        const homeUrl = getPersistableHomeUrl() || currentNativeFrameUrl() || location.href;
+        const openItem = createContextMenuItem(
+            'Open in original screen',
+            ICONS.openExternal,
+            function () {
+                closeTabContextMenu();
+                openInOriginalScreen(homeUrl);
+            }
+        );
+        if (!homeUrl) {
+            openItem.disabled = true;
+            openItem.title = 'No Home URL available yet.';
+        }
+        menu.appendChild(openItem);
+
+        document.body.appendChild(menu);
+        state.tabContextMenu = menu;
+        positionContextMenu(menu, x, y);
     }
 
     function tabRowCount(tab) {
@@ -5603,6 +5636,16 @@
             }
         );
         menu.appendChild(peekButton);
+
+        menu.appendChild(createContextMenuDivider());
+        menu.appendChild(createContextMenuItem(
+            'Open in original screen',
+            ICONS.openExternal,
+            function () {
+                closeTabContextMenu();
+                openInOriginalScreen(tab.url);
+            }
+        ));
 
         document.body.appendChild(menu);
         state.tabContextMenu = menu;
@@ -9614,6 +9657,46 @@
     function copyTabLink(tab) {
         if (!tab || !tab.url) return;
         void copyTextToClipboard(canonicalTabUrl(tab.url));
+    }
+
+    // Escape hatch triggered from the tab context menu: opens the
+    // tab's URL as a fresh top-level browser tab with the aes-skip=1
+    // sentinel appended so AES leaves the new tab alone (no shell,
+    // no route interception). Handy when the current AES iframe is
+    // in a stuck state and the user just wants to see the page.
+    function openInOriginalScreen(rawUrl) {
+        if (!rawUrl) return;
+        let targetUrl;
+        try {
+            const parsed = new URL(String(rawUrl), location.origin);
+            parsed.searchParams.set(
+                (AES && AES.AES_SKIP_PARAM) || 'aes-skip',
+                '1'
+            );
+            targetUrl = parsed.href;
+        } catch (e) {
+            const separator = String(rawUrl).indexOf('?') === -1 ? '?' : '&';
+            targetUrl = String(rawUrl) + separator + 'aes-skip=1';
+        }
+        try {
+            const runtime = getRuntimeApi();
+            if (runtime && typeof runtime.sendMessage === 'function') {
+                const sending = runtime.sendMessage({
+                    __aesOpenNative: true,
+                    type: 'open-native-tab',
+                    url: targetUrl,
+                });
+                if (sending && typeof sending.catch === 'function') {
+                    sending.catch(function () {});
+                }
+                return;
+            }
+        } catch (e) {}
+        // Fallback: if the runtime bridge is unavailable, at least
+        // try to open natively via window.open. AES's page-bridge
+        // patches window.open, but for URLs with the skip sentinel
+        // isHandledUrl returns false so the intercept lets it pass.
+        try { window.open(targetUrl, '_blank', 'noopener'); } catch (e) {}
     }
 
     // Best-effort clipboard write. Uses async Clipboard API when available;

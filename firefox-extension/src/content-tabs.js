@@ -7,6 +7,11 @@
 
     if (AES.isAllowedHost && !AES.isAllowedHost(location.href)) return;
     if (AES.isExcludedUrl && AES.isExcludedUrl(location.href)) return;
+    // "Open in original screen" escape hatch: the tab context menu
+    // appends ?aes-skip=1 when the user wants a native Autotask view
+    // (e.g. the current iframe is broken). Bail early so no shell,
+    // route interception, or tab bar gets mounted here.
+    if (AES.hasAesSkipSentinel && AES.hasAesSkipSentinel(location.href)) return;
 
     const settingsReady = AES.loadSettings ? AES.loadSettings() : Promise.resolve();
     const DIRECT_HANDLED_OPEN_STORAGE_KEY = 'autotask-tabs-direct-handled-open-url-v1';
