@@ -127,6 +127,28 @@
         }
     };
 
+    // Native popup windows (window.open with features — the legacy data
+    // selectors / search pickers) must stay bare Autotask: they write
+    // their selection back onto window.opener, and an AES shell or a
+    // promote-redirect inside them breaks that. Detection: the top window
+    // has popup chrome (menubar hidden) AND was opened by a same-origin
+    // Autotask page. Evaluated per document, so it also holds when the
+    // popup later navigates to a would-be-handled page.
+    AES.isInsideNativePopupWindow = function isInsideNativePopupWindow() {
+        try {
+            const topWindow = window.top;
+            if (!topWindow) return false;
+            if (!topWindow.menubar || topWindow.menubar.visible !== false) return false;
+            const opener = topWindow.opener;
+            if (!opener) return false;
+            // A cross-origin opener (portal/SSO) throws here, and AES
+            // then behaves exactly as before.
+            return AES.isAllowedHost(String(opener.location.href || ''));
+        } catch (e) {
+            return false;
+        }
+    };
+
     AES.isHandledUrl = function isHandledUrl(url) {
         // isHandledPath ziet alleen een pathname en zegt in
         // compatibiliteitsmodus op bijna alles "ja" — ook op wat URL-

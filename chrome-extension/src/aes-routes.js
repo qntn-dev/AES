@@ -239,6 +239,22 @@
         }
     }
 
+    // A non-empty window.open features string (anything other than
+    // noopener/noreferrer) means the caller asked for real popup chrome.
+    // Autotask's legacy data selectors do exactly that, e.g. the Contact
+    // Picker opens /autotask/dataselectors/ATDataSelectorPage.aspx with
+    // "left=100,menubar=no,scrollbars=yes,toolbar=no,status=yes,width=900,height=600".
+    // Those popups write their selection back onto window.opener, so AES
+    // must not reroute them into a Tab or Peek.
+    function requestsPopupWindowFeatures(features) {
+        const raw = String(features || '').toLowerCase();
+        if (!raw.trim()) return false;
+        return raw.split(/[,;]/).some(function (token) {
+            const key = token.split('=')[0].trim();
+            return key && key !== 'noopener' && key !== 'noreferrer';
+        });
+    }
+
     const routes = {
         HANDLED_PATHS: unique(HANDLED_PATHS),
         NATIVE_HOME_PATHS: unique(NATIVE_HOME_PATHS),
@@ -250,6 +266,7 @@
         normalizePath,
         includesAny,
         isRoutableUrl,
+        requestsPopupWindowFeatures,
         getCompatibilityMode() {
             return compatibilityMode;
         },

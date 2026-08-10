@@ -12,6 +12,12 @@
     // (e.g. the current iframe is broken). Bail early so no shell,
     // route interception, or tab bar gets mounted here.
     if (AES.hasAesSkipSentinel && AES.hasAesSkipSentinel(location.href)) return;
+    // Native popup windows (legacy data selectors / search pickers) write
+    // their selection back onto window.opener. AES stays completely
+    // hands-off there: no shell, no promote-redirect that would close the
+    // popup, no bridge patches — in the popup's top frame and its iframes
+    // alike.
+    if (AES.isInsideNativePopupWindow && AES.isInsideNativePopupWindow()) return;
 
     const settingsReady = AES.loadSettings ? AES.loadSettings() : Promise.resolve();
     const DIRECT_HANDLED_OPEN_STORAGE_KEY = 'autotask-tabs-direct-handled-open-url-v1';
