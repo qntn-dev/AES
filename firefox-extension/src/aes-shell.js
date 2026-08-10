@@ -297,7 +297,7 @@
     const GITHUB_RELEASE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000;
     const WELCOME_NOTICE_VERSION = '2026-05-profile-settings-note';
     const RELEASE_NOTES = {
-            version: '1.1.1',
+            version: '1.1.2',
             sections: [
                 {
                     title: 'AES Tip',
@@ -317,6 +317,15 @@
                     items: [
                         'Search results and list views stay in the Home tab instead of also opening as a separate Tab.',
                         'The ticket number in a ticket\'s title bar is no longer a link. It pointed at the ticket you already had open.',
+                    ],
+                },
+                {
+                    title: 'Bug Fixes',
+                    items: [
+                        'Picker windows, such as Choose contact, open as a normal popup again instead of quietly opening as a background Tab. Picking something now lands back in the screen you started from.',
+                        'Picker windows no longer show a broken AES tab bar.',
+                        'Buttons that only run a script, like the pickers in the Contact Merge wizard, no longer open the same page again as a second Tab.',
+                        'Closing a Peek that you opened from Home now refreshes Home, so you see the result of what you just did.',
                     ],
                 },
             ],

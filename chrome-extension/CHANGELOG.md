@@ -1,8 +1,8 @@
 # Changelog
 
-## v1.1.1
+## v1.1.2
 
-Route eligibility flips from an explicit allowlist to opt-out. Instead of adding pages to AES one at a time, AES now opens almost every Autotask page in a Tab unless something explicitly keeps it out.
+Route eligibility flips from an explicit allowlist to opt-out. Instead of adding pages to AES one at a time, AES now opens almost every Autotask page in a Tab unless something explicitly keeps it out. Supersedes 1.1.1, which carried the route change but still pulled Autotask's legacy picker popups into AES.
 
 ### New features
 
@@ -21,6 +21,10 @@ Route eligibility flips from an explicit allowlist to opt-out. Instead of adding
 - Pages that belong in the Home tab, such as search results and list views, no longer also open as a separate Tab. Promotions that come from the page itself (Home's own frame navigating, an inner URL unwrapped from an Onyx landing page) stay on the curated list; only navigation you perform yourself gets the broad rule.
 - A direct navigation captured for promotion is no longer dropped when the setting is switched off in between; the browser goes to the requested page instead.
 - Ticket numbers in Autotask's entity title bar are no longer turned into clickable links. That bar names the record you already have open, so the link led nowhere, and it is the one place the branding accent is used as a background colour — which painted an accent-coloured link onto an accent-coloured bar. `.TitleBar` and `.TitleBarItem` were added to the skip list in `aes-ticket-links.js`.
+- Legacy data-selector popups (Contact Picker, ticket merge selector) open as real popup windows again. They pass a `window.open` features string and write the selection back onto `window.opener`; the opt-out rule made `isHandledUrl` accept them, so the page bridge suppressed the native popup, returned a synthetic window with no document, and the shell opened the picker as a background Tab where the writeback could not happen — confirming a selection did nothing. `routes.requestsPopupWindowFeatures()` now treats a non-empty features string (anything but `noopener`/`noreferrer`) as an explicit request for popup chrome and declines interception unless the URL is on the curated route or peek lists, so the existing Peeks and `/autotask/popups/*` Tabs are unaffected. Verified against `/autotask/dataselectors/ATDataSelectorPage.aspx` and `/popups/searches/sales/srcContact.asp`.
+- AES no longer mounts inside native popup windows. `AES.isInsideNativePopupWindow()` (popup chrome plus a same-origin Autotask opener) makes `content-tabs.js` bail exactly like the `aes-skip=1` sentinel, for the popup's top frame and its iframes. This removes the broken tab bar that rendered inside picker windows and stops the background promote path from closing such a popup via `tabs.remove`.
+- Buttons whose href is only a placeholder are no longer treated as navigation. Autotask's Contact Merge wizard uses `<a href="#" onclick="srcContact();">`; the page bridge read the resolved `anchor.href`, which turns `#` into the current document URL, so the broad rule opened the wizard page again as a second Tab and the `onclick` never ran. Both bridges now skip anchors with an empty, hash-only, or `javascript:` href — the iframe bridge already did for exactly `#`.
+- Closing a Peek that was opened from Home now refreshes Home. `closePeekModal({refreshOrigin:true})` only refreshed `state.peekOriginTabId`, and Home is not an entry in `state.tabs`, so a Save & Close from e.g. Forward/Modify Ticket(s) on the ticket list left pre-action data on screen.
 
 ## v1.1.0
 
