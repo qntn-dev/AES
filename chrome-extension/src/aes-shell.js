@@ -306,6 +306,7 @@
                     title: 'New Features',
                     items: [
                         'New setting "Increase page compatibility", on by default. AES used to open only the pages that had been added to it one by one. It now opens most Autotask pages in a Tab. Some pages are not built to run in a frame, so switch it off if you hit one.',
+                        'New "Open in original screen" option in the right-click menu of a tab, including the Home tab. It opens that page in a normal browser tab that AES stays out of, which helps when a page will not load properly inside a Tab.',
                     ],
                 },
                 {

@@ -7,6 +7,7 @@ Route eligibility flips from an explicit allowlist to opt-out. Instead of adding
 ### New features
 
 - New setting "Increase page compatibility", on by default. Turning it off restores the previous allowlist-only behavior exactly.
+- New "Open in original screen" item in the tab right-click menu, also available on the Home tab. It opens the tab's URL in a normal browser tab with an `aes-skip=1` sentinel that makes `AES.isHandledUrl` return false and `content-tabs.js` bail out of bootstrap, so the page renders as plain Autotask. Intended as an escape hatch when a page will not load correctly inside a Tab.
 
 ### Compatibility
 
