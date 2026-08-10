@@ -172,20 +172,41 @@
         return (url || '').replace(/\\u0026/g, '&').replace(/&amp;/g, '&');
     }
 
+    // Mirror of isNativePopupOpenRequest in aes-page-bridge.js: a
+    // window.open with popup features on a non-curated URL stays a real
+    // popup window, because the legacy data selectors write their
+    // selection back onto window.opener.
+    function isNativePopupOpenRequest(url, features) {
+        const ROUTES = AES.ROUTES || {};
+        if (!ROUTES.requestsPopupWindowFeatures ||
+            !ROUTES.requestsPopupWindowFeatures(features)) return false;
+        if (!url) return false;
+        if (AES.isKnownRouteUrl && AES.isKnownRouteUrl(url)) return false;
+        if (isPeekPopupUrl(url)) return false;
+        return true;
+    }
+
     function extractWindowOpenUrl(onclickText) {
         if (!onclickText) return null;
-        const match = onclickText.match(/window\.open\s*\(\s*['"]([^'"]+)['"]/i);
+        const match = onclickText.match(
+            /window\.open\s*\(\s*['"]([^'"]+)['"](?:\s*,\s*['"][^'"]*['"]\s*,\s*['"]([^'"]*)['"])?/i
+        );
         if (!match) return null;
 
         const rawUrl = decodeUrl(match[1] || '');
         const absoluteUrl = AES.toAbsoluteUrl(rawUrl);
+        if (isNativePopupOpenRequest(absoluteUrl, match[2] || '')) return null;
         return AES.isHandledUrl(absoluteUrl) ? absoluteUrl : null;
     }
 
     function extractAnchorUrl(anchor) {
         if (!anchor) return null;
         const href = anchor.getAttribute('href') || '';
-        if (!href || href === '#') return null;
+        // Placeholder anchors (empty, hash-only, javascript:) have no
+        // destination of their own; their onclick does the work. Mirrored in
+        // aes-page-bridge.js (isPlaceholderAnchorHref).
+        if (!href.trim() || href.trim().charAt(0) === '#') return null;
+        if (/^javascript:/i.test(href.trim())) return null;
         const contactMatch = href.match(/OpenContactDetail\s*\(\s*(\d+)\s*\)/i);
         if (contactMatch) {
             return AES.toAbsoluteUrl('/opportunity/contacts/Contact.asp?contactID=' + encodeURIComponent(contactMatch[1]));
@@ -2667,6 +2688,9 @@ html.aes-embedded-umbrella-contract .o-view-layout {
                     // created — opening a browser tab in parallel
                     // would just produce an Autotask error page.
                     return createHandledWindow(targetUrl);
+                }
+                if (targetUrl && isNativePopupOpenRequest(targetUrl, features)) {
+                    return originalOpen.call(window, url, target, features);
                 }
                 if (targetUrl && (AES.isHandledUrl(targetUrl) || isPeekPopupUrl(targetUrl))) {
                     postHandledNavigation(targetUrl);

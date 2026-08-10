@@ -260,6 +260,31 @@
         return false;
     }
 
+    // Popup features on a URL outside the curated route/peek lists means
+    // the page explicitly asked for a real popup window — Autotask's
+    // legacy data selectors (Contact Picker, ticket merge selector, ...).
+    // AES stays off those: the native popup opens, and content-tabs.js
+    // also refuses to mount the shell inside such popup windows.
+    // An anchor whose href is empty, hash-only, or a javascript: URL has no
+    // navigation target of its own — everything happens in its onclick.
+    // Mirrored in aes-iframe-bridge.js (extractAnchorUrl).
+    function isPlaceholderAnchorHref(href) {
+        const raw = String(href || '').trim();
+        if (!raw) return true;
+        if (raw.charAt(0) === '#') return true;
+        return /^javascript:/i.test(raw);
+    }
+
+    function isNativePopupOpenRequest(url, features) {
+        if (!ROUTES.requestsPopupWindowFeatures ||
+            !ROUTES.requestsPopupWindowFeatures(features)) return false;
+        const targetUrl = absoluteUrl(url);
+        if (!targetUrl) return false;
+        if (isKnownRouteUrl(targetUrl)) return false;
+        if (isPeekPopupUrl(targetUrl)) return false;
+        return true;
+    }
+
     function isDialogPopOutFromDialogPath(path) {
         const normalizedPath = String(path || '').toLowerCase().replace(/\/index$/, '');
         return normalizedPath === '/mvc/servicedesk/timeentry.mvc/timeentrypopoutfromdialog' ||
@@ -606,8 +631,16 @@
             if (contactMatch) {
                 return absoluteUrl('/opportunity/contacts/Contact.asp?contactID=' + encodeURIComponent(contactMatch[1]));
             }
-            const hrefUrl = absoluteUrl(anchor.href || anchor.getAttribute('href') || '');
-            if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
+            // Placeholder anchors carry no destination: the work happens in
+            // their onclick. Autotask uses <a href="#" onclick="srcContact();">
+            // for its picker buttons, and `anchor.href` resolves "#" to the
+            // current document — which the broad compatibility rule then
+            // accepts, so AES would open the current page as a second tab
+            // and the onclick never gets to open its picker.
+            if (!isPlaceholderAnchorHref(href)) {
+                const hrefUrl = absoluteUrl(anchor.href || href);
+                if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
+            }
         }
 
         const el = target && target.closest ? target.closest('td[onclick], a[onclick], div[onclick], span[onclick]') : null;
@@ -630,9 +663,15 @@
             return url.href;
         }
 
-        const windowOpenMatch = onclickText.match(/window\.open\s*\(\s*['"]([^'"]+)['"]/i);
+        const windowOpenMatch = onclickText.match(
+            /window\.open\s*\(\s*['"]([^'"]+)['"](?:\s*,\s*['"][^'"]*['"]\s*,\s*['"]([^'"]*)['"])?/i
+        );
         if (windowOpenMatch) {
             const hrefUrl = absoluteUrl(windowOpenMatch[1] || '');
+            // Inline onclick that explicitly opens a popup: do not
+            // intercept. The real window.open call that follows takes
+            // the native route through the same rule.
+            if (hrefUrl && isNativePopupOpenRequest(hrefUrl, windowOpenMatch[2] || '')) return '';
             if (hrefUrl && isHandledUrl(hrefUrl)) return hrefUrl;
         }
 
@@ -754,6 +793,9 @@
         }
         if (postPeek(url)) return createPeekWindow(url);
         if (postMap(url)) return createMapWindow(url);
+        if (isNativePopupOpenRequest(url, features)) {
+            return originalOpen.apply(window, arguments);
+        }
         if (isPendingDuplicateOpen() && postOpenDuplicate(url)) return createHandledWindow(url);
         if (postOpen(url)) return createHandledWindow(url);
         return originalOpen.apply(window, arguments);
