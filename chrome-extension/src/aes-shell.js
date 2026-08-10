@@ -174,6 +174,9 @@
         peekCloseConfirm: null,
         peekTabId: null,
         peekOriginTabId: null,
+        // Set when the Peek was opened from Home instead of an AES tab, so
+        // closing it can refresh the native Home frame.
+        peekOriginIsHome: false,
         peekPrewarm: null,
         peekReuseIframe: null,
         peekReusePrevStyle: '',
@@ -1067,6 +1070,22 @@
             tab.iframeEl.contentWindow.location.reload();
         } catch (e) {
             tab.iframeEl.src = tab.iframeEl.src || tab.url;
+        }
+    }
+
+    // Home is not an entry in state.tabs, so refreshTabIframe cannot cover
+    // it. A Peek opened from Home (e.g. Forward/Modify Ticket(s) from the
+    // ticket list) needs this on close, otherwise the list keeps showing
+    // pre-action data where native Autotask would have refreshed.
+    function refreshNativeHomeFrame() {
+        const frame = state.nativeFrame || findContentIframe();
+        if (!frame) return;
+        startNativeHomeLoading();
+        try {
+            frame.contentWindow.location.reload();
+        } catch (e) {
+            const src = frame.getAttribute('src') || '';
+            if (src) frame.src = src;
         }
     }
 
@@ -8455,10 +8474,14 @@
     function closePeekModal(immediate, options) {
         const opts = options || {};
         const refreshOriginTabId = opts.refreshOrigin === true ? state.peekOriginTabId : null;
+        const refreshOriginIsHome = opts.refreshOrigin === true && state.peekOriginIsHome;
         const refreshOriginAfterClose = function () {
-            if (typeof refreshOriginTabId !== 'number') return;
-            const originTab = tabById(refreshOriginTabId);
-            if (originTab) refreshTabIframe(originTab);
+            if (typeof refreshOriginTabId === 'number') {
+                const originTab = tabById(refreshOriginTabId);
+                if (originTab) refreshTabIframe(originTab);
+                return;
+            }
+            if (refreshOriginIsHome) refreshNativeHomeFrame();
         };
         if (state.peekClosing && !immediate) return;
         closePeekCloseConfirm();
@@ -8495,6 +8518,7 @@
         state.peekModal = null;
         state.peekTabId = null;
         state.peekOriginTabId = null;
+        state.peekOriginIsHome = false;
         state.peekClosing = false;
     }
 
@@ -8936,6 +8960,7 @@
             : openerTab && typeof openerTab.id === 'number'
                 ? openerTab.id
                 : null;
+        state.peekOriginIsHome = state.peekOriginTabId === null && state.activeId === null;
         if (peekMoveResizeEnabled) {
             installPeekMoveResize(wrapper, modal, actions, null, resetPositionBtn);
         }
@@ -9792,6 +9817,11 @@
                     const fallbackOriginTab = openerTab || activeTab;
                     if (fallbackOriginTab && typeof fallbackOriginTab.id === 'number') {
                         state.peekOriginTabId = fallbackOriginTab.id;
+                    } else if (state.activeId === null) {
+                        // No owning tab and Home is active: the Peek came
+                        // from the native Home frame, so that is what needs
+                        // refreshing after a Save & Close-like action.
+                        state.peekOriginIsHome = true;
                     }
                 }
                 closePeekModal(false, { refreshOrigin: true });
